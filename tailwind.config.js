@@ -1,29 +1,26 @@
-// Arquivo: tailwind.config.js (Modificado)
-
 /** @type {import('tailwindcss').Config} */
 export default {
+    darkMode: 'class',
     content: [
         "./index.html",
         "./src/**/*.{js,ts,jsx,tsx}",
     ],
     theme: {
-        extend: {
-            // ADICIONADO: Paleta de cores customizada do painel financeiro
-            colors: {
-              bkg: '#0D1117',
-              surface: '#161B22',
-              primary: '#58A6FF',
-              secondary: '#F0F6FC',
-              subtle: '#8B949E',
-              border: '#30363D',
-              success: '#3FB950',
-              danger: '#F85149',
-            },
-            // ADICIONADO: Fonte customizada do painel financeiro
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-            },
-        },
-    },
+      extend: {
+          colors: {
+            bkg: 'var(--color-bkg)',
+            surface: 'var(--color-surface)',
+            primary: 'var(--color-primary)',
+            secondary: 'var(--color-secondary)',
+            subtle: 'var(--color-subtle)',
+            border: 'var(--color-border)',
+            success: 'var(--color-success)',
+            danger: 'var(--color-danger)',
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+      },
+  },
     plugins: [],
 }
