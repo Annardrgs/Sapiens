@@ -146,7 +146,7 @@ logoutBtn.addEventListener('click', () => {
 });
 
 const modalHTML = `
-  <div id="add-enrollment-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+  <div id="add-enrollment-modal" fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
     <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-md border border-border">
       <h3 class="text-2xl font-bold mb-6 text-secondary">Nova Matrícula</h3>
       <form id="add-enrollment-form">
