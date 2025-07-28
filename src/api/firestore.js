@@ -79,7 +79,6 @@ export async function updateEnrollmentsOrder(items) {
     await batch.commit();
 }
 
-
 // --- PERÍODOS ---
 
 export async function getPeriods(enrollmentId) {
@@ -110,6 +109,41 @@ export function updateActivePeriod(enrollmentId, periodId) {
     return updateDoc(enrollmentRef, { activePeriodId: periodId });
 }
 
+export async function deletePeriod(enrollmentId, periodId) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+
+    const batch = writeBatch(db);
+
+    // 1. Encontrar e deletar todas as disciplinas dentro do período
+    const disciplinesRef = collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId, 'disciplines');
+    const disciplinesSnap = await getDocs(disciplinesRef);
+    disciplinesSnap.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+
+    // 2. Deletar o próprio período
+    const periodRef = doc(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId);
+    batch.delete(periodRef);
+
+    // 3. Opcional: Atualizar o período ativo da matrícula se o período deletado era o ativo
+    const enrollmentRef = doc(db, 'users', userId, 'enrollments', enrollmentId);
+    const enrollmentSnap = await getDoc(enrollmentRef);
+    if (enrollmentSnap.exists() && enrollmentSnap.data().activePeriodId === periodId) {
+        const remainingPeriods = await getPeriods(enrollmentId);
+        const newActivePeriodId = remainingPeriods.length > 0 ? remainingPeriods[0].id : null;
+        batch.update(enrollmentRef, { activePeriodId: newActivePeriodId });
+    }
+
+    return batch.commit();
+}
+
+export function updatePeriodStatus(enrollmentId, periodId, status) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const periodRef = doc(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId);
+    return updateDoc(periodRef, { status: status }); // status pode ser 'active' ou 'closed'
+}
 
 // --- DISCIPLINAS ---
 

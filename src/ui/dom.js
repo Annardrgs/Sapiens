@@ -43,6 +43,16 @@ export function initializeDOMElements() {
     periodSwitcher: document.getElementById('period-switcher'),
     newPeriodBtn: document.getElementById('new-period-btn'),
 
+    // Elementos do navegador de período
+    prevPeriodBtn: document.getElementById('prev-period-btn'),
+    nextPeriodBtn: document.getElementById('next-period-btn'),
+    currentPeriodName: document.getElementById('current-period-name'),
+    managePeriodBtn: document.getElementById('manage-period-btn'),
+    periodMenu: document.getElementById('period-menu'),
+    endPeriodBtn: document.getElementById('end-period-btn'),
+    reopenPeriodBtn: document.getElementById('reopen-period-btn'),
+    deletePeriodBtn: document.getElementById('delete-period-btn'),
+
     // Disciplinas (original)
     addDisciplineBtn: document.getElementById('add-discipline-btn'),
     disciplinesList: document.getElementById('disciplines-list'),

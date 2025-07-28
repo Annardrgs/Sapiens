@@ -68,7 +68,14 @@ export async function showDashboardView(enrollmentId) {
         const data = enrollmentSnap.data();
         dom.dashboardTitle.textContent = data.course;
         dom.dashboardSubtitle.textContent = data.institution;
-        await populatePeriodSwitcher(enrollmentId, data.activePeriodId);
+
+        // Nova lógica para buscar e renderizar períodos
+        const periods = await api.getPeriods(enrollmentId);
+        setState('periods', periods);
+        const activeIndex = periods.findIndex(p => p.id === data.activePeriodId);
+        setState('activePeriodIndex', activeIndex > -1 ? activeIndex : 0);
+        
+        await renderPeriodNavigator();
     }
 }
 
@@ -102,17 +109,32 @@ function renderDashboardSummaryCards(disciplines) {
     document.getElementById('total-absences-period').textContent = totalAbsences;
 }
 
-export async function renderDisciplines(enrollmentId, periodId) {
-  dom.disciplinesList.innerHTML = `<p class="text-subtle">Carregando...</p>`;
+export async function renderDisciplines(enrollmentId, periodId, isPeriodClosed = false) {
+  dom.disciplinesList.innerHTML = `<p class="text-subtle">Carregando disciplinas...</p>`;
   const disciplines = await api.getDisciplines(enrollmentId, periodId);
-  dom.disciplinesList.innerHTML = '';
+
   if (!disciplines.length) {
-    dom.disciplinesList.innerHTML = `<p class="text-subtle col-span-full text-center">Nenhuma disciplina neste período.</p>`;
+    dom.disciplinesList.innerHTML = `<p class="text-subtle col-span-full text-center">Nenhuma disciplina adicionada a este período ainda.</p>`;
     return;
   }
-  disciplines.forEach(d => dom.disciplinesList.appendChild(createDisciplineCard(d)));
-  if (sortableInstances.disciplines) sortableInstances.disciplines.destroy();
-  sortableInstances.disciplines = new Sortable(dom.disciplinesList, { /* ... */ });
+
+  dom.disciplinesList.innerHTML = '';
+  disciplines.forEach(discipline => {
+    const card = createDisciplineCard(discipline, isPeriodClosed);
+    dom.disciplinesList.appendChild(card);
+  });
+  
+  if (sortableInstances.disciplines) {
+    sortableInstances.disciplines.destroy();
+  }
+  
+  if (!isPeriodClosed) {
+    sortableInstances.disciplines = new Sortable(dom.disciplinesList, {
+        animation: 150,
+        ghostClass: 'opacity-50',
+        onEnd: (evt) => api.updateDisciplinesOrder(Array.from(evt.to.children), { enrollmentId, periodId }),
+    });
+  }
 }
 
 export async function renderAbsenceHistory(enrollmentId, periodId, disciplineId) {
@@ -133,23 +155,40 @@ export async function renderAbsenceHistory(enrollmentId, periodId, disciplineId)
     dom.absenceHistoryList.appendChild(listContainer);
 }
 
-export async function populatePeriodSwitcher(enrollmentId, activePeriodId) {
-    const periods = await api.getPeriods(enrollmentId);
-    dom.periodSwitcher.innerHTML = '';
-    if (!periods.length) {
-        dom.periodSwitcher.innerHTML = '<option>Nenhum período</option>';
-        dom.disciplinesList.innerHTML = '<p class="text-subtle col-span-full text-center">Crie um novo período.</p>';
+export async function renderPeriodNavigator() {
+    const { periods, activePeriodIndex, activeEnrollmentId } = getState();
+
+    if (!periods || periods.length === 0) {
+        dom.currentPeriodName.textContent = 'Nenhum';
+        dom.prevPeriodBtn.disabled = true;
+        dom.nextPeriodBtn.disabled = true;
+        dom.disciplinesList.innerHTML = '<p class="text-subtle col-span-full text-center">Crie um novo período para começar.</p>';
         return;
     }
-    periods.forEach(period => {
-        const option = document.createElement('option');
-        option.value = period.id;
-        option.textContent = period.name;
-        if (period.id === activePeriodId) option.selected = true;
-        dom.periodSwitcher.appendChild(option);
-    });
-    setState('activePeriodId', dom.periodSwitcher.value);
-    renderDisciplines(enrollmentId, getState().activePeriodId);
+    
+    const currentPeriod = periods[activePeriodIndex];
+    if (!currentPeriod) return;
+
+    setState('activePeriodId', currentPeriod.id);
+    
+    // Atualiza o nome e o status visual do período
+    dom.currentPeriodName.textContent = currentPeriod.name;
+    if (currentPeriod.status === 'closed') {
+        dom.currentPeriodName.classList.add('line-through', 'text-subtle');
+        dom.endPeriodBtn.classList.add('hidden');
+        dom.reopenPeriodBtn.classList.remove('hidden');
+    } else {
+        dom.currentPeriodName.classList.remove('line-through', 'text-subtle');
+        dom.endPeriodBtn.classList.remove('hidden');
+        dom.reopenPeriodBtn.classList.add('hidden');
+    }
+
+    // Habilita/desabilita as setas de navegação
+    dom.prevPeriodBtn.disabled = activePeriodIndex >= periods.length - 1;
+    dom.nextPeriodBtn.disabled = activePeriodIndex <= 0;
+
+    // Renderiza as disciplinas do período selecionado
+    await renderDisciplines(activeEnrollmentId, currentPeriod.id, currentPeriod.status === 'closed');
 }
 
 // --- UI DE AUTENTICAÇÃO ---

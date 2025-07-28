@@ -109,14 +109,20 @@ export function hideAbsenceHistoryModal() {
     hideModal(dom.absenceHistoryModal);
 }
 
-
 // --- MODAL DE CONFIRMAÇÃO DE EXCLUSÃO ---
 
 export function showConfirmDeleteModal(item) {
   setState('itemToDelete', item);
-  const message = item.type === 'enrollment' 
-    ? "Tem certeza que deseja excluir esta matrícula? Todos os períodos e disciplinas associados serão perdidos. Esta ação não pode ser desfeita."
-    : "Tem certeza que deseja excluir esta disciplina? Esta ação não pode ser desfeita.";
+  let message = "Tem certeza que deseja excluir? Esta ação não pode ser desfeita.";
+
+  if (item.type === 'enrollment') {
+    message = "Tem certeza que deseja excluir esta matrícula? Todos os períodos e disciplinas associados serão perdidos.";
+  } else if (item.type === 'discipline') {
+    message = "Tem certeza que deseja excluir esta disciplina?";
+  } else if (item.type === 'period') {
+    message = "Tem certeza que deseja excluir este período? TODAS as disciplinas contidas nele serão perdidas permanentemente.";
+  }
+  
   dom.confirmDeleteMessage.textContent = message;
   showModal(dom.confirmDeleteModal);
 }

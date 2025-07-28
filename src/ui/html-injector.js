@@ -66,10 +66,29 @@ const mainHTML = `
           <h2 id="dashboard-title" class="text-3xl font-bold text-secondary"></h2>
           <p id="dashboard-subtitle" class="text-subtle mt-1"></p>
           <div class="mt-6 flex items-center justify-between">
-            <div class="flex items-center space-x-4">
-              <label for="period-switcher" class="text-sm font-medium text-subtle">Período Letivo:</label>
-              <select id="period-switcher" class="bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary"></select>
+            
+            <div class="flex items-center space-x-2">
+              <div id="period-navigator" class="flex items-center space-x-1 p-1 bg-surface dark:bg-gray-800 rounded-lg shadow-sm">
+                <button id="prev-period-btn" class="p-2 rounded-md hover:bg-bkg dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <span id="current-period-name" class="font-bold text-secondary text-center w-28 px-2"></span>
+                <button id="next-period-btn" class="p-2 rounded-md hover:bg-bkg dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                </button>
+              </div>
+              <div class="relative">
+                <button id="manage-period-btn" class="p-2 rounded-lg hover:bg-surface dark:hover:bg-gray-800" title="Opções do período">
+                  <svg class="w-6 h-6 text-subtle" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+                </button>
+                <div id="period-menu" class="hidden absolute left-0 mt-2 w-48 bg-surface rounded-md shadow-lg z-20 border border-border">
+                  <a href="#" id="end-period-btn" class="block px-4 py-2 text-sm text-secondary hover:bg-bkg dark:hover:bg-gray-700">Encerrar Período</a>
+                  <a href="#" id="reopen-period-btn" class="hidden block px-4 py-2 text-sm text-secondary hover:bg-bkg dark:hover:bg-gray-700">Reabrir Período</a>
+                  <a href="#" id="delete-period-btn" class="block px-4 py-2 text-sm text-danger hover:bg-red-50 dark:hover:bg-red-900/50">Deletar Período</a>
+                </div>
+              </div>
             </div>
+
             <button id="new-period-btn" class="bg-primary text-bkg text-sm font-semibold py-2 px-3 rounded-lg shadow-md hover:opacity-90 transition-opacity">
               + Novo Período
             </button>

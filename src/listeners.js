@@ -60,9 +60,14 @@ export function initializeAppListeners() {
   dom.enrollmentsList.addEventListener('click', handleEnrollmentsListClick);
   dom.disciplinesList.addEventListener('click', handleDisciplinesListClick);
   dom.absenceHistoryList.addEventListener('click', handleAbsenceHistoryListClick);
-  
-  // Outros
-  dom.periodSwitcher.addEventListener('change', handlePeriodSwitch);
+
+  // Listeners para o navegador de período
+  dom.prevPeriodBtn.addEventListener('click', () => switchPeriod('prev'));
+  dom.nextPeriodBtn.addEventListener('click', () => switchPeriod('next'));
+  dom.managePeriodBtn.addEventListener('click', () => dom.periodMenu.classList.toggle('hidden'));
+  dom.endPeriodBtn.addEventListener('click', handleEndPeriod);
+  dom.reopenPeriodBtn.addEventListener('click', handleReopenPeriod);
+  dom.deletePeriodBtn.addEventListener('click', handleDeletePeriod);
 }
 
 // --- HANDLERS (LÓGICA DOS EVENTOS) ---
@@ -215,6 +220,9 @@ async function handleConfirmDelete() {
         if (item.type === 'discipline') {
             await firestoreApi.deleteDiscipline(item.enrollmentId, item.periodId, item.id);
             await view.renderDisciplines(item.enrollmentId, item.periodId);
+        } else if (item.type === 'period') {
+            await firestoreApi.deletePeriod(item.enrollmentId, item.id);
+            await view.showDashboardView(item.enrollmentId);
         } else {
             await firestoreApi.deleteEnrollment(item.id);
             await view.renderEnrollments();
@@ -224,4 +232,44 @@ async function handleConfirmDelete() {
     } finally {
         modals.hideConfirmDeleteModal();
     }
+}
+
+async function switchPeriod(direction) {
+    const { periods, activePeriodIndex, activeEnrollmentId } = getState();
+    let newIndex = activePeriodIndex;
+
+    if (direction === 'prev' && activePeriodIndex < periods.length - 1) {
+        newIndex++;
+    } else if (direction === 'next' && activePeriodIndex > 0) {
+        newIndex--;
+    }
+
+    if (newIndex !== activePeriodIndex) {
+        setState('activePeriodIndex', newIndex);
+        const newActivePeriodId = periods[newIndex].id;
+        await firestoreApi.updateActivePeriod(activeEnrollmentId, newActivePeriodId);
+        await view.renderPeriodNavigator();
+    }
+}
+
+function handleEndPeriod() {
+    const { activeEnrollmentId, activePeriodId } = getState();
+    if (confirm("Tem certeza que deseja encerrar este período? Não será possível adicionar ou editar disciplinas.")) {
+        firestoreApi.updatePeriodStatus(activeEnrollmentId, activePeriodId, 'closed')
+            .then(() => view.showDashboardView(activeEnrollmentId));
+    }
+    dom.periodMenu.classList.add('hidden');
+}
+
+function handleReopenPeriod() {
+    const { activeEnrollmentId, activePeriodId } = getState();
+    firestoreApi.updatePeriodStatus(activeEnrollmentId, activePeriodId, 'active')
+        .then(() => view.showDashboardView(activeEnrollmentId));
+    dom.periodMenu.classList.add('hidden');
+}
+
+function handleDeletePeriod() {
+    const { activeEnrollmentId, activePeriodId } = getState();
+    modals.showConfirmDeleteModal({ type: 'period', id: activePeriodId, enrollmentId: activeEnrollmentId });
+    dom.periodMenu.classList.add('hidden');
 }

@@ -20,7 +20,7 @@ export function createEnrollmentCard(data) {
     return card;
 }
 
-export function createDisciplineCard(data) {
+export function createDisciplineCard(data, isPeriodClosed = false) {
     const card = document.createElement('div');
     card.dataset.id = data.id;
     card.className = "relative bg-surface p-5 rounded-lg border border-border group flex flex-col justify-between cursor-grab";
@@ -36,6 +36,22 @@ export function createDisciplineCard(data) {
         progressBarColor = 'bg-danger';
     }
 
+    const actionButtonsHTML = `
+      <div class="absolute top-4 right-4 flex flex-col space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button data-id="${data.id}" title="Editar Disciplina" class="edit-discipline-btn p-2 rounded-full hover:bg-bkg"><svg class="w-5 h-5 text-subtle pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+          <button data-id="${data.id}" title="Excluir Disciplina" class="delete-discipline-btn p-2 rounded-full hover:bg-bkg"><svg class="w-5 h-5 text-danger pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+      </div>
+    `;
+
+    const absenceButtonsHTML = `
+      <div class="flex justify-between items-center mt-2">
+          <button data-id="${data.id}" data-name="${data.name}" class="absence-history-btn text-xs text-primary hover:underline">Histórico</button>
+          <div class="flex space-x-2">
+              <button data-id="${data.id}" data-name="${data.name}" class="add-absence-btn bg-primary text-bkg rounded-full w-6 h-6 flex items-center justify-center font-bold hover:opacity-80">+</button>
+          </div>
+      </div>
+    `;
+
     card.innerHTML = `
         <div>
             <div class="pr-10">
@@ -44,10 +60,7 @@ export function createDisciplineCard(data) {
                 <p class="text-sm text-subtle mt-2">${data.location || 'Local não definido'}</p>
                 <p class="text-xs text-primary mt-2 font-mono">${data.schedule || 'Horário não definido'}</p>
             </div>
-            <div class="absolute top-4 right-4 flex flex-col space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button data-id="${data.id}" title="Editar Disciplina" class="edit-discipline-btn p-2 rounded-full hover:bg-bkg"><svg class="w-5 h-5 text-subtle pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
-                <button data-id="${data.id}" title="Excluir Disciplina" class="delete-discipline-btn p-2 rounded-full hover:bg-bkg"><svg class="w-5 h-5 text-danger pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-            </div>
+            ${!isPeriodClosed ? actionButtonsHTML : ''}
         </div>
         <div class="mt-4 pt-4 border-t border-border">
             <div class="flex justify-between items-center mb-1">
@@ -57,12 +70,7 @@ export function createDisciplineCard(data) {
             <div class="w-full bg-bkg rounded-full h-2.5">
                 <div class="${progressBarColor} h-2.5 rounded-full transition-all duration-300" style="width: ${currentAbsencePercentage > 100 ? 100 : currentAbsencePercentage}%"></div>
             </div>
-            <div class="flex justify-between items-center mt-2">
-                <button data-id="${data.id}" data-name="${data.name}" class="absence-history-btn text-xs text-primary hover:underline">Histórico</button>
-                <div class="flex space-x-2">
-                    <button data-id="${data.id}" data-name="${data.name}" class="add-absence-btn bg-primary text-bkg rounded-full w-6 h-6 flex items-center justify-center font-bold hover:opacity-80">+</button>
-                </div>
-            </div>
+            ${!isPeriodClosed ? absenceButtonsHTML : ''}
         </div>
     `;
     return card;
