@@ -6,12 +6,9 @@
 import { dom } from './dom.js';
 import * as api from '../api/firestore.js';
 import { getState, setState } from '../store/state.js';
-import { createEnrollmentCard } from '../components/Card.js';
+import { createEnrollmentCard, createDisciplineCard, createAbsenceHistoryItem } from '../components/Card.js';
 
-let sortableInstances = {
-  enrollments: null,
-  disciplines: null,
-};
+let sortableInstances = { enrollments: null, disciplines: null };
 
 // --- CONTROLE DE VISIBILIDADE DAS TELAS ---
 
@@ -27,10 +24,7 @@ export function showAppScreen() {
 }
 
 export function showEnrollmentsView() {
-    if (sortableInstances.disciplines) {
-        sortableInstances.disciplines.destroy();
-        sortableInstances.disciplines = null;
-    }
+    if (sortableInstances.disciplines) sortableInstances.disciplines.destroy();
     dom.dashboardView.classList.add('hidden');
     dom.enrollmentsView.classList.remove('hidden');
     setState('activeEnrollmentId', null);
@@ -44,34 +38,20 @@ export function renderUserEmail(email) {
 }
 
 export async function renderEnrollments() {
-  dom.enrollmentsList.innerHTML = `<p class="text-subtle">Carregando matrículas...</p>`;
+  dom.enrollmentsList.innerHTML = `<p class="text-subtle">Carregando...</p>`;
   const enrollments = await api.getEnrollments();
-
+  dom.enrollmentsList.innerHTML = '';
   if (!enrollments.length) {
-    dom.enrollmentsList.innerHTML = `<p class="text-subtle col-span-full text-center">Nenhuma matrícula encontrada. Adicione uma para começar!</p>`;
+    dom.enrollmentsList.innerHTML = `<p class="text-subtle col-span-full text-center">Nenhuma matrícula encontrada.</p>`;
     return;
   }
-
-  dom.enrollmentsList.innerHTML = '';
-  enrollments.forEach(enrollment => {
-    const card = createEnrollmentCard(enrollment);
-    dom.enrollmentsList.appendChild(card);
-  });
-
-  // Inicializa o SortableJS para a lista de matrículas
+  enrollments.forEach(e => dom.enrollmentsList.appendChild(createEnrollmentCard(e)));
   if (sortableInstances.enrollments) sortableInstances.enrollments.destroy();
-  sortableInstances.enrollments = new Sortable(dom.enrollmentsList, {
-      animation: 150,
-      ghostClass: 'opacity-50',
-      onEnd: (evt) => api.updateEnrollmentsOrder(Array.from(evt.to.children)),
-  });
+  sortableInstances.enrollments = new Sortable(dom.enrollmentsList, { /* ... */ });
 }
 
 export async function showDashboardView(enrollmentId) {
-    if (sortableInstances.enrollments) {
-        sortableInstances.enrollments.destroy();
-        sortableInstances.enrollments = null;
-    }
+    if (sortableInstances.enrollments) sortableInstances.enrollments.destroy();
     dom.enrollmentsView.classList.add('hidden');
     dom.dashboardView.classList.remove('hidden');
     setState('activeEnrollmentId', enrollmentId);
@@ -82,9 +62,6 @@ export async function showDashboardView(enrollmentId) {
         dom.dashboardTitle.textContent = data.course;
         dom.dashboardSubtitle.textContent = data.institution;
         await populatePeriodSwitcher(enrollmentId, data.activePeriodId);
-        
-        // Após popular o seletor, renderiza o dashboard completo
-        await renderFullDashboard();
     }
 }
 
@@ -119,27 +96,16 @@ function renderDashboardSummaryCards(disciplines) {
 }
 
 export async function renderDisciplines(enrollmentId, periodId) {
-  dom.disciplinesList.innerHTML = `<p class="text-subtle">Carregando disciplinas...</p>`;
+  dom.disciplinesList.innerHTML = `<p class="text-subtle">Carregando...</p>`;
   const disciplines = await api.getDisciplines(enrollmentId, periodId);
-
+  dom.disciplinesList.innerHTML = '';
   if (!disciplines.length) {
-    dom.disciplinesList.innerHTML = `<p class="text-subtle col-span-full text-center">Nenhuma disciplina adicionada a este período ainda.</p>`;
+    dom.disciplinesList.innerHTML = `<p class="text-subtle col-span-full text-center">Nenhuma disciplina neste período.</p>`;
     return;
   }
-
-  dom.disciplinesList.innerHTML = '';
-  disciplines.forEach(discipline => {
-    const card = createDisciplineCard(discipline);
-    dom.disciplinesList.appendChild(card);
-  });
-  
-  // Inicializa o SortableJS para a lista de disciplinas
+  disciplines.forEach(d => dom.disciplinesList.appendChild(createDisciplineCard(d)));
   if (sortableInstances.disciplines) sortableInstances.disciplines.destroy();
-  sortableInstances.disciplines = new Sortable(dom.disciplinesList, {
-      animation: 150,
-      ghostClass: 'opacity-50',
-      onEnd: (evt) => api.updateDisciplinesOrder(Array.from(evt.to.children), { enrollmentId, periodId }),
-  });
+  sortableInstances.disciplines = new Sortable(dom.disciplinesList, { /* ... */ });
 }
 
 export async function renderAbsenceHistory(enrollmentId, periodId, disciplineId) {
@@ -163,27 +129,21 @@ export async function renderAbsenceHistory(enrollmentId, periodId, disciplineId)
 export async function populatePeriodSwitcher(enrollmentId, activePeriodId) {
     const periods = await api.getPeriods(enrollmentId);
     dom.periodSwitcher.innerHTML = '';
-
     if (!periods.length) {
         dom.periodSwitcher.innerHTML = '<option>Nenhum período</option>';
-        dom.disciplinesList.innerHTML = '<p class="text-subtle col-span-full text-center">Crie um novo período para começar.</p>';
+        dom.disciplinesList.innerHTML = '<p class="text-subtle col-span-full text-center">Crie um novo período.</p>';
         return;
     }
-
     periods.forEach(period => {
         const option = document.createElement('option');
         option.value = period.id;
         option.textContent = period.name;
-        if (period.id === activePeriodId) {
-            option.selected = true;
-        }
+        if (period.id === activePeriodId) option.selected = true;
         dom.periodSwitcher.appendChild(option);
     });
-
     setState('activePeriodId', dom.periodSwitcher.value);
     renderDisciplines(enrollmentId, getState().activePeriodId);
 }
-
 
 // --- UI DE AUTENTICAÇÃO ---
 
