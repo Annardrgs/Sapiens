@@ -33,6 +33,7 @@ export function showEnrollmentsView() {
     setState('activeEnrollmentId', null);
     setState('activePeriodId', null);
     renderEnrollments();
+    renderGeneralDashboard();
 }
 
 // --- RENDERIZAÇÃO DE CONTEÚDO ---
@@ -52,6 +53,48 @@ export async function renderEnrollments() {
   enrollments.forEach(e => dom.enrollmentsList.appendChild(createEnrollmentCard(e)));
   if (sortableInstances.enrollments) sortableInstances.enrollments.destroy();
   sortableInstances.enrollments = new Sortable(dom.enrollmentsList, { /* ... */ });
+}
+
+async function renderGeneralDashboard() {
+  dom.generalDashboardContent.innerHTML = `<p class="text-subtle">Carregando resumo...</p>`;
+  const dashboardData = await api.getActivePeriodDataForAllEnrollments();
+
+  if (!dashboardData.length) {
+    dom.generalDashboard.classList.add('hidden');
+    return;
+  }
+  
+  dom.generalDashboard.classList.remove('hidden');
+  dom.generalDashboardContent.innerHTML = '';
+
+  dashboardData.forEach(data => {
+    const enrollmentSection = document.createElement('div');
+    enrollmentSection.className = 'bg-surface p-6 rounded-lg shadow-md border border-border';
+
+    // Limita a 3 disciplinas para um resumo
+    const disciplinesToShow = data.disciplines.slice(0, 3); 
+
+    enrollmentSection.innerHTML = `
+      <div class="flex justify-between items-center mb-4">
+        <div>
+            <h3 class="text-xl font-bold text-secondary">${data.course}</h3>
+            <p class="text-sm text-subtle">${data.institution} - Período: ${data.periodName}</p>
+        </div>
+        <button data-id="${data.enrollmentId}" class="view-enrollment-dashboard-btn bg-primary text-bkg text-sm font-semibold py-2 px-3 rounded-lg hover:opacity-90">
+            Ver Painel
+        </button>
+      </div>
+      <div class="space-y-3">
+        ${disciplinesToShow.length > 0 ? disciplinesToShow.map(d => `
+          <div class="p-3 bg-bkg rounded-md border border-border">
+            <p class="font-semibold text-secondary">${d.name}</p>
+            <p class="text-xs text-subtle">${d.teacher || 'Professor não definido'}</p>
+          </div>
+        `).join('') : '<p class="text-sm text-subtle">Nenhuma disciplina cadastrada neste período.</p>'}
+      </div>
+    `;
+    dom.generalDashboardContent.appendChild(enrollmentSection);
+  });
 }
 
 export async function showDashboardView(enrollmentId) {

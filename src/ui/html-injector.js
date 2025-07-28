@@ -55,6 +55,11 @@ const mainHTML = `
           </div>
           <div id="enrollments-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
         </div>
+        <div id="general-dashboard" class="px-4 py-6 sm:px-0 mt-8">
+            <h2 class="text-2xl font-bold text-secondary mb-4">Resumo do Período Atual</h2>
+            <div id="general-dashboard-content" class="space-y-8">
+                </div>
+        </div>
       </div>
 
       <div id="dashboard-view" class="hidden">

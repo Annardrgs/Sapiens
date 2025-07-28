@@ -42,6 +42,12 @@ export function initializeDOMElements() {
     dashboardSubtitle: document.getElementById('dashboard-subtitle'),
     periodSwitcher: document.getElementById('period-switcher'),
     newPeriodBtn: document.getElementById('new-period-btn'),
+    addDisciplineBtn: document.getElementById('add-discipline-btn'),
+    disciplinesList: document.getElementById('disciplines-list'),
+
+    // Dashboard Geral
+    generalDashboard: document.getElementById('general-dashboard'),
+    generalDashboardContent: document.getElementById('general-dashboard-content'),
 
     // Elementos do navegador de período
     prevPeriodBtn: document.getElementById('prev-period-btn'),
@@ -52,10 +58,6 @@ export function initializeDOMElements() {
     endPeriodBtn: document.getElementById('end-period-btn'),
     reopenPeriodBtn: document.getElementById('reopen-period-btn'),
     deletePeriodBtn: document.getElementById('delete-period-btn'),
-
-    // Disciplinas (original)
-    addDisciplineBtn: document.getElementById('add-discipline-btn'),
-    disciplinesList: document.getElementById('disciplines-list'),
 
     // Modais
     addEnrollmentModal: document.getElementById('add-enrollment-modal'),

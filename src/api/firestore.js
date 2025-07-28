@@ -79,6 +79,39 @@ export async function updateEnrollmentsOrder(items) {
     await batch.commit();
 }
 
+export async function getActivePeriodDataForAllEnrollments() {
+  const userId = getCurrentUserId();
+  if (!userId) return [];
+
+  // 1. Pega todas as matrículas
+  const enrollments = await getEnrollments();
+  const dashboardData = [];
+
+  // 2. Itera sobre cada matrícula para buscar os dados do período ativo
+  for (const enrollment of enrollments) {
+    if (enrollment.activePeriodId) {
+      // Busca o documento do período para pegar o nome
+      const periodRef = doc(db, 'users', userId, 'enrollments', enrollment.id, 'periods', enrollment.activePeriodId);
+      const periodSnap = await getDoc(periodRef);
+      const periodName = periodSnap.exists() ? periodSnap.data().name : 'Período ativo';
+
+      // Busca as disciplinas do período ativo
+      const disciplines = await getDisciplines(enrollment.id, enrollment.activePeriodId);
+
+      dashboardData.push({
+        enrollmentId: enrollment.id,
+        course: enrollment.course,
+        institution: enrollment.institution,
+        periodId: enrollment.activePeriodId,
+        periodName: periodName,
+        disciplines: disciplines,
+      });
+    }
+  }
+
+  return dashboardData;
+}
+
 // --- PERÍODOS ---
 
 export async function getPeriods(enrollmentId) {

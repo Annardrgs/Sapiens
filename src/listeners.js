@@ -29,45 +29,45 @@ export function initializeAuthListeners() {
 }
 
 export function initializeAppListeners() {
-  // Header
-  dom.logoutBtn.addEventListener('click', authApi.logOut);
-  dom.themeToggleBtn.addEventListener('click', toggleTheme);
+    dom.appContainer.addEventListener('click', handleAppContainerClick);
+    // Header
+    dom.logoutBtn.addEventListener('click', authApi.logOut);
+    dom.themeToggleBtn.addEventListener('click', toggleTheme);
 
-  // Navegação
-  dom.backToEnrollmentsBtn.addEventListener('click', view.showEnrollmentsView);
+    // Navegação
+    dom.backToEnrollmentsBtn.addEventListener('click', view.showEnrollmentsView);
 
-  // Modais
-  dom.addEnrollmentBtn.addEventListener('click', () => modals.showEnrollmentModal());
-  dom.cancelEnrollmentBtn.addEventListener('click', modals.hideEnrollmentModal);
-  dom.addEnrollmentForm.addEventListener('submit', handleEnrollmentFormSubmit);
+    // Modais
+    dom.addEnrollmentBtn.addEventListener('click', () => modals.showEnrollmentModal());
+    dom.cancelEnrollmentBtn.addEventListener('click', modals.hideEnrollmentModal);
+    dom.addEnrollmentForm.addEventListener('submit', handleEnrollmentFormSubmit);
 
-  dom.addDisciplineBtn.addEventListener('click', () => modals.showDisciplineModal());
-  dom.cancelDisciplineBtn.addEventListener('click', modals.hideDisciplineModal);
-  dom.addDisciplineForm.addEventListener('submit', handleDisciplineFormSubmit);
-  
-  dom.newPeriodBtn.addEventListener('click', modals.showPeriodModal);
-  dom.cancelPeriodBtn.addEventListener('click', modals.hidePeriodModal);
-  dom.addPeriodForm.addEventListener('submit', handlePeriodFormSubmit);
+    dom.addDisciplineBtn.addEventListener('click', () => modals.showDisciplineModal());
+    dom.cancelDisciplineBtn.addEventListener('click', modals.hideDisciplineModal);
+    dom.addDisciplineForm.addEventListener('submit', handleDisciplineFormSubmit);
+    
+    dom.newPeriodBtn.addEventListener('click', modals.showPeriodModal);
+    dom.cancelPeriodBtn.addEventListener('click', modals.hidePeriodModal);
+    dom.addPeriodForm.addEventListener('submit', handlePeriodFormSubmit);
 
-  dom.cancelAbsenceBtn.addEventListener('click', modals.hideAbsenceModal);
-  dom.addAbsenceForm.addEventListener('submit', handleAbsenceFormSubmit);
-  dom.closeAbsenceHistoryBtn.addEventListener('click', modals.hideAbsenceHistoryModal);
+    dom.cancelAbsenceBtn.addEventListener('click', modals.hideAbsenceModal);
+    dom.addAbsenceForm.addEventListener('submit', handleAbsenceFormSubmit);
+    dom.closeAbsenceHistoryBtn.addEventListener('click', modals.hideAbsenceHistoryModal);
 
-  dom.confirmDeleteBtn.addEventListener('click', handleConfirmDelete);
-  dom.cancelDeleteBtn.addEventListener('click', modals.hideConfirmDeleteModal);
+    dom.confirmDeleteBtn.addEventListener('click', handleConfirmDelete);
+    dom.cancelDeleteBtn.addEventListener('click', modals.hideConfirmDeleteModal);
 
-  // Delegação de Eventos para listas dinâmicas
-  dom.enrollmentsList.addEventListener('click', handleEnrollmentsListClick);
-  dom.disciplinesList.addEventListener('click', handleDisciplinesListClick);
-  dom.absenceHistoryList.addEventListener('click', handleAbsenceHistoryListClick);
+    // Delegação de Eventos para listas dinâmicas
+    dom.disciplinesList.addEventListener('click', handleDisciplinesListClick);
+    dom.absenceHistoryList.addEventListener('click', handleAbsenceHistoryListClick);
 
-  // Listeners para o navegador de período
-  dom.prevPeriodBtn.addEventListener('click', () => switchPeriod('prev'));
-  dom.nextPeriodBtn.addEventListener('click', () => switchPeriod('next'));
-  dom.managePeriodBtn.addEventListener('click', () => dom.periodMenu.classList.toggle('hidden'));
-  dom.endPeriodBtn.addEventListener('click', handleEndPeriod);
-  dom.reopenPeriodBtn.addEventListener('click', handleReopenPeriod);
-  dom.deletePeriodBtn.addEventListener('click', handleDeletePeriod);
+    // Listeners para o navegador de período
+    dom.prevPeriodBtn.addEventListener('click', () => switchPeriod('prev'));
+    dom.nextPeriodBtn.addEventListener('click', () => switchPeriod('next'));
+    dom.managePeriodBtn.addEventListener('click', () => dom.periodMenu.classList.toggle('hidden'));
+    dom.endPeriodBtn.addEventListener('click', handleEndPeriod);
+    dom.reopenPeriodBtn.addEventListener('click', handleReopenPeriod);
+    dom.deletePeriodBtn.addEventListener('click', handleDeletePeriod);
 }
 
 // --- HANDLERS (LÓGICA DOS EVENTOS) ---
@@ -102,19 +102,6 @@ async function handleEnrollmentFormSubmit(e) {
     }
 }
 
-function handleEnrollmentsListClick(e) {
-    const card = e.target.closest('[data-id]');
-    if (!card) return;
-    const id = card.dataset.id;
-    if (e.target.closest('.edit-btn')) {
-        modals.showEnrollmentModal(id);
-    } else if (e.target.closest('.delete-btn')) {
-        modals.showConfirmDeleteModal({ type: 'enrollment', id });
-    } else {
-        view.showDashboardView(id);
-    }
-}
-
 async function handlePeriodFormSubmit(e) {
     e.preventDefault();
     const { activeEnrollmentId } = getState();
@@ -128,6 +115,29 @@ async function handlePeriodFormSubmit(e) {
         console.error("Erro ao criar período:", error);
     }
 }
+
+async function handleAppContainerClick(e) {
+    const enrollmentCard = e.target.closest('#enrollments-list [data-id]');
+    if (enrollmentCard) {
+        const id = enrollmentCard.dataset.id;
+        if (e.target.closest('.edit-btn')) {
+            modals.showEnrollmentModal(id);
+        } else if (e.target.closest('.delete-btn')) {
+            modals.showConfirmDeleteModal({ type: 'enrollment', id });
+        } else {
+            view.showDashboardView(id);
+        }
+        return; // Evita que outros handlers disparem
+    }
+
+    // NOVO: Handler para o botão "Ver Painel" do dashboard geral
+    const viewDashboardBtn = e.target.closest('.view-enrollment-dashboard-btn');
+    if (viewDashboardBtn) {
+        const enrollmentId = viewDashboardBtn.dataset.id;
+        view.showDashboardView(enrollmentId);
+    }
+}
+
 
 async function handlePeriodSwitch(e) {
     const newPeriodId = e.target.value;
