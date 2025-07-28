@@ -45,7 +45,47 @@ const mainHTML = `
     </header>
 
     <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-      </main>
+      <div id="enrollments-view">
+        <div class="px-4 py-6 sm:px-0">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-3xl font-bold text-secondary">Minhas Matrículas</h2>
+            <button id="add-enrollment-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity">
+              + Adicionar Matrícula
+            </button>
+          </div>
+          <div id="enrollments-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </div>
+      </div>
+
+      <div id="dashboard-view" class="hidden">
+        <div class="px-4 py-6 sm:px-0">
+          <button id="back-to-enrollments-btn" class="mb-6 text-sm text-primary hover:opacity-80 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            Voltar para Matrículas
+          </button>
+          <h2 id="dashboard-title" class="text-3xl font-bold text-secondary"></h2>
+          <p id="dashboard-subtitle" class="text-subtle mt-1"></p>
+          <div class="mt-6 flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+              <label for="period-switcher" class="text-sm font-medium text-subtle">Período Letivo:</label>
+              <select id="period-switcher" class="bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary"></select>
+            </div>
+            <button id="new-period-btn" class="bg-primary text-bkg text-sm font-semibold py-2 px-3 rounded-lg shadow-md hover:opacity-90 transition-opacity">
+              + Novo Período
+            </button>
+          </div>
+          <div class="mt-8 border-t border-border pt-8">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-secondary">Disciplinas</h3>
+                <button id="add-discipline-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity">
+                  + Adicionar Disciplina
+                </button>
+            </div>
+            <div id="disciplines-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+          </div>
+        </div>
+      </div>
+    </main>
   </div>
 `;
 
@@ -127,8 +167,7 @@ const modalHTML = `
     <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border flex flex-col" style="max-height: 90vh;">
       <h3 id="absence-history-title" class="text-2xl font-bold mb-4 text-secondary">Histórico de Faltas</h3>
       <div id="absence-history-list" class="flex-grow overflow-y-auto pr-4 -mr-4">
-        <!-- Lista de faltas será renderizada aqui -->
-      </div>
+        </div>
       <button type="button" id="close-absence-history-btn" class="mt-6 w-full bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-80">Fechar</button>
     </div>
   </div>

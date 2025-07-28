@@ -58,7 +58,7 @@ export function initializeAppListeners() {
 
   // Delegação de Eventos para listas dinâmicas
   dom.enrollmentsList.addEventListener('click', handleEnrollmentsListClick);
-  // O listener para a lista de disciplinas foi removido, pois a nova UI não possui ações diretas nos itens.
+  dom.disciplinesList.addEventListener('click', handleDisciplinesListClick);
   dom.absenceHistoryList.addEventListener('click', handleAbsenceHistoryListClick);
   
   // Outros
@@ -67,14 +67,10 @@ export function initializeAppListeners() {
 
 // --- HANDLERS (LÓGICA DOS EVENTOS) ---
 
-// ATUALIZAÇÃO: Todas as chamadas a `view.renderDisciplines` serão substituídas
-// por `view.renderFullDashboard` para recarregar o novo painel corretamente.
-
 async function handleAuthFormSubmit(e) {
   e.preventDefault();
   const email = dom.authEmailInput.value;
   const password = dom.authPasswordInput.value;
-  // ... (código sem alterações)
   try {
     if (getState().authMode === 'login') await authApi.signIn(email, password);
     else await authApi.signUp(email, password);
@@ -91,10 +87,11 @@ async function handleEnrollmentFormSubmit(e) {
         institution: dom.addEnrollmentForm.querySelector('#enrollment-institution').value,
         currentPeriod: dom.addEnrollmentForm.querySelector('#enrollment-period').value,
     };
+    const { editingEnrollmentId } = getState();
     try {
-        await firestoreApi.saveEnrollment(payload, getState().editingEnrollmentId);
+        await firestoreApi.saveEnrollment(payload, editingEnrollmentId);
         modals.hideEnrollmentModal();
-        await view.renderEnrollments(); // Mantém-se, pois volta para a tela de matrículas
+        await view.renderEnrollments();
     } catch (error) {
         console.error("Erro ao salvar matrícula:", error);
     }
@@ -132,7 +129,7 @@ async function handlePeriodSwitch(e) {
     const { activeEnrollmentId } = getState();
     setState('activePeriodId', newPeriodId);
     await firestoreApi.updateActivePeriod(activeEnrollmentId, newPeriodId);
-    await view.renderFullDashboard(); // ATUALIZADO
+    await view.renderDisciplines(activeEnrollmentId, newPeriodId);
 }
 
 async function handleDisciplineFormSubmit(e) {
@@ -150,24 +147,47 @@ async function handleDisciplineFormSubmit(e) {
     try {
         await firestoreApi.saveDiscipline(payload, { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId: editingDisciplineId });
         modals.hideDisciplineModal();
-        await view.renderFullDashboard(); // ATUALIZADO
+        await view.renderDisciplines(activeEnrollmentId, activePeriodId);
     } catch (error) {
         console.error("Erro ao salvar disciplina:", error);
     }
 }
 
-// A função handleDisciplinesListClick foi removida.
+function handleDisciplinesListClick(e) {
+    const button = e.target.closest('button[data-id]');
+    if(!button) return;
+
+    const id = button.dataset.id;
+    const name = button.dataset.name;
+    const { activeEnrollmentId, activePeriodId } = getState();
+
+    if (button.matches('.edit-discipline-btn')) {
+        modals.showDisciplineModal(id);
+    } else if (button.matches('.delete-discipline-btn')) {
+        modals.showConfirmDeleteModal({ type: 'discipline', id, enrollmentId: activeEnrollmentId, periodId: activePeriodId });
+    } else if (button.matches('.add-absence-btn')) {
+        modals.showAbsenceModal(id, name);
+    } else if (button.matches('.absence-history-btn')) {
+        modals.showAbsenceHistoryModal(id, name);
+        view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, id);
+    }
+}
 
 async function handleAbsenceFormSubmit(e) {
     e.preventDefault();
     const { currentDisciplineForAbsence } = getState();
     if (!currentDisciplineForAbsence) return;
     
-    const payload = { /* ... */ };
+    const payload = {
+        absenceDate: dom.addAbsenceForm.querySelector('#absence-date').value,
+        justification: dom.addAbsenceForm.querySelector('#absence-justification').value,
+        addedAt: new Date(),
+    };
+
     try {
         await firestoreApi.addAbsence(payload, currentDisciplineForAbsence);
         modals.hideAbsenceModal();
-        await view.renderFullDashboard(); // ATUALIZADO
+        await view.renderDisciplines(currentDisciplineForAbsence.enrollmentId, currentDisciplineForAbsence.periodId);
     } catch (error) {
         console.error("Erro ao registrar falta:", error);
     }
@@ -181,7 +201,7 @@ async function handleAbsenceHistoryListClick(e) {
         try {
             await firestoreApi.removeAbsence(removeBtn.dataset.id, currentDisciplineForAbsence);
             view.renderAbsenceHistory(currentDisciplineForAbsence.enrollmentId, currentDisciplineForAbsence.periodId, currentDisciplineForAbsence.disciplineId);
-            await view.renderFullDashboard(); // ATUALIZADO
+            await view.renderDisciplines(currentDisciplineForAbsence.enrollmentId, currentDisciplineForAbsence.periodId);
         } catch (error) {
             console.error("Erro ao remover falta:", error);
         }
@@ -194,7 +214,7 @@ async function handleConfirmDelete() {
     try {
         if (item.type === 'discipline') {
             await firestoreApi.deleteDiscipline(item.enrollmentId, item.periodId, item.id);
-            await view.renderFullDashboard(); // ATUALIZADO
+            await view.renderDisciplines(item.enrollmentId, item.periodId);
         } else {
             await firestoreApi.deleteEnrollment(item.id);
             await view.renderEnrollments();
