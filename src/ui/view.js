@@ -6,7 +6,7 @@
 import { dom } from './dom.js';
 import * as api from '../api/firestore.js';
 import { getState, setState } from '../store/state.js';
-import { createEnrollmentCard, createDisciplineCard, createAbsenceHistoryItem } from '../components/Card.js';
+import { createEnrollmentCard, createDisciplineCard, createAbsenceHistoryItem } from '../components/card.js';
 
 let sortableInstances = { enrollments: null, disciplines: null };
 
