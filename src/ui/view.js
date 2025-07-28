@@ -24,11 +24,15 @@ export function showAppScreen() {
 }
 
 export function showEnrollmentsView() {
-    if (sortableInstances.disciplines) sortableInstances.disciplines.destroy();
+    if (sortableInstances.disciplines) {
+        sortableInstances.disciplines.destroy();
+        sortableInstances.disciplines = null;
+    }
     dom.dashboardView.classList.add('hidden');
     dom.enrollmentsView.classList.remove('hidden');
     setState('activeEnrollmentId', null);
     setState('activePeriodId', null);
+    renderEnrollments();
 }
 
 // --- RENDERIZAÇÃO DE CONTEÚDO ---
@@ -51,7 +55,10 @@ export async function renderEnrollments() {
 }
 
 export async function showDashboardView(enrollmentId) {
-    if (sortableInstances.enrollments) sortableInstances.enrollments.destroy();
+    if (sortableInstances.enrollments) {
+        sortableInstances.enrollments.destroy();
+        sortableInstances.enrollments = null;
+    }
     dom.enrollmentsView.classList.add('hidden');
     dom.dashboardView.classList.remove('hidden');
     setState('activeEnrollmentId', enrollmentId);
