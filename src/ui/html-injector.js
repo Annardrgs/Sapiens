@@ -154,7 +154,7 @@ const modalHTML = `
           <input type="text" id="discipline-schedule" placeholder="Horários (ex: Seg 10-12h, Qua 10-12h)" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary">
           <div class="flex items-center space-x-4">
             <input type="number" id="discipline-workload" placeholder="C.H. Total (horas)" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary">
-            <input type="number" id="discipline-hours-per-class" placeholder="Horas por aula" value="2" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary">
+            <input type="number" id="discipline-hours-per-class" placeholder="Horas por aula" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary">
           </div>
         </div>
         <div class="mt-8 flex justify-end space-x-4">
@@ -206,6 +206,32 @@ const modalHTML = `
         <div class="mt-8 flex justify-end space-x-4">
           <button type="button" id="cancel-period-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-80">Cancelar</button>
           <button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-90">Criar Período</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="config-grades-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border">
+      <h3 id="config-grades-title" class="text-2xl font-bold mb-6 text-secondary">Configurar Avaliações</h3>
+      <form id="config-grades-form">
+        <div class="space-y-4">
+          <div>
+            <label for="grade-calculation-rule" class="block text-sm font-medium text-subtle mb-1">Tipo de Média</label>
+            <select id="grade-calculation-rule" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+              <option value="weighted" class="bg-surface text-secondary">Média Ponderada (com pesos)</option>
+              <option value="min-max" class="bg-surface text-secondary">Média Aritmética (com nota mín/máx)</option>
+            </select>
+          </div>
+          <div id="grades-container" class="space-y-3">
+            </div>
+          <button type="button" id="add-grade-field-btn" class="text-sm text-primary hover:opacity-80 flex items-center">
+            + Adicionar outra avaliação
+          </button>
+        </div>
+        <div class="mt-8 flex justify-end space-x-4">
+          <button type="button" id="cancel-config-grades-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-80">Cancelar</button>
+          <button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-90">Salvar Configuração</button>
         </div>
       </form>
     </div>

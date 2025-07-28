@@ -109,6 +109,16 @@ export function hideAbsenceHistoryModal() {
     hideModal(dom.absenceHistoryModal);
 }
 
+export function hideAllModals() {
+    hideEnrollmentModal();
+    hideDisciplineModal();
+    hidePeriodModal();
+    hideAbsenceModal();
+    hideAbsenceHistoryModal();
+    hideConfirmDeleteModal();
+    hideConfigGradesModal();
+}
+
 // --- MODAL DE CONFIRMAÇÃO DE EXCLUSÃO ---
 
 export function showConfirmDeleteModal(item) {
@@ -130,4 +140,15 @@ export function showConfirmDeleteModal(item) {
 export function hideConfirmDeleteModal() {
   setState('itemToDelete', null);
   hideModal(dom.confirmDeleteModal);
+}
+
+export function showConfigGradesModal(disciplineId, disciplineName) {
+    const { activeEnrollmentId, activePeriodId } = getState();
+    setState('currentDisciplineForGrades', { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId });
+    dom.configGradesTitle.textContent = `Avaliações de ${disciplineName}`;
+    showModal(dom.configGradesModal);
+}
+
+export function hideConfigGradesModal() {
+    hideModal(dom.configGradesModal);
 }

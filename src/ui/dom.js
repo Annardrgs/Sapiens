@@ -87,5 +87,12 @@ export function initializeDOMElements() {
     confirmDeleteMessage: document.getElementById('confirm-delete-message'),
     confirmDeleteBtn: document.getElementById('confirm-delete-btn'),
     cancelDeleteBtn: document.getElementById('cancel-delete-btn'),
+
+    configGradesModal: document.getElementById('config-grades-modal'),
+    configGradesForm: document.getElementById('config-grades-form'),
+    configGradesTitle: document.getElementById('config-grades-title'),
+    gradesContainer: document.getElementById('grades-container'),
+    addGradeFieldBtn: document.getElementById('add-grade-field-btn'),
+    cancelConfigGradesBtn: document.getElementById('cancel-config-grades-btn'),
   });
 }

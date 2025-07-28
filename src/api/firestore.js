@@ -112,6 +112,33 @@ export async function getActivePeriodDataForAllEnrollments() {
   return dashboardData;
 }
 
+export async function saveGrade(grade, gradeIndex, { enrollmentId, periodId, disciplineId }) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+
+    const disciplineRef = doc(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId, 'disciplines', disciplineId);
+
+    return runTransaction(db, async (transaction) => {
+        const disciplineSnap = await transaction.get(disciplineRef);
+        if (!disciplineSnap.exists()) {
+            throw "Disciplina não encontrada!";
+        }
+
+        const disciplineData = disciplineSnap.data();
+        const grades = disciplineData.grades || [];
+
+        // Garante que o array de notas tenha o tamanho certo
+        if (grades.length > gradeIndex) {
+            grades[gradeIndex].grade = grade;
+        } else {
+            // Isso pode ser ajustado conforme necessário, mas por segurança, não deve acontecer se a config estiver certa
+            grades[gradeIndex] = { name: `Av. ${gradeIndex + 1}`, grade: grade };
+        }
+
+        transaction.update(disciplineRef, { grades: grades });
+    });
+}
+
 // --- PERÍODOS ---
 
 export async function getPeriods(enrollmentId) {
