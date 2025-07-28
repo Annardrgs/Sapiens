@@ -1,6 +1,5 @@
 /**
  * @file Módulo para selecionar e exportar todos os elementos do DOM.
- * Isso centraliza o acesso aos elementos e evita múltiplas chamadas de getElementById.
  */
 
 // O objeto 'dom' será preenchido pela função initialize e exportado.
@@ -8,7 +7,6 @@ export const dom = {};
 
 /**
  * Seleciona todos os elementos necessários do DOM e os armazena no objeto 'dom'.
- * Deve ser chamada uma única vez após a injeção do HTML.
  */
 export function initializeDOMElements() {
   if (Object.keys(dom).length) {
@@ -44,18 +42,19 @@ export function initializeDOMElements() {
     addEnrollmentBtn: document.getElementById('add-enrollment-btn'),
     enrollmentsList: document.getElementById('enrollments-list'),
     
-    // Painel (Dashboard)
+    // Painel (Dashboard) - ATUALIZADO
     backToEnrollmentsBtn: document.getElementById('back-to-enrollments-btn'),
     dashboardTitle: document.getElementById('dashboard-title'),
     dashboardSubtitle: document.getElementById('dashboard-subtitle'),
     periodSwitcher: document.getElementById('period-switcher'),
     newPeriodBtn: document.getElementById('new-period-btn'),
-
-    // Disciplinas
     addDisciplineBtn: document.getElementById('add-discipline-btn'),
-    disciplinesList: document.getElementById('disciplines-list'),
+    // IDs das novas listas do dashboard
+    disciplineBudgetsList: document.getElementById('discipline-budgets-list'),
+    recentDisciplinesList: document.getElementById('recent-disciplines-list'),
 
-    // Modais
+
+    // Modais (sem alterações)
     addEnrollmentModal: document.getElementById('add-enrollment-modal'),
     addEnrollmentForm: document.getElementById('add-enrollment-form'),
     enrollmentModalTitle: document.getElementById('enrollment-modal-title'),

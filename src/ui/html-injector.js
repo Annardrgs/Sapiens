@@ -3,7 +3,6 @@
  */
 
 const mainHTML = `
-  <!-- TELA DE AUTENTICAÇÃO -->
   <div id="auth-screen">
     <div class="min-h-screen flex flex-col items-center justify-center bg-bkg p-4">
       <div class="w-full max-w-md p-8 space-y-6 bg-surface rounded-xl shadow-2xl border border-border">
@@ -28,7 +27,6 @@ const mainHTML = `
     </div>
   </div>
 
-  <!-- CONTAINER PRINCIPAL DO APP -->
   <div id="app-container" class="hidden">
     <header class="bg-surface shadow-md border-b border-border sticky top-0 z-40">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -47,7 +45,6 @@ const mainHTML = `
     </header>
 
     <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-      <!-- TELA 1: LISTA DE MATRÍCULAS -->
       <div id="enrollments-view">
         <div class="px-4 py-6 sm:px-0">
           <div class="flex justify-between items-center mb-6">
@@ -60,41 +57,82 @@ const mainHTML = `
         </div>
       </div>
 
-      <!-- TELA 2: PAINEL DA MATRÍCULA -->
       <div id="dashboard-view" class="hidden">
         <div class="px-4 py-6 sm:px-0">
-          <button id="back-to-enrollments-btn" class="mb-6 text-sm text-primary hover:opacity-80 flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-            Voltar para Matrículas
-          </button>
-          <h2 id="dashboard-title" class="text-3xl font-bold text-secondary"></h2>
-          <p id="dashboard-subtitle" class="text-subtle mt-1"></p>
+            <div class="md:flex justify-between items-center mb-6 space-y-4 md:space-y-0">
+                <div>
+                    <button id="back-to-enrollments-btn" class="text-sm text-primary hover:opacity-80 flex items-center mb-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                        Trocar Matrícula
+                    </button>
+                    <h2 id="dashboard-title" class="text-3xl font-bold text-secondary"></h2>
+                    <p id="dashboard-subtitle" class="text-subtle mt-1"></p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <select id="period-switcher" class="bg-surface border border-border text-secondary rounded-md px-3 py-2 focus:ring-primary focus:border-primary"></select>
+                    <button id="new-period-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-90">Novo Período</button>
+                </div>
+            </div>
 
-          <div class="mt-6 flex items-center justify-between">
-            <div class="flex items-center space-x-4">
-              <label for="period-switcher" class="text-sm font-medium text-subtle">Período Letivo:</label>
-              <select id="period-switcher" class="bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary"></select>
-            </div>
-            <button id="new-period-btn" class="bg-primary text-bkg text-sm font-semibold py-2 px-3 rounded-lg shadow-md hover:opacity-90 transition-opacity">
-              + Novo Período
-            </button>
-          </div>
-          
-          <div class="mt-8 border-t border-border pt-8">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-bold text-secondary">Disciplinas</h3>
-                <button id="add-discipline-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity">
-                  + Adicionar Disciplina
-                </button>
-            </div>
-            <div id="disciplines-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-          </div>
+            <main class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-surface p-6 rounded-xl shadow-sm">
+                            <h3 class="text-sm font-medium text-subtle">Aulas no Período</h3>
+                            <p id="total-classes-period" class="text-3xl font-bold text-primary mt-2">0</p>
+                        </div>
+                        <div class="bg-surface p-6 rounded-xl shadow-sm">
+                            <h3 class="text-sm font-medium text-green-600">Presenças</h3>
+                            <p id="total-presences-period" class="text-3xl font-bold text-green-500 mt-2">0</p>
+                        </div>
+                        <div class="bg-surface p-6 rounded-xl shadow-sm">
+                            <h3 class="text-sm font-medium text-red-600">Faltas</h3>
+                            <p id="total-absences-period" class="text-3xl font-bold text-red-500 mt-2">0</p>
+                        </div>
+                    </div>
+                    <div class="bg-surface p-6 rounded-xl shadow-sm">
+                        <h3 class="text-lg font-semibold text-secondary">Evolução de Faltas no Período</h3>
+                        <div id="absencesTrendChart" class="relative h-72 w-full mt-4 flex items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-lg">
+                            <p class="text-subtle text-sm">(Área do Gráfico de Evolução)</p>
+                        </div>
+                    </div>
+                    <div class="bg-surface p-6 rounded-xl shadow-sm">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-secondary">Controle de Faltas por Disciplina</h3>
+                             <button id="add-discipline-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity">
+                                + Adicionar Disciplina
+                            </button>
+                        </div>
+                        <div id="discipline-budgets-list" class="space-y-4 max-h-60 overflow-y-auto pr-2"></div>
+                    </div>
+                </div>
+                <div class="lg:col-span-1 space-y-6">
+                    <div class="bg-surface p-6 rounded-xl shadow-sm flex flex-col">
+                        <h3 class="text-lg font-semibold text-secondary mb-4">Faltas por Disciplina</h3>
+                        <div id="absences-by-category-chart-container" class="relative h-60 flex items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-lg">
+                            <p class="text-subtle text-sm">(Área do Gráfico de Faltas por Disciplina)</p>
+                        </div>
+                    </div>
+                    <div class="bg-surface p-6 rounded-xl shadow-sm">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-secondary">Próximas Avaliações</h3>
+                            <button class="text-primary hover:opacity-80 font-semibold flex items-center space-x-1 text-sm">
+                                <span>Nova Avaliação</span>
+                            </button>
+                        </div>
+                        <div class="space-y-3">
+                           <p class="text-subtle text-center py-4">Funcionalidade em desenvolvimento.</p>
+                        </div>
+                    </div>
+                    <div class="bg-surface p-6 rounded-xl shadow-sm">
+                        <h3 class="text-lg font-semibold text-secondary mb-4">Disciplinas do Período</h3>
+                        <div id="recent-disciplines-list" class="space-y-3 max-h-[450px] overflow-y-auto pr-2"></div>
+                    </div>
+                </div>
+            </main>
         </div>
       </div>
     </main>
-    <footer class="text-center py-4 mt-8 border-t border-border">
-        <p class="text-sm text-subtle">&copy; ${new Date().getFullYear()} Meu Planner Acadêmico. Todos os direitos reservados.</p>
-    </footer>
   </div>
 `;
 

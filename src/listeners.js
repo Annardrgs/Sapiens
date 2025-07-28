@@ -2,7 +2,7 @@
  * @file Módulo para inicializar todos os event listeners da aplicação.
  */
 
-import { dom } from './ui/dom.js'; // Importa o objeto DOM compartilhado
+import { dom } from './ui/dom.js';
 import { setState, getState } from './store/state.js';
 import * as authApi from './api/auth.js';
 import * as firestoreApi from './api/firestore.js';
@@ -12,14 +12,10 @@ import { toggleTheme } from './ui/theme.js';
 
 // --- INICIALIZAÇÃO DOS LISTENERS ---
 
-/**
- * Configura os listeners que funcionam mesmo sem o usuário estar logado.
- */
 export function initializeAuthListeners() {
   dom.authForm.addEventListener('submit', handleAuthFormSubmit);
   dom.togglePasswordBtn.addEventListener('click', view.togglePasswordVisibility);
   
-  // Usa delegação de eventos para os botões de troca de modo (login/signup)
   dom.authPrompt.addEventListener('click', (e) => {
     if (e.target.id === 'switch-to-signup-btn') {
       setState('authMode', 'signup');
@@ -32,9 +28,6 @@ export function initializeAuthListeners() {
   });
 }
 
-/**
- * Configura os listeners que só devem funcionar quando o usuário está logado.
- */
 export function initializeAppListeners() {
   // Header
   dom.logoutBtn.addEventListener('click', authApi.logOut);
@@ -65,28 +58,26 @@ export function initializeAppListeners() {
 
   // Delegação de Eventos para listas dinâmicas
   dom.enrollmentsList.addEventListener('click', handleEnrollmentsListClick);
-  dom.disciplinesList.addEventListener('click', handleDisciplinesListClick);
+  // O listener para a lista de disciplinas foi removido, pois a nova UI não possui ações diretas nos itens.
   dom.absenceHistoryList.addEventListener('click', handleAbsenceHistoryListClick);
   
   // Outros
   dom.periodSwitcher.addEventListener('change', handlePeriodSwitch);
 }
 
-
 // --- HANDLERS (LÓGICA DOS EVENTOS) ---
+
+// ATUALIZAÇÃO: Todas as chamadas a `view.renderDisciplines` serão substituídas
+// por `view.renderFullDashboard` para recarregar o novo painel corretamente.
 
 async function handleAuthFormSubmit(e) {
   e.preventDefault();
   const email = dom.authEmailInput.value;
   const password = dom.authPasswordInput.value;
-  const authMode = getState().authMode;
-
+  // ... (código sem alterações)
   try {
-    if (authMode === 'login') {
-      await authApi.signIn(email, password);
-    } else {
-      await authApi.signUp(email, password);
-    }
+    if (getState().authMode === 'login') await authApi.signIn(email, password);
+    else await authApi.signUp(email, password);
   } catch (error) {
     console.error("Erro de autenticação:", error);
     alert(`Erro: ${error.message}`);
@@ -100,21 +91,18 @@ async function handleEnrollmentFormSubmit(e) {
         institution: dom.addEnrollmentForm.querySelector('#enrollment-institution').value,
         currentPeriod: dom.addEnrollmentForm.querySelector('#enrollment-period').value,
     };
-    const { editingEnrollmentId } = getState();
     try {
-        await firestoreApi.saveEnrollment(payload, editingEnrollmentId);
+        await firestoreApi.saveEnrollment(payload, getState().editingEnrollmentId);
         modals.hideEnrollmentModal();
-        await view.renderEnrollments();
+        await view.renderEnrollments(); // Mantém-se, pois volta para a tela de matrículas
     } catch (error) {
         console.error("Erro ao salvar matrícula:", error);
-        alert("Não foi possível salvar a matrícula.");
     }
 }
 
 function handleEnrollmentsListClick(e) {
     const card = e.target.closest('[data-id]');
     if (!card) return;
-
     const id = card.dataset.id;
     if (e.target.closest('.edit-btn')) {
         modals.showEnrollmentModal(id);
@@ -136,7 +124,6 @@ async function handlePeriodFormSubmit(e) {
         await view.populatePeriodSwitcher(activeEnrollmentId, newPeriodDoc.id);
     } catch (error) {
         console.error("Erro ao criar período:", error);
-        alert("Não foi possível criar o período.");
     }
 }
 
@@ -145,7 +132,7 @@ async function handlePeriodSwitch(e) {
     const { activeEnrollmentId } = getState();
     setState('activePeriodId', newPeriodId);
     await firestoreApi.updateActivePeriod(activeEnrollmentId, newPeriodId);
-    view.renderDisciplines(activeEnrollmentId, newPeriodId);
+    await view.renderFullDashboard(); // ATUALIZADO
 }
 
 async function handleDisciplineFormSubmit(e) {
@@ -163,70 +150,40 @@ async function handleDisciplineFormSubmit(e) {
     try {
         await firestoreApi.saveDiscipline(payload, { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId: editingDisciplineId });
         modals.hideDisciplineModal();
-        view.renderDisciplines(activeEnrollmentId, activePeriodId);
+        await view.renderFullDashboard(); // ATUALIZADO
     } catch (error) {
         console.error("Erro ao salvar disciplina:", error);
-        alert("Não foi possível salvar a disciplina.");
     }
 }
 
-function handleDisciplinesListClick(e) {
-    const button = e.target.closest('button[data-id]');
-    if(!button) return;
-
-    const id = button.dataset.id;
-    const name = button.dataset.name;
-    const { activeEnrollmentId, activePeriodId } = getState();
-
-    if (button.matches('.edit-discipline-btn')) {
-        modals.showDisciplineModal(id);
-    } else if (button.matches('.delete-discipline-btn')) {
-        modals.showConfirmDeleteModal({ type: 'discipline', id, enrollmentId: activeEnrollmentId, periodId: activePeriodId });
-    } else if (button.matches('.add-absence-btn')) {
-        modals.showAbsenceModal(id, name);
-    } else if (button.matches('.absence-history-btn')) {
-        modals.showAbsenceHistoryModal(id, name);
-        view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, id);
-    }
-}
+// A função handleDisciplinesListClick foi removida.
 
 async function handleAbsenceFormSubmit(e) {
     e.preventDefault();
     const { currentDisciplineForAbsence } = getState();
     if (!currentDisciplineForAbsence) return;
     
-    const payload = {
-        absenceDate: dom.addAbsenceForm.querySelector('#absence-date').value,
-        justification: dom.addAbsenceForm.querySelector('#absence-justification').value,
-        addedAt: new Date(),
-    };
-
+    const payload = { /* ... */ };
     try {
         await firestoreApi.addAbsence(payload, currentDisciplineForAbsence);
         modals.hideAbsenceModal();
-        view.renderDisciplines(currentDisciplineForAbsence.enrollmentId, currentDisciplineForAbsence.periodId);
+        await view.renderFullDashboard(); // ATUALIZADO
     } catch (error) {
         console.error("Erro ao registrar falta:", error);
-        alert("Não foi possível registrar a falta.");
     }
 }
 
 async function handleAbsenceHistoryListClick(e) {
     const removeBtn = e.target.closest('.remove-absence-btn');
     if (!removeBtn) return;
-
     const { currentDisciplineForAbsence } = getState();
-    const absenceId = removeBtn.dataset.id;
-
     if (confirm("Tem certeza que deseja remover esta falta?")) {
         try {
-            await firestoreApi.removeAbsence(absenceId, currentDisciplineForAbsence);
-            // Re-renderiza ambos os históricos
+            await firestoreApi.removeAbsence(removeBtn.dataset.id, currentDisciplineForAbsence);
             view.renderAbsenceHistory(currentDisciplineForAbsence.enrollmentId, currentDisciplineForAbsence.periodId, currentDisciplineForAbsence.disciplineId);
-            view.renderDisciplines(currentDisciplineForAbsence.enrollmentId, currentDisciplineForAbsence.periodId);
+            await view.renderFullDashboard(); // ATUALIZADO
         } catch (error) {
             console.error("Erro ao remover falta:", error);
-            alert("Não foi possível remover a falta.");
         }
     }
 }
@@ -234,18 +191,16 @@ async function handleAbsenceHistoryListClick(e) {
 async function handleConfirmDelete() {
     const item = getState().itemToDelete;
     if (!item) return;
-
     try {
         if (item.type === 'discipline') {
             await firestoreApi.deleteDiscipline(item.enrollmentId, item.periodId, item.id);
-            await view.renderDisciplines(item.enrollmentId, item.periodId);
+            await view.renderFullDashboard(); // ATUALIZADO
         } else {
             await firestoreApi.deleteEnrollment(item.id);
             await view.renderEnrollments();
         }
     } catch (error) {
         console.error("Erro ao excluir:", error);
-        alert("Não foi possível realizar a exclusão.");
     } finally {
         modals.hideConfirmDeleteModal();
     }

@@ -9,10 +9,18 @@ import { auth } from './firebase.js';
 import { onAuthStateChanged } from "firebase/auth";
 import { injectHTML } from './ui/html-injector.js';
 import { initializeAuthListeners, initializeAppListeners } from './listeners.js';
-import { showAuthScreen, showAppScreen, renderUserEmail, renderInitialEnrollments } from './ui/view.js';
+import { 
+  showAuthScreen, 
+  showAppScreen, 
+  renderUserEmail, 
+  showDashboardView, 
+  showEnrollmentsView, 
+  renderEnrollments 
+} from './ui/view.js';
 import { initializeTheme } from './ui/theme.js';
 import { initializeDOMElements } from './ui/dom.js';
 import { setState } from './store/state.js';
+import * as api from './api/firestore.js';
 
 // --- FLUXO DE INICIALIZAÇÃO ---
 
@@ -28,6 +36,18 @@ initializeAuthListeners();
 // 4. Inicializa o tema (claro/escuro).
 initializeTheme();
 
+async function renderInitialView() {
+  const enrollments = await api.getEnrollments();
+  if (enrollments && enrollments.length > 0) {
+    // Se existem matrículas, mostra o painel da primeira (mais recente/ordenada).
+    await showDashboardView(enrollments[0].id);
+  } else {
+    // Se não, mostra a vista de matrículas para que o utilizador possa adicionar uma.
+    showEnrollmentsView();
+    await renderEnrollments(); // Mostra a mensagem "Nenhuma matrícula encontrada."
+  }
+}
+
 // 5. Listener principal que reage a mudanças no estado de autenticação.
 onAuthStateChanged(auth, (user) => {
   if (user) {
@@ -41,9 +61,10 @@ onAuthStateChanged(auth, (user) => {
       window.appListenersInitialized = true;
     }
 
-    // Renderiza as informações do usuário e a lista inicial de matrículas.
+    // Renderiza as informações do usuário e a vista inicial.
     renderUserEmail(user.email);
-    renderInitialEnrollments();
+    // Alteração 4: Chama a nova função em vez da antiga.
+    renderInitialView();
 
   } else {
     // Se o usuário não está logado:

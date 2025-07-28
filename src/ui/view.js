@@ -6,7 +6,7 @@
 import { dom } from './dom.js';
 import * as api from '../api/firestore.js';
 import { getState, setState } from '../store/state.js';
-import { createEnrollmentCard, createDisciplineCard, createAbsenceHistoryItem } from '../components/Card.js';
+import { createEnrollmentCard } from '../components/Card.js';
 
 let sortableInstances = {
   enrollments: null,
@@ -37,32 +37,10 @@ export function showEnrollmentsView() {
     setState('activePeriodId', null);
 }
 
-export async function showDashboardView(enrollmentId) {
-    if (sortableInstances.enrollments) {
-        sortableInstances.enrollments.destroy();
-        sortableInstances.enrollments = null;
-    }
-    dom.enrollmentsView.classList.add('hidden');
-    dom.dashboardView.classList.remove('hidden');
-    setState('activeEnrollmentId', enrollmentId);
-
-    const enrollmentSnap = await api.getEnrollment(enrollmentId);
-    if (enrollmentSnap.exists()) {
-        const data = enrollmentSnap.data();
-        dom.dashboardTitle.textContent = data.course;
-        dom.dashboardSubtitle.textContent = data.institution;
-        await populatePeriodSwitcher(enrollmentId, data.activePeriodId);
-    }
-}
-
 // --- RENDERIZAÇÃO DE CONTEÚDO ---
 
 export function renderUserEmail(email) {
     dom.userEmailDisplay.textContent = email;
-}
-
-export function renderInitialEnrollments() {
-    renderEnrollments();
 }
 
 export async function renderEnrollments() {
@@ -87,6 +65,57 @@ export async function renderEnrollments() {
       ghostClass: 'opacity-50',
       onEnd: (evt) => api.updateEnrollmentsOrder(Array.from(evt.to.children)),
   });
+}
+
+export async function showDashboardView(enrollmentId) {
+    if (sortableInstances.enrollments) {
+        sortableInstances.enrollments.destroy();
+        sortableInstances.enrollments = null;
+    }
+    dom.enrollmentsView.classList.add('hidden');
+    dom.dashboardView.classList.remove('hidden');
+    setState('activeEnrollmentId', enrollmentId);
+
+    const enrollmentSnap = await api.getEnrollment(enrollmentId);
+    if (enrollmentSnap.exists()) {
+        const data = enrollmentSnap.data();
+        dom.dashboardTitle.textContent = data.course;
+        dom.dashboardSubtitle.textContent = data.institution;
+        await populatePeriodSwitcher(enrollmentId, data.activePeriodId);
+        
+        // Após popular o seletor, renderiza o dashboard completo
+        await renderFullDashboard();
+    }
+}
+
+async function renderFullDashboard() {
+    const { activeEnrollmentId, activePeriodId } = getState();
+    if (!activePeriodId) return;
+
+    const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
+    
+    renderDashboardSummaryCards(disciplines);
+    
+    renderDisciplineBudgets(disciplines);
+    renderRecentDisciplinesList(disciplines);
+}
+
+function renderDashboardSummaryCards(disciplines) {
+    let totalClasses = 0;
+    let totalAbsences = 0;
+
+    disciplines.forEach(d => {
+        const workload = d.workload || 0;
+        const hoursPerClass = d.hoursPerClass || 1;
+        totalClasses += Math.floor(workload / hoursPerClass);
+        totalAbsences += d.absences || 0;
+    });
+
+    const totalPresences = totalClasses > totalAbsences ? totalClasses - totalAbsences : 0;
+
+    document.getElementById('total-classes-period').textContent = totalClasses;
+    document.getElementById('total-presences-period').textContent = totalPresences;
+    document.getElementById('total-absences-period').textContent = totalAbsences;
 }
 
 export async function renderDisciplines(enrollmentId, periodId) {
