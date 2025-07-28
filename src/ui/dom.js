@@ -94,5 +94,17 @@ export function initializeDOMElements() {
     gradesContainer: document.getElementById('grades-container'),
     addGradeFieldBtn: document.getElementById('add-grade-field-btn'),
     cancelConfigGradesBtn: document.getElementById('cancel-config-grades-btn'),
+
+    // Modal de Opções do Período
+    periodOptionsModal: document.getElementById('period-options-modal'),
+    periodOptionsForm: document.getElementById('period-options-form'),
+    periodOptionsTitle: document.getElementById('period-options-title'),
+    viewCalendarLink: document.getElementById('view-calendar-link'),
+
+    // Em dom.js, dentro de Object.assign
+    pdfViewerModal: document.getElementById('pdf-viewer-modal'),
+    pdfViewerIframe: document.getElementById('pdf-viewer-iframe'),
+    closePdfViewerBtn: document.getElementById('close-pdf-viewer-btn'),
+    viewCalendarBtn: document.getElementById('view-calendar-btn'),
   });
 }

@@ -65,15 +65,21 @@ export function initializeAppListeners() {
     // Listeners para o navegador de período
     dom.prevPeriodBtn.addEventListener('click', () => switchPeriod('prev'));
     dom.nextPeriodBtn.addEventListener('click', () => switchPeriod('next'));
-    dom.managePeriodBtn.addEventListener('click', () => dom.periodMenu.classList.toggle('hidden'));
-    dom.endPeriodBtn.addEventListener('click', handleEndPeriod);
-    dom.reopenPeriodBtn.addEventListener('click', handleReopenPeriod);
-    dom.deletePeriodBtn.addEventListener('click', handleDeletePeriod);
+    dom.managePeriodBtn.addEventListener('click', modals.showPeriodOptionsModal);
 
     dom.cancelConfigGradesBtn.addEventListener('click', modals.hideConfigGradesModal);
     dom.addGradeFieldBtn.addEventListener('click', handleAddGradeField);
     dom.configGradesForm.addEventListener('submit', handleConfigGradesSubmit);
     dom.disciplinesList.addEventListener('input', handleGradeInput);
+
+    dom.periodOptionsForm.addEventListener('submit', handlePeriodOptionsFormSubmit);
+    dom.periodOptionsModal.querySelector('[data-action="cancel"]').addEventListener('click', modals.hidePeriodOptionsModal);
+    dom.periodOptionsModal.querySelector('#end-period-btn').addEventListener('click', handleEndPeriod);
+    dom.periodOptionsModal.querySelector('#reopen-period-btn').addEventListener('click', handleReopenPeriod);
+    dom.periodOptionsModal.querySelector('#delete-period-btn').addEventListener('click', handleDeletePeriod);
+
+    dom.viewCalendarBtn.addEventListener('click', handleViewCalendar);
+    dom.closePdfViewerBtn.addEventListener('click', modals.hidePdfViewerModal);
 
     document.addEventListener('click', handleOutsideClick, true);
 }
@@ -352,11 +358,6 @@ function handleOutsideClick(e) {
         openMenu.classList.add('hidden');
     }
 
-    // Fecha o menu de opções do período
-    if (!dom.periodMenu.classList.contains('hidden') && !dom.managePeriodBtn.contains(e.target)) {
-        dom.periodMenu.classList.add('hidden');
-    }
-
     // Fecha modais clicando no fundo
     const activeModal = document.querySelector('.fixed.inset-0.flex:not(.hidden)');
     if (activeModal && activeModal === e.target) {
@@ -459,4 +460,66 @@ function handleDeletePeriod() {
     const { activeEnrollmentId, activePeriodId } = getState();
     modals.showConfirmDeleteModal({ type: 'period', id: activePeriodId, enrollmentId: activeEnrollmentId });
     dom.periodMenu.classList.add('hidden');
+}
+
+async function handlePeriodOptionsFormSubmit(e) {
+    e.preventDefault();
+    const { activeEnrollmentId, activePeriodId } = getState();
+    const fileInput = dom.periodOptionsForm.querySelector('#period-calendar-file');
+    const file = fileInput.files[0];
+
+    const payload = {
+        startDate: dom.periodOptionsForm.querySelector('#period-start-date').value,
+        endDate: dom.periodOptionsForm.querySelector('#period-end-date').value,
+    };
+
+    try {
+        // Mostra um feedback de "salvando" para o usuário
+        const submitButton = dom.periodOptionsForm.querySelector('button[type="submit"]');
+        submitButton.textContent = 'Salvando...';
+        submitButton.disabled = true;
+
+        if (file) {
+            // Chama a nova função de upload
+            const downloadURL = await firestoreApi.uploadPeriodCalendar(file, { enrollmentId: activeEnrollmentId, periodId: activePeriodId });
+            payload.calendarUrl = downloadURL;
+        }
+
+        await firestoreApi.updatePeriodDetails(activeEnrollmentId, activePeriodId, payload);
+        
+        modals.hidePeriodOptionsModal();
+        await view.showDashboardView(activeEnrollmentId);
+
+    } catch (error) {
+        console.error("Erro ao salvar opções do período:", error);
+        alert("Não foi possível salvar as alterações.");
+    } finally {
+        // Restaura o botão, mesmo que dê erro
+        const submitButton = dom.periodOptionsForm.querySelector('button[type="submit"]');
+        submitButton.textContent = 'Salvar Alterações';
+        submitButton.disabled = false;
+    }
+}
+
+async function handleViewCalendar() {
+    const { activeEnrollmentId, activePeriodId } = getState();
+    
+    try {
+        // Usa a nova função da API, muito mais limpa
+        const periodSnap = await firestoreApi.getPeriod(activeEnrollmentId, activePeriodId);
+
+        if (periodSnap && periodSnap.exists()) {
+            const currentPeriod = periodSnap.data();
+            if (currentPeriod && currentPeriod.calendarUrl) {
+                modals.showPdfViewerModal(currentPeriod.calendarUrl);
+            } else {
+                alert("Nenhum calendário encontrado para este período.");
+            }
+        } else {
+            alert("Não foi possível encontrar os dados do período.");
+        }
+    } catch (error) {
+        console.error("Erro ao buscar o calendário:", error);
+        alert("Não foi possível carregar os dados do calendário.");
+    }
 }

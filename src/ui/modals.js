@@ -117,6 +117,43 @@ export function hideAllModals() {
     hideAbsenceHistoryModal();
     hideConfirmDeleteModal();
     hideConfigGradesModal();
+    hidePeriodOptionsModal();
+    hidePdfViewerModal();
+}
+
+export async function showPeriodOptionsModal() {
+    const { periods, activePeriodIndex } = getState();
+    const currentPeriod = periods[activePeriodIndex];
+
+    if (!currentPeriod) return;
+
+    // Preenche o título e o formulário com os dados existentes
+    dom.periodOptionsTitle.textContent = `Opções do Período "${currentPeriod.name}"`;
+    dom.periodOptionsForm.querySelector('#period-start-date').value = currentPeriod.startDate || '';
+    dom.periodOptionsForm.querySelector('#period-end-date').value = currentPeriod.endDate || '';
+    
+    // Mostra ou esconde o link para visualizar o calendário
+    if (currentPeriod.calendarUrl) {
+        dom.viewCalendarLink.href = currentPeriod.calendarUrl;
+        dom.viewCalendarLink.classList.remove('hidden');
+    } else {
+        dom.viewCalendarLink.classList.add('hidden');
+    }
+
+    // Controla a visibilidade dos botões de encerrar/reabrir
+    if (currentPeriod.status === 'closed') {
+        dom.endPeriodBtn.classList.add('hidden');
+        dom.reopenPeriodBtn.classList.remove('hidden');
+    } else {
+        dom.endPeriodBtn.classList.remove('hidden');
+        dom.reopenPeriodBtn.classList.add('hidden');
+    }
+
+    showModal(dom.periodOptionsModal);
+}
+
+export function hidePeriodOptionsModal() {
+    hideModal(dom.periodOptionsModal);
 }
 
 // --- MODAL DE CONFIRMAÇÃO DE EXCLUSÃO ---
@@ -151,4 +188,14 @@ export function showConfigGradesModal(disciplineId, disciplineName) {
 
 export function hideConfigGradesModal() {
     hideModal(dom.configGradesModal);
+}
+
+export function showPdfViewerModal(url) {
+    dom.pdfViewerIframe.src = url;
+    showModal(dom.pdfViewerModal);
+}
+
+export function hidePdfViewerModal() {
+    dom.pdfViewerIframe.src = '';
+    hideModal(dom.pdfViewerModal);
 }

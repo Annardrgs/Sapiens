@@ -18,6 +18,7 @@ import {
   increment,
   runTransaction,
 } from 'firebase/firestore';
+import { cloudinaryConfig } from '../firebase.js';
 
 const getCurrentUserId = () => auth.currentUser?.uid;
 
@@ -147,6 +148,19 @@ export async function getPeriods(enrollmentId) {
     const q = query(collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods'), orderBy('name', 'desc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+/**
+ * Obtém um único documento de período.
+ * @param {string} enrollmentId - O ID da matrícula.
+ * @param {string} periodId - O ID do período.
+ * @returns {Promise<DocumentSnapshot>}
+ */
+export function getPeriod(enrollmentId, periodId) {
+    const userId = getCurrentUserId();
+    if (!userId) return null;
+    const periodRef = doc(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId);
+    return getDoc(periodRef);
 }
 
 export async function createPeriod(enrollmentId, periodName) {
@@ -283,4 +297,55 @@ export function removeAbsence(absenceId, { enrollmentId, periodId, disciplineId 
         transaction.delete(absenceRef);
         transaction.update(disciplineRef, { absences: increment(-1) });
     });
+}
+
+/**
+ * Faz o upload de um arquivo para o Cloudinary.
+ * @param {File} file O arquivo a ser enviado.
+ * @returns {Promise<string>} A URL de download do arquivo.
+ */
+export async function uploadPeriodCalendar(file) {
+    const { cloudName, uploadPreset } = cloudinaryConfig;
+    if (!cloudName || !uploadPreset) {
+        throw new Error("Configuração do Cloudinary não encontrada.");
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
+    formData.append('resource_type', 'auto');
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/upload`, {
+        method: 'POST',
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Erro no upload para o Cloudinary:", errorData);
+        throw new Error('Falha no upload para o Cloudinary.');
+    }
+
+    const data = await response.json();
+
+    // CORREÇÃO CRÍTICA: Garante que a URL use o tipo de recurso correto
+    if (data.resource_type === 'raw') {
+        return data.secure_url.replace('/image/upload/', '/raw/upload/');
+    }
+
+    return data.secure_url;
+}
+
+/**
+ * Atualiza os detalhes de um período (datas, URL do calendário).
+ * @param {string} enrollmentId ID da matrícula.
+ * @param {string} periodId ID do período.
+ * @param {object} payload Os dados a serem atualizados.
+ * @returns {Promise<void>}
+ */
+export function updatePeriodDetails(enrollmentId, periodId, payload) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const periodRef = doc(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId);
+    return updateDoc(periodRef, payload);
 }

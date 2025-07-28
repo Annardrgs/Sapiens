@@ -212,6 +212,12 @@ export async function renderPeriodNavigator() {
     const currentPeriod = periods[activePeriodIndex];
     if (!currentPeriod) return;
 
+    if (currentPeriod.calendarUrl) {
+        dom.viewCalendarBtn.classList.remove('hidden');
+    } else {
+        dom.viewCalendarBtn.classList.add('hidden');
+    }
+
     setState('activePeriodId', currentPeriod.id);
     
     // Atualiza o nome e o status visual do período
