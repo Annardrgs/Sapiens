@@ -2,18 +2,12 @@
  * @file Módulo para selecionar e exportar todos os elementos do DOM.
  */
 
-// O objeto 'dom' será preenchido pela função initialize e exportado.
 export const dom = {};
 
-/**
- * Seleciona todos os elementos necessários do DOM e os armazena no objeto 'dom'.
- */
 export function initializeDOMElements() {
-  if (Object.keys(dom).length) {
-    return; // Já foi inicializado
-  }
+  if (Object.keys(dom).length) return;
 
-  const elements = {
+  Object.assign(dom, {
     // Telas
     authScreen: document.getElementById('auth-screen'),
     appContainer: document.getElementById('app-container'),
@@ -31,7 +25,7 @@ export function initializeDOMElements() {
     eyeIcon: document.querySelector('.eye-icon'),
     eyeSlashIcon: document.querySelector('.eye-slash-icon'),
 
-    // Header do App
+    // Header
     logoutBtn: document.getElementById('logout-btn'),
     themeToggleBtn: document.getElementById('theme-toggle-btn'),
     sunIcon: document.getElementById('theme-sun-icon'),
@@ -42,19 +36,30 @@ export function initializeDOMElements() {
     addEnrollmentBtn: document.getElementById('add-enrollment-btn'),
     enrollmentsList: document.getElementById('enrollments-list'),
     
-    // Painel (Dashboard) - ATUALIZADO
+    // Dashboard (original)
     backToEnrollmentsBtn: document.getElementById('back-to-enrollments-btn'),
     dashboardTitle: document.getElementById('dashboard-title'),
     dashboardSubtitle: document.getElementById('dashboard-subtitle'),
     periodSwitcher: document.getElementById('period-switcher'),
     newPeriodBtn: document.getElementById('new-period-btn'),
     addDisciplineBtn: document.getElementById('add-discipline-btn'),
-    // IDs das novas listas do dashboard
-    disciplineBudgetsList: document.getElementById('discipline-budgets-list'),
-    recentDisciplinesList: document.getElementById('recent-disciplines-list'),
+    disciplinesList: document.getElementById('disciplines-list'),
 
+    // Dashboard Geral
+    generalDashboard: document.getElementById('general-dashboard'),
+    generalDashboardContent: document.getElementById('general-dashboard-content'),
 
-    // Modais (sem alterações)
+    // Elementos do navegador de período
+    prevPeriodBtn: document.getElementById('prev-period-btn'),
+    nextPeriodBtn: document.getElementById('next-period-btn'),
+    currentPeriodName: document.getElementById('current-period-name'),
+    managePeriodBtn: document.getElementById('manage-period-btn'),
+    periodMenu: document.getElementById('period-menu'),
+    endPeriodBtn: document.getElementById('end-period-btn'),
+    reopenPeriodBtn: document.getElementById('reopen-period-btn'),
+    deletePeriodBtn: document.getElementById('delete-period-btn'),
+
+    // Modais
     addEnrollmentModal: document.getElementById('add-enrollment-modal'),
     addEnrollmentForm: document.getElementById('add-enrollment-form'),
     enrollmentModalTitle: document.getElementById('enrollment-modal-title'),
@@ -82,8 +87,24 @@ export function initializeDOMElements() {
     confirmDeleteMessage: document.getElementById('confirm-delete-message'),
     confirmDeleteBtn: document.getElementById('confirm-delete-btn'),
     cancelDeleteBtn: document.getElementById('cancel-delete-btn'),
-  };
 
-  // Preenche o objeto 'dom' exportado
-  Object.assign(dom, elements);
+    configGradesModal: document.getElementById('config-grades-modal'),
+    configGradesForm: document.getElementById('config-grades-form'),
+    configGradesTitle: document.getElementById('config-grades-title'),
+    gradesContainer: document.getElementById('grades-container'),
+    addGradeFieldBtn: document.getElementById('add-grade-field-btn'),
+    cancelConfigGradesBtn: document.getElementById('cancel-config-grades-btn'),
+
+    // Modal de Opções do Período
+    periodOptionsModal: document.getElementById('period-options-modal'),
+    periodOptionsForm: document.getElementById('period-options-form'),
+    periodOptionsTitle: document.getElementById('period-options-title'),
+    viewCalendarLink: document.getElementById('view-calendar-link'),
+
+    // Em dom.js, dentro de Object.assign
+    pdfViewerModal: document.getElementById('pdf-viewer-modal'),
+    pdfViewerIframe: document.getElementById('pdf-viewer-iframe'),
+    closePdfViewerBtn: document.getElementById('close-pdf-viewer-btn'),
+    viewCalendarBtn: document.getElementById('view-calendar-btn'),
+  });
 }

@@ -17,6 +17,11 @@ const state = {
   // Objetos para operações em modais
   itemToDelete: null,
   currentDisciplineForAbsence: null,
+  currentDisciplineForGrades: null,
+
+  // Lista de períodos para navegação
+  periods: [],
+  activePeriodIndex: -1,
 };
 
 /**

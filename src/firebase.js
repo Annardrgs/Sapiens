@@ -14,6 +14,11 @@ const firebaseConfig = {
     measurementId: import.meta.env.VITE_MEASUREMENT_ID
 };
 
+export const cloudinaryConfig = {
+    cloudName: import.meta.env.VITE_CLOUDINARY_CLOUD_NAME,
+    uploadPreset: import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET,
+};
+
 // Inicializa e exporta os serviços do Firebase
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);

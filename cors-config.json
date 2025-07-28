@@ -1,0 +1,16 @@
+[
+  {
+    "origin": ["http://localhost:5173"],
+    "method": ["GET", "POST", "PUT", "HEAD"],
+    "responseHeader": [
+      "Content-Type",
+      "Access-Control-Allow-Origin"
+    ],
+    "maxAgeSeconds": 3600
+  },
+  {
+    "origin": ["https://sapiens-rdrgs.web.app", "https://sapiens-rdrgs.firebaseapp.com"],
+    "method": ["GET"],
+    "maxAgeSeconds": 3600
+  }
+]
