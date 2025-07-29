@@ -293,15 +293,14 @@ async function renderInteractiveCalendar() {
         height: 'auto', // Ajusta a altura ao container
         events: events,
         eventColor: 'var(--color-primary)',
-        // Limita o calendário para mostrar apenas as datas do período
+        
+        initialDate: currentPeriod.startDate || new Date(),
+        
         validRange: {
             start: currentPeriod.startDate,
             end: currentPeriod.endDate ? new Date(new Date(currentPeriod.endDate).setDate(new Date(currentPeriod.endDate).getDate() + 1)) : undefined
         },
-        // Inicia o calendário no mês da data de início do período
-        initialDate: currentPeriod.startDate,
     });
-
     calendar.render();
 }
 

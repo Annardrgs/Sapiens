@@ -73,7 +73,24 @@ const mainHTML = `
 
           <div class="mt-6 flex items-center justify-between">
             <div id="period-navigator-container" class="flex items-center space-x-4">
+              <div id="period-navigator" class="flex items-center space-x-1 p-1 bg-surface rounded-lg shadow-sm">
+                  <button id="prev-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-50">
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                  </button>
+                  <div class="text-center w-28 px-2">
+                      <span id="current-period-name" class="font-bold text-secondary"></span>
+                      <button id="view-calendar-btn" class="hidden text-xs text-primary hover:underline">Ver Calendário</button>
+                  </div>
+                  <button id="next-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-50">
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                  </button>
               </div>
+              <div class="relative">
+                  <button id="manage-period-btn" class="p-2 rounded-lg hover:bg-surface" title="Opções do período">
+                      <svg class="w-6 h-6 text-subtle" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
+                  </button>
+              </div>
+          </div>
             <button id="new-period-btn" class="bg-primary text-bkg text-sm font-semibold py-2 px-3 rounded-lg shadow-md hover:opacity-90 transition-opacity">+ Novo Período</button>
           </div>
         </div>
