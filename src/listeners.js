@@ -10,61 +10,61 @@ import * as view from './ui/view.js';
 import * as modals from './ui/modals.js';
 import { toggleTheme } from './ui/theme.js';
 import { calculateAverage } from './components/card.js';
+import { createAbsenceHistoryItem } from './components/card.js';
 
 // --- INICIALIZAÇÃO DOS LISTENERS ---
 
 export function initializeAuthListeners() {
-    dom.authForm.addEventListener('submit', handleAuthFormSubmit);
-    dom.authPrompt.addEventListener('click', (e) => {
+    if (dom.authForm) dom.authForm.addEventListener('submit', handleAuthFormSubmit);
+    if (dom.authPrompt) dom.authPrompt.addEventListener('click', (e) => {
         if (e.target.id === 'switch-to-signup-btn') {
-        setState('authMode', 'signup');
-        view.updateAuthView();
+            setState('authMode', 'signup');
+            view.updateAuthView();
         }
         if (e.target.id === 'switch-to-login-btn') {
-        setState('authMode', 'login');
-        view.updateAuthView();
+            setState('authMode', 'login');
+            view.updateAuthView();
         }
     });
-    // Listener para o botão de visibilidade da senha na tela de auth
-    const authToggleBtn = dom.authScreen.querySelector('[data-toggle-password]');
-    if(authToggleBtn) {
-        authToggleBtn.addEventListener('click', view.togglePasswordVisibility);
+    const authToggleBtn = document.querySelector('#auth-screen [data-toggle-password]');
+    if (authToggleBtn) {
+        authToggleBtn.addEventListener('click', () => view.togglePasswordVisibility(dom.authPasswordInput));
     }
 }
 
 export function initializeAppListeners() {
-    // Listener GERAL para todos os cliques dentro do container principal do app
-    dom.appContainer.addEventListener('click', handleAppContainerClick);
-    
-    // Listeners que SÃO seguros para inicializar aqui, pois seus elementos sempre existem
-    dom.logoutBtn.addEventListener('click', authApi.logOut);
-    dom.themeToggleBtn.addEventListener('click', toggleTheme);
-
-    // Listeners para os formulários dos modais
-    dom.addEnrollmentForm.addEventListener('submit', handleEnrollmentFormSubmit);
-    dom.addDisciplineForm.addEventListener('submit', handleDisciplineFormSubmit);
-    dom.addPeriodForm.addEventListener('submit', handlePeriodFormSubmit);
-    dom.addAbsenceForm.addEventListener('submit', handleAbsenceFormSubmit);
-    dom.confirmDeleteBtn.addEventListener('click', handleConfirmDelete);
-    dom.configGradesForm.addEventListener('submit', handleConfigGradesSubmit);
-    dom.periodOptionsForm.addEventListener('submit', handlePeriodOptionsFormSubmit);
-    
-    // Listeners de input ou que não dependem de um elemento específico de uma view
-    dom.disciplinesList.addEventListener('input', handleGradeInput);
     document.addEventListener('click', handleOutsideClick, true);
 
-    // Listeners para os botões de "cancelar" dos modais
-    dom.cancelEnrollmentBtn.addEventListener('click', modals.hideEnrollmentModal);
-    dom.cancelDisciplineBtn.addEventListener('click', modals.hideDisciplineModal);
-    dom.cancelPeriodBtn.addEventListener('click', modals.hidePeriodModal);
-    dom.cancelAbsenceBtn.addEventListener('click', modals.hideAbsenceModal);
-    dom.closeAbsenceHistoryBtn.addEventListener('click', modals.hideAbsenceHistoryModal);
-    dom.cancelDeleteBtn.addEventListener('click', modals.hideConfirmDeleteModal);
-    dom.cancelConfigGradesBtn.addEventListener('click', modals.hideConfigGradesModal);
-    dom.periodOptionsModal.querySelector('[data-action="cancel"]').addEventListener('click', modals.hidePeriodOptionsModal);
-    dom.closePdfViewerBtn.addEventListener('click', modals.hidePdfViewerModal);
-}
+    // Listeners Globais e de Modais (sempre devem existir no DOM após o login)
+    if (dom.appContainer) dom.appContainer.addEventListener('click', handleAppContainerClick);
+    if (dom.logoutBtn) dom.logoutBtn.addEventListener('click', authApi.logOut);
+    if (dom.themeToggleBtn) dom.themeToggleBtn.addEventListener('click', toggleTheme);
+    document.addEventListener('click', handleOutsideClick, true);
 
+    // Listeners de formulários de modais
+    if (dom.addEnrollmentForm) dom.addEnrollmentForm.addEventListener('submit', handleEnrollmentFormSubmit);
+    if (dom.addDisciplineForm) dom.addDisciplineForm.addEventListener('submit', handleDisciplineFormSubmit);
+    if (dom.addPeriodForm) dom.addPeriodForm.addEventListener('submit', handlePeriodFormSubmit);
+    if (dom.addAbsenceForm) dom.addAbsenceForm.addEventListener('submit', handleAbsenceFormSubmit);
+    if (dom.confirmDeleteBtn) dom.confirmDeleteBtn.addEventListener('click', handleConfirmDelete);
+    if (dom.configGradesForm) dom.configGradesForm.addEventListener('submit', handleConfigGradesSubmit);
+    if (dom.periodOptionsForm) dom.periodOptionsForm.addEventListener('submit', handlePeriodOptionsFormSubmit);
+    if (dom.addGradeFieldBtn) dom.addGradeFieldBtn.addEventListener('click', handleAddGradeField);
+
+    // Listener de input para notas (só existe no dashboard)
+    if (dom.disciplinesList) dom.disciplinesList.addEventListener('input', handleGradeInput);
+    
+    // Listeners de botões de "cancelar" dos modais
+    if (dom.cancelEnrollmentBtn) dom.cancelEnrollmentBtn.addEventListener('click', modals.hideEnrollmentModal);
+    if (dom.cancelDisciplineBtn) dom.cancelDisciplineBtn.addEventListener('click', modals.hideDisciplineModal);
+    if (dom.cancelPeriodBtn) dom.cancelPeriodBtn.addEventListener('click', modals.hidePeriodModal);
+    if (dom.cancelAbsenceBtn) dom.cancelAbsenceBtn.addEventListener('click', modals.hideAbsenceModal);
+    if (dom.closeAbsenceHistoryBtn) dom.closeAbsenceHistoryBtn.addEventListener('click', modals.hideAbsenceHistoryModal);
+    if (dom.cancelDeleteBtn) dom.cancelDeleteBtn.addEventListener('click', modals.hideConfirmDeleteModal);
+    if (dom.cancelConfigGradesBtn) dom.cancelConfigGradesBtn.addEventListener('click', modals.hideConfigGradesModal);
+    if (dom.periodOptionsModal) dom.periodOptionsModal.querySelector('[data-action="cancel"]')?.addEventListener('click', modals.hidePeriodOptionsModal);
+    if (dom.closePdfViewerBtn) dom.closePdfViewerBtn.addEventListener('click', modals.hidePdfViewerModal);
+}
 
 // --- HANDLERS (LÓGICA DOS EVENTOS) ---
 
@@ -72,53 +72,45 @@ export function initializeAppListeners() {
  * Handler centralizado que captura todos os cliques dentro do #app-container
  * e delega a ação para a função correta.
  */
-async function handleAppContainerClick(e) {
+function handleAppContainerClick(e) {
     const target = e.target;
+    const actionTarget = target.closest('[data-action]');
 
-    // --- Ações na tela de Matrículas ---
+    // Ações na tela de Matrículas
     const enrollmentCard = target.closest('#enrollments-list [data-id]');
     if (enrollmentCard) {
         const id = enrollmentCard.dataset.id;
-        if (target.closest('.edit-btn')) modals.showEnrollmentModal(id);
-        else if (target.closest('.delete-btn')) modals.showConfirmDeleteModal({ type: 'enrollment', id });
-        else view.showDashboardView(id);
-        return;
-    }
-    if (target.closest('#add-enrollment-btn')) {
-        modals.showEnrollmentModal();
-        return;
-    }
-
-    // --- Ações no Dashboard (cabeçalho e navegação) ---
-    if (target.closest('#back-to-enrollments-btn')) view.showEnrollmentsView();
-    if (target.closest('#prev-period-btn')) switchPeriod('next');
-    if (target.closest('#next-period-btn')) switchPeriod('prev');
-    if (target.closest('#manage-period-btn')) modals.showPeriodOptionsModal();
-    if (target.closest('#new-period-btn')) modals.showPeriodModal();
-    if (target.closest('#add-discipline-btn')) modals.showDisciplineModal();
-    if (target.closest('#view-calendar-btn')) handleViewCalendar();
-
-    // --- Delegação para ações nos Cards de Disciplina ---
-    const disciplineAction = target.closest('#disciplines-list [data-id] a, #disciplines-list [data-id] button');
-    if (disciplineAction) {
-        handleDisciplinesListClick(e);
+        const action = actionTarget ? actionTarget.dataset.action : null;
+        if (action === 'edit-enrollment') modals.showEnrollmentModal(id);
+        else if (action === 'delete-enrollment') modals.showConfirmDeleteModal({ type: 'enrollment', id });
+        else view.showDashboardView(id); // Ação padrão do card
         return;
     }
     
-    // --- Delegação para ações no histórico de faltas ---
-    const absenceAction = target.closest('#absence-history-list button');
-    if (absenceAction) {
-        handleAbsenceHistoryListClick(e);
+    // Ações na tela de Resumo do Período Atual
+    if (target.closest('.view-enrollment-dashboard-btn')) {
+        view.showDashboardView(target.closest('[data-id]').dataset.id);
         return;
     }
+    
+    // Ações globais (botões principais)
+    const globalActionId = target.closest('button')?.id;
+    switch (globalActionId) {
+        case 'add-enrollment-btn': modals.showEnrollmentModal(); break;
+        case 'add-discipline-btn': modals.showDisciplineModal(); break;
+        case 'back-to-enrollments-btn': view.showEnrollmentsView(); break;
+        case 'new-period-btn': modals.showPeriodModal(); break;
+        case 'manage-period-btn': modals.showPeriodOptionsModal(); break;
+        case 'prev-period-btn': switchPeriod('prev'); break;
+        case 'next-period-btn': switchPeriod('next'); break;
+    }
 
-    // --- Delegação para ações no modal de opções do período ---
-    if (target.closest('#end-period-btn')) handleEndPeriod();
-    if (target.closest('#reopen-period-btn')) handleReopenPeriod();
-    if (target.closest('#delete-period-btn')) handleDeletePeriod();
+    // Ações em cards de disciplina
+    const disciplineCard = target.closest('#disciplines-list [data-id]');
+    if (disciplineCard) {
+        handleDisciplinesListClick(e, disciplineCard, actionTarget);
+    }
 }
-
-
 async function handleAuthFormSubmit(e) {
     e.preventDefault();
     const email = dom.authEmailInput.value;
@@ -300,49 +292,115 @@ async function handleDisciplineFormSubmit(e) {
     }
 }
 
-function handleDisciplinesListClick(e) {
-    const target = e.target;
-    const disciplineCard = target.closest('[data-id]');
-    if (!disciplineCard) return;
+/**
+ * Lida com cliques na lista de disciplinas, delegando para ações específicas.
+ */
+function handleDisciplinesListClick(e, card, actionTarget) {
+    // Se há um alvo de ação (um botão), executa a ação.
+    if (actionTarget) {
+        e.preventDefault();
+        const action = actionTarget.dataset.action;
+        const disciplineId = card.dataset.id;
+        const disciplineName = actionTarget.dataset.name;
+        const { activeEnrollmentId, activePeriodId } = getState();
 
-    const id = disciplineCard.dataset.id;
+        const menu = card.querySelector('.menu-options');
+        if (menu) menu.classList.add('hidden');
     
-    if (target.closest('.discipline-menu-btn')) {
-        const menu = document.getElementById(`menu-${id}`);
-        if (menu) {
-            document.querySelectorAll('[id^="menu-"]').forEach(m => {
-                if (m.id !== menu.id) m.classList.add('hidden');
-            });
-            menu.classList.toggle('hidden');
+        switch (action) {
+            case 'toggle-menu':
+                e.stopPropagation();
+                menu.classList.toggle('hidden');
+                break;
+            case 'edit-discipline':
+                modals.showDisciplineModal(disciplineId);
+                break;
+            case 'delete-discipline':
+                modals.showConfirmDeleteModal({ type: 'discipline', id: disciplineId, enrollmentId: activeEnrollmentId, periodId: activePeriodId });
+                break;
+            case 'add-absence':
+                modals.showAbsenceModal(disciplineId, disciplineName);
+                break;
+            case 'history-absence':
+                modals.showAbsenceHistoryModal(disciplineId, disciplineName);
+                view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, disciplineId);
+                break;
+            case 'config-grades':
+                modals.showConfigGradesModal(disciplineId, disciplineName);
+                break;
         }
-        return;
+    } 
+    // Se o clique foi no cabeçalho do card (mas não em um botão de ação), expande/contrai.
+    else if (e.target.closest('.card-header')) {
+        toggleCardExpansion(card);
     }
+}
 
-    const button = target.closest('button[data-id], a[data-id]');
-    if(!button) return;
+/**
+ * Expande ou contrai um card de disciplina.
+ */
+function toggleCardExpansion(card) {
+    const details = card.querySelector('.details-content');
+    if (!details) return;
 
-    const name = button.dataset.name;
+    if (details.style.maxHeight && details.style.maxHeight !== '0px') {
+        details.style.maxHeight = '0px';
+        card.classList.remove('bg-bkg'); // Volta à cor normal
+    } else {
+        details.style.maxHeight = details.scrollHeight + "px";
+        card.classList.add('bg-bkg'); // Muda a cor para dar destaque
+    }
+}
+
+/**
+ * Carrega e renderiza o histórico de faltas dentro de um card de disciplina.
+ */
+async function loadAbsenceHistoryIntoCard(card) {
+    const container = card.querySelector('.absence-history-list');
+    if (!container || container.dataset.loaded) return;
+
     const { activeEnrollmentId, activePeriodId } = getState();
-    const menu = document.getElementById(`menu-${id}`);
-    if (menu) menu.classList.add('hidden');
+    const disciplineId = card.dataset.id;
 
-    if (button.matches('.edit-discipline-btn')) modals.showDisciplineModal(id);
-    else if (button.matches('.delete-discipline-btn')) modals.showConfirmDeleteModal({ type: 'discipline', id, enrollmentId: activeEnrollmentId, periodId: activePeriodId });
-    else if (button.matches('.add-absence-btn')) modals.showAbsenceModal(id, name);
-    else if (button.matches('.absence-history-btn')) {
-        modals.showAbsenceHistoryModal(id, name);
-        view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, id);
-    } else if (button.matches('.config-grades-btn')) modals.showConfigGradesModal(id, name);
+    container.innerHTML = `<p class="text-sm text-subtle">Carregando...</p>`;
+    const history = await firestoreApi.getAbsenceHistory(activeEnrollmentId, activePeriodId, disciplineId);
+    
+    container.innerHTML = '';
+    if (!history.length) {
+        container.innerHTML = `<p class="text-sm text-subtle">Nenhuma falta registrada.</p>`;
+    } else {
+        history.forEach(item => {
+            const historyItem = createAbsenceHistoryItem(item);
+            historyItem.querySelector('.remove-absence-btn')?.addEventListener('click', async (e) => {
+            e.stopPropagation();
+                if (confirm("Tem certeza que deseja remover esta falta?")) {
+                    await firestoreApi.removeAbsence(item.id, {enrollmentId, periodId, disciplineId });
+                    // ATUALIZA APENAS O CARD AFETADO (CORREÇÃO DO BUG)
+                    const updatedDiscipline = await firestoreApi.getDiscipline(enrollmentId, periodId, disciplineId);
+                    if (updatedDiscipline.exists()) {
+                        view.updateDisciplineCard({ id: updatedDiscipline.id, ...updatedDiscipline.data() });
+                    }
+                    // Recarrega o histórico no modal se estiver aberto
+                    if (!dom.absenceHistoryModal.classList.contains('hidden')) {
+                        view.renderAbsenceHistory(enrollmentId, periodId, disciplineId);
+                    }
+                }
+            });
+        });
+    }
+    container.dataset.loaded = 'true';
+    
+    const details = card.querySelector('.details-content');
+    if (details.style.maxHeight && details.style.maxHeight !== '0px') {
+        details.style.maxHeight = details.scrollHeight + "px";
+    }
 }
 
 function handleOutsideClick(e) {
-    const openMenu = document.querySelector('[id^="menu-"]:not(.hidden)');
-    if (openMenu && !openMenu.previousElementSibling.contains(e.target)) {
+    // Fecha o menu de três pontos do card de disciplina
+    const openMenu = document.querySelector('.menu-options:not(.hidden)');
+    if (openMenu && !openMenu.parentElement.contains(e.target)) {
         openMenu.classList.add('hidden');
-    }
-    const activeModal = document.querySelector('.fixed.inset-0.flex:not(.hidden)');
-    if (activeModal && activeModal === e.target) {
-        modals.hideAllModals(); 
     }
 }
 
@@ -352,6 +410,7 @@ async function handleAbsenceFormSubmit(e) {
     if (!currentDisciplineForAbsence) return;
     
     const payload = {
+        // CORRIGIDO: O nome do campo agora é 'absenceDate'
         absenceDate: dom.addAbsenceForm.querySelector('#absence-date').value,
         justification: dom.addAbsenceForm.querySelector('#absence-justification').value,
         addedAt: new Date(),
@@ -360,11 +419,17 @@ async function handleAbsenceFormSubmit(e) {
     try {
         await firestoreApi.addAbsence(payload, currentDisciplineForAbsence);
         modals.hideAbsenceModal();
-        await view.refreshDashboard();
+        
+        const updatedDiscipline = await firestoreApi.getDiscipline(currentDisciplineForAbsence.enrollmentId, currentDisciplineForAbsence.periodId, currentDisciplineForAbsence.disciplineId);
+        if (updatedDiscipline.exists()) {
+            view.updateDisciplineCard({ id: updatedDiscipline.id, ...updatedDiscipline.data() });
+        }
     } catch (error) {
         console.error("Erro ao registrar falta:", error);
+        alert('Falha ao registrar falta.');
     }
 }
+
 
 async function handleAbsenceHistoryListClick(e) {
     const removeBtn = e.target.closest('.remove-absence-btn');
@@ -403,19 +468,15 @@ async function handleConfirmDelete() {
 }
 
 async function switchPeriod(direction) {
-    const { periods, activePeriodIndex, activeEnrollmentId } = getState();
+    const { periods, activePeriodIndex } = getState();
     let newIndex = activePeriodIndex;
-
-    if (direction === 'prev' && activePeriodIndex > 0) {
-        newIndex--;
-    } else if (direction === 'next' && activePeriodIndex < periods.length - 1) {
+    if (direction === 'prev' && activePeriodIndex < periods.length - 1) {
         newIndex++;
+    } else if (direction === 'next' && activePeriodIndex > 0) {
+        newIndex--;
     }
-
     if (newIndex !== activePeriodIndex) {
         setState('activePeriodIndex', newIndex);
-        const newActivePeriodId = periods[newIndex].id;
-        await firestoreApi.updateActivePeriod(activeEnrollmentId, newActivePeriodId);
         await view.renderPeriodNavigator();
         await view.refreshDashboard();
     }

@@ -14,9 +14,9 @@ const mainHTML = `
           <input type="email" id="auth-email" placeholder="Email" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md shadow-sm focus:ring-primary focus:border-primary placeholder-subtle">
           <div class="relative">
             <input type="password" id="auth-password" placeholder="Senha" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md shadow-sm focus:ring-primary focus:border-primary placeholder-subtle pr-12 appearance-none">
-            <button type="button" id="toggle-password-btn" class="absolute inset-y-0 right-0 px-4 flex items-center text-subtle hover:text-primary focus:outline-none rounded-r-md">
-              <svg class="w-5 h-5 eye-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              <svg class="w-5 h-5 eye-slash-icon hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.243 4.243L6.228 6.228" /></svg>
+            <button type="button" id="toggle-password-btn" data-toggle-password class="absolute inset-y-0 right-0 px-4 flex items-center text-subtle hover:text-primary focus:outline-none rounded-r-md">
+                <svg class="w-5 h-5 eye-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                <svg class="w-5 h-5 eye-slash-icon hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.243 4.243L6.228 6.228" /></svg>
             </button>
           </div>
           <button id="auth-submit-btn" type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-bkg bg-primary hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface focus:ring-primary">
@@ -29,7 +29,7 @@ const mainHTML = `
 
   <div id="app-container" class="hidden">
     <header class="bg-surface shadow-md border-b border-border sticky top-0 z-40">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="container mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
           <h1 class="text-2xl font-bold text-secondary">Meu Planner</h1>
           <div class="flex items-center">
@@ -44,7 +44,7 @@ const mainHTML = `
       </div>
     </header>
 
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <main class="container mx-auto py-6 sm:px-6 lg:px-8">
       <div id="enrollments-view">
         <div class="px-4 py-6 sm:px-0">
           <div class="flex justify-between items-center mb-6">
@@ -57,79 +57,66 @@ const mainHTML = `
         </div>
         <div id="general-dashboard" class="px-4 py-6 sm:px-0 mt-8">
             <h2 class="text-2xl font-bold text-secondary mb-4">Resumo do Período Atual</h2>
-            <div id="general-dashboard-content" class="space-y-8">
-                </div>
+            <div id="general-dashboard-content" class="space-y-8"></div>
         </div>
       </div>
 
       <div id="dashboard-view" class="hidden">
-        <div class="px-4 sm:px-0">
-          <button id="back-to-enrollments-btn" class="mb-6 text-sm text-primary hover:opacity-80 flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-            Voltar para Matrículas
-          </button>
-          <h2 id="dashboard-title" class="text-3xl font-bold text-secondary"></h2>
-          <p id="dashboard-subtitle" class="text-subtle mt-1"></p>
-
-          <div class="mt-6 flex items-center justify-between">
-            <div id="period-navigator-container" class="flex items-center space-x-4">
-              <div id="period-navigator" class="flex items-center space-x-1 p-1 bg-surface rounded-lg shadow-sm">
-                  <button id="prev-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-50">
-                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+              <div>
+                  <button id="back-to-enrollments-btn" class="text-sm text-subtle hover:text-primary mb-2 flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                      Voltar para Matrículas
                   </button>
-                  <div class="text-center w-28 px-2">
-                      <span id="current-period-name" class="font-bold text-secondary"></span>
-                      <button id="view-calendar-btn" class="hidden text-xs text-primary hover:underline">Ver Calendário</button>
+                  <h2 id="dashboard-title" class="text-3xl font-bold text-secondary"></h2>
+                  <p id="dashboard-subtitle" class="text-subtle"></p>
+              </div>
+              <div class="flex items-center space-x-2 mt-4 sm:mt-0">
+                  <div class="flex items-center bg-surface rounded-lg shadow-sm border border-border">
+                      <button id="prev-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-50"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
+                      <span id="current-period-name" class="font-bold text-secondary px-4 text-center w-28"></span>
+                      <button id="next-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-50"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
                   </div>
-                  <button id="next-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-50">
-                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                  <button id="new-period-btn" class="bg-primary text-bkg font-bold py-2 px-4 rounded-lg flex items-center shadow-md hover:opacity-90">
+                      Novo Período
                   </button>
+                   <div class="relative">
+                      <button id="manage-period-btn" class="p-2 rounded-lg hover:bg-surface" title="Opções do período">
+                          <svg class="w-6 h-6 text-subtle pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
+                      </button>
+                  </div>
               </div>
-              <div class="relative">
-                  <button id="manage-period-btn" class="p-2 rounded-lg hover:bg-surface" title="Opções do período">
-                      <svg class="w-6 h-6 text-subtle" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
-                  </button>
+          </div>
+
+          <div id="summary-cards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"></div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div class="lg:col-span-1 flex flex-col gap-8">
+                  <div>
+                      <h3 class="text-2xl font-bold text-secondary mb-4">Agenda da Semana</h3>
+                      <div id="weekly-agenda-container" class="space-y-4"></div>
+                  </div>
+                  <div>
+                      <h3 class="text-2xl font-bold text-secondary mb-4">Calendário do Período</h3>
+                      <div id="calendar-container" class="bg-surface p-4 rounded-xl shadow-lg border border-border"></div>
+                  </div>
+              </div>
+              <div class="lg:col-span-2">
+                  <div class="flex justify-between items-center mb-4">
+                      <h3 class="text-2xl font-bold text-secondary">Disciplinas</h3>
+                      <button id="add-discipline-btn" class="bg-primary text-bkg font-bold py-2 px-4 rounded-lg flex items-center shadow-md hover:opacity-90">
+                          Adicionar Disciplina
+                      </button>
+                  </div>
+                  <div id="disciplines-list" class="space-y-4"></div>
               </div>
           </div>
-            <button id="new-period-btn" class="bg-primary text-bkg text-sm font-semibold py-2 px-3 rounded-lg shadow-md hover:opacity-90 transition-opacity">+ Novo Período</button>
-          </div>
-        </div>
-
-        <div class="px-4 sm:px-0 grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-            <div class="bg-surface p-6 rounded-xl shadow-sm border border-border">
-                <h3 class="text-sm font-medium text-subtle">Total de Disciplinas</h3>
-                <p id="total-disciplines-card" class="text-3xl font-bold text-secondary mt-2">0</p>
-            </div>
-            <div class="bg-surface p-6 rounded-xl shadow-sm border border-border">
-                <h3 class="text-sm font-medium text-subtle">Próxima Avaliação</h3>
-                <p id="next-exam-card" class="text-3xl font-bold text-secondary mt-2">-</p>
-            </div>
-            <div class="bg-surface p-6 rounded-xl shadow-sm border border-border">
-                <h3 class="text-sm font-medium text-subtle">Faltas Acumuladas</h3>
-                <p id="total-absences-card" class="text-3xl font-bold text-secondary mt-2">0</p>
-            </div>
-        </div>
-
-        <div class="mt-8 lg:grid lg:grid-cols-3 lg:gap-8 px-4 sm:px-0">
-          <div class="lg:col-span-2">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-bold text-secondary">Disciplinas</h3>
-                <button id="add-discipline-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity">+ Adicionar Disciplina</button>
-            </div>
-            <div id="disciplines-list" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
-          </div>
-          <div class="lg:col-span-1 mt-8 lg:mt-0">
-             <div id="calendar-section">
-                <h3 class="text-2xl font-bold text-secondary mb-6">Calendário</h3>
-                <div id="calendar-container" class="bg-surface rounded-lg border border-border"></div>
-             </div>
-          </div>
-        </div>
       </div>
     </main>
   </div>
 `;
 
+// O modalHTML do seu arquivo original não precisa de alterações
 const modalHTML = `
   <div id="add-enrollment-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
     <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-md border border-border">
@@ -147,7 +134,6 @@ const modalHTML = `
       </form>
     </div>
   </div>
-
   <div id="confirm-delete-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
     <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-sm border border-border">
       <h3 class="text-xl font-bold text-secondary">Confirmar Exclusão</h3>
@@ -158,7 +144,6 @@ const modalHTML = `
       </div>
     </div>
   </div>
-
   <div id="add-discipline-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
     <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-md border border-border">
       <h3 id="discipline-modal-title" class="text-2xl font-bold mb-6 text-secondary">Nova Disciplina</h3>
@@ -181,7 +166,6 @@ const modalHTML = `
       </form>
     </div>
   </div>
-
   <div id="add-absence-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
     <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-md border border-border">
       <h3 class="text-2xl font-bold mb-6 text-secondary">Registrar Falta</h3>
@@ -203,7 +187,6 @@ const modalHTML = `
       </form>
     </div>
   </div>
-
   <div id="absence-history-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
     <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border flex flex-col" style="max-height: 90vh;">
       <h3 id="absence-history-title" class="text-2xl font-bold mb-4 text-secondary">Histórico de Faltas</h3>
@@ -212,7 +195,6 @@ const modalHTML = `
       <button type="button" id="close-absence-history-btn" class="mt-6 w-full bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-80">Fechar</button>
     </div>
   </div>
-
   <div id="add-period-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
     <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-md border border-border">
       <h3 class="text-2xl font-bold mb-6 text-secondary">Novo Período Letivo</h3>
@@ -227,7 +209,6 @@ const modalHTML = `
       </form>
     </div>
   </div>
-
   <div id="config-grades-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
     <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border">
       <h3 id="config-grades-title" class="text-2xl font-bold mb-6 text-secondary">Configurar Avaliações</h3>
@@ -253,7 +234,6 @@ const modalHTML = `
       </form>
     </div>
   </div>
-
   <div id="period-options-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
     <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border">
       <h3 id="period-options-title" class="text-2xl font-bold mb-6 text-secondary">Opções do Período</h3>
@@ -287,7 +267,6 @@ const modalHTML = `
       </form>
     </div>
   </div>
-
   <div id="pdf-viewer-modal" class="hidden fixed inset-0 bg-black bg-opacity-85 flex items-center justify-center z-50 p-4">
     <div class="bg-surface w-full h-full max-w-4xl max-h-[90vh] rounded-lg shadow-xl flex flex-col border border-border">
       <div class="flex justify-between items-center p-4 border-b border-border">

@@ -16,5 +16,5 @@ logs
 .firebase/
 
 # Notes
-.notes.yml
-notes.yml
+.notes.js
+notes.js

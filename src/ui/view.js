@@ -1,6 +1,5 @@
 /**
  * @file Módulo para funções que manipulam a interface do usuário (UI).
- * Inclui renderização de listas, troca de telas e atualização de elementos visuais.
  */
 import { dom } from './dom.js';
 import * as api from '../api/firestore.js';
@@ -11,8 +10,22 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 
 let sortableInstances = { enrollments: null, disciplines: null };
 
-// --- CONTROLE DE VISIBILIDADE DAS TELAS ---
+/**
+ * Atualiza um único card de disciplina na tela com novos dados.
+ * @param {object} disciplineData - Os dados atualizados da disciplina.
+ */
+export function updateDisciplineCard(disciplineData) {
+    const cardToReplace = document.querySelector(`#disciplines-list [data-id="${disciplineData.id}"]`);
+    if (cardToReplace) {
+        const { periods, activePeriodIndex } = getState();
+        const isPeriodClosed = periods[activePeriodIndex]?.status === 'closed';
+        const newCard = createDisciplineCard(disciplineData, isPeriodClosed);
+        cardToReplace.replaceWith(newCard);
+    }
+}
 
+
+// --- CONTROLE DE VISIBILIDADE DAS TELAS ---
 export function showAuthScreen() {
   dom.authScreen.classList.remove('hidden');
   dom.appContainer.classList.add('hidden');
@@ -25,10 +38,16 @@ export function showAppScreen() {
 }
 
 export function showEnrollmentsView() {
-    if (sortableInstances.disciplines) {
-        sortableInstances.disciplines.destroy();
-        sortableInstances.disciplines = null;
+    // Verifica se a instância do Sortable existe E se seu elemento ainda está no DOM
+    if (sortableInstances.disciplines && sortableInstances.disciplines.el) {
+        try {
+            sortableInstances.disciplines.destroy();
+        } catch (error) {
+            console.warn("Não foi possível destruir a instância do Sortable:", error);
+        }
     }
+    sortableInstances.disciplines = null;
+
     dom.dashboardView.classList.add('hidden');
     dom.enrollmentsView.classList.remove('hidden');
     setState('activeEnrollmentId', null);
@@ -38,9 +57,8 @@ export function showEnrollmentsView() {
 }
 
 // --- RENDERIZAÇÃO DE CONTEÚDO ---
-
 export function renderUserEmail(email) {
-    dom.userEmailDisplay.textContent = email;
+    if(dom.userEmailDisplay) dom.userEmailDisplay.textContent = email;
 }
 
 export async function renderEnrollments() {
@@ -52,37 +70,32 @@ export async function renderEnrollments() {
     return;
   }
   enrollments.forEach(e => dom.enrollmentsList.appendChild(createEnrollmentCard(e)));
-  if (sortableInstances.enrollments) sortableInstances.enrollments.destroy();
-  sortableInstances.enrollments = new Sortable(dom.enrollmentsList, { /* ... */ });
 }
 
 async function renderGeneralDashboard() {
   dom.generalDashboardContent.innerHTML = `<p class="text-subtle">Carregando resumo...</p>`;
   const dashboardData = await api.getActivePeriodDataForAllEnrollments();
-
   if (!dashboardData.length) {
     dom.generalDashboard.classList.add('hidden');
     return;
   }
-  
   dom.generalDashboard.classList.remove('hidden');
   dom.generalDashboardContent.innerHTML = '';
-
   dashboardData.forEach(data => {
     const enrollmentSection = document.createElement('div');
     enrollmentSection.className = 'bg-surface p-6 rounded-lg shadow-md border border-border';
-
-    // Limita a 3 disciplinas para um resumo
-    const disciplinesToShow = data.disciplines.slice(0, 3); 
-
+    enrollmentSection.dataset.id = data.enrollmentId; // Adiciona o ID para o listener
+    const disciplinesToShow = data.disciplines.slice(0, 3);
+    
+    // REMOVIDO o botão "Ver Painel" daqui
     enrollmentSection.innerHTML = `
       <div class="flex justify-between items-center mb-4">
         <div>
             <h3 class="text-xl font-bold text-secondary">${data.course}</h3>
             <p class="text-sm text-subtle">${data.institution} - Período: ${data.periodName}</p>
         </div>
-        <button data-id="${data.enrollmentId}" class="view-enrollment-dashboard-btn bg-primary text-bkg text-sm font-semibold py-2 px-3 rounded-lg hover:opacity-90">
-            Ver Painel
+        <button class="view-enrollment-dashboard-btn text-sm text-primary hover:underline">
+            Ver detalhes
         </button>
       </div>
       <div class="space-y-3">
@@ -91,7 +104,7 @@ async function renderGeneralDashboard() {
             <p class="font-semibold text-secondary">${d.name}</p>
             <p class="text-xs text-subtle">${d.teacher || 'Professor não definido'}</p>
           </div>
-        `).join('') : '<p class="text-sm text-subtle">Nenhuma disciplina cadastrada neste período.</p>'}
+        `).join('') : '<p class="text-sm text-subtle">Nenhuma disciplina cadastrada.</p>'}
       </div>
     `;
     dom.generalDashboardContent.appendChild(enrollmentSection);
@@ -112,66 +125,40 @@ export async function showDashboardView(enrollmentId) {
         const data = enrollmentSnap.data();
         dom.dashboardTitle.textContent = data.course;
         dom.dashboardSubtitle.textContent = data.institution;
-
         const periods = await api.getPeriods(enrollmentId);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        for (const period of periods) {
-            if (period.status === 'active' && period.endDate) {
-                const endDate = new Date(period.endDate + 'T00:00:00');
-                if (today > endDate) {
-                    await api.updatePeriodStatus(enrollmentId, period.id, 'closed');
-                    period.status = 'closed';
-                }
-            }
-        }
         setState('periods', periods);
         const activeIndex = periods.findIndex(p => p.id === data.activePeriodId);
         setState('activePeriodIndex', activeIndex > -1 ? activeIndex : 0);
-        
         await renderPeriodNavigator();
-        await renderDashboardSummaryCards();
-        await renderInteractiveCalendar();
+        await refreshDashboard();
     }
 }
 
-async function renderFullDashboard() {
-    const { activeEnrollmentId, activePeriodId } = getState();
-    if (!activePeriodId) return;
-
-    const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
-    
-    renderDashboardSummaryCards(disciplines);
-    
-    renderDisciplineBudgets(disciplines);
-    renderRecentDisciplinesList(disciplines);
-}
-
 export async function renderDisciplines(enrollmentId, periodId, isPeriodClosed = false) {
+  // 1. Destrói a instância ANTES de limpar a lista
+  if (sortableInstances.disciplines && sortableInstances.disciplines.el) {
+    try {
+      sortableInstances.disciplines.destroy();
+    } catch (e) { console.warn("Sortable instance could not be destroyed.", e); }
+  }
+  sortableInstances.disciplines = null;
+
+  // 2. Agora limpa a lista com segurança
   dom.disciplinesList.innerHTML = `<p class="text-subtle">Carregando disciplinas...</p>`;
   const disciplines = await api.getDisciplines(enrollmentId, periodId);
-
-  if (!disciplines.length) {
-    dom.disciplinesList.innerHTML = `<p class="text-subtle col-span-full text-center">Nenhuma disciplina adicionada a este período ainda.</p>`;
-    return;
-  }
-
-  dom.disciplinesList.innerHTML = '';
+  dom.disciplinesList.innerHTML = !disciplines.length ? `<p class="text-subtle col-span-full text-center">Nenhuma disciplina adicionada.</p>` : '';
+  
   disciplines.forEach(discipline => {
     const card = createDisciplineCard(discipline, isPeriodClosed);
     dom.disciplinesList.appendChild(card);
   });
   
-  if (sortableInstances.disciplines) {
-    sortableInstances.disciplines.destroy();
-    sortableInstances.disciplines = null;
-  }
-  
+  // 3. Cria a nova instância
   if (!isPeriodClosed) {
     sortableInstances.disciplines = new Sortable(dom.disciplinesList, {
         animation: 150,
         ghostClass: 'opacity-50',
+        handle: '.cursor-grab',
         onEnd: (evt) => api.updateDisciplinesOrder(Array.from(evt.to.children), { enrollmentId, periodId }),
     });
   }
@@ -180,13 +167,7 @@ export async function renderDisciplines(enrollmentId, periodId, isPeriodClosed =
 export async function renderAbsenceHistory(enrollmentId, periodId, disciplineId) {
     dom.absenceHistoryList.innerHTML = `<p class="text-subtle">Carregando histórico...</p>`;
     const history = await api.getAbsenceHistory(enrollmentId, periodId, disciplineId);
-
-    if (!history.length) {
-        dom.absenceHistoryList.innerHTML = `<p class="text-subtle text-center">Nenhuma falta registrada.</p>`;
-        return;
-    }
-    
-    dom.absenceHistoryList.innerHTML = '';
+    dom.absenceHistoryList.innerHTML = !history.length ? `<p class="text-subtle text-center">Nenhuma falta registrada.</p>` : '';
     const listContainer = document.createElement('div');
     listContainer.className = 'space-y-2';
     history.forEach(item => {
@@ -196,8 +177,7 @@ export async function renderAbsenceHistory(enrollmentId, periodId, disciplineId)
 }
 
 export async function renderPeriodNavigator() {
-    const { periods, activePeriodIndex, activeEnrollmentId } = getState();
-
+    const { periods, activePeriodIndex } = getState();
     if (!periods || periods.length === 0) {
         dom.currentPeriodName.textContent = 'Nenhum';
         dom.prevPeriodBtn.disabled = true;
@@ -205,39 +185,19 @@ export async function renderPeriodNavigator() {
         dom.disciplinesList.innerHTML = '<p class="text-subtle col-span-full text-center">Crie um novo período para começar.</p>';
         return;
     }
-    
     const currentPeriod = periods[activePeriodIndex];
     if (!currentPeriod) return;
 
-    if (currentPeriod.calendarUrl) {
-        dom.viewCalendarBtn.classList.remove('hidden');
-    } else {
-        dom.viewCalendarBtn.classList.add('hidden');
-    }
-
     setState('activePeriodId', currentPeriod.id);
-    
-    // Atualiza o nome e o status visual do período
     dom.currentPeriodName.textContent = currentPeriod.name;
     if (currentPeriod.status === 'closed') {
         dom.currentPeriodName.classList.add('line-through', 'text-subtle');
-        dom.endPeriodBtn.classList.add('hidden');
-        dom.reopenPeriodBtn.classList.remove('hidden');
     } else {
         dom.currentPeriodName.classList.remove('line-through', 'text-subtle');
-        dom.endPeriodBtn.classList.remove('hidden');
-        dom.reopenPeriodBtn.classList.add('hidden');
     }
-
-    // Habilita/desabilita as setas de navegação
     dom.prevPeriodBtn.disabled = activePeriodIndex >= periods.length - 1;
     dom.nextPeriodBtn.disabled = activePeriodIndex <= 0;
-
-    // Renderiza as disciplinas do período selecionado
-    await renderDisciplines(activeEnrollmentId, currentPeriod.id, currentPeriod.status === 'closed');
 }
-
-// --- UI DE AUTENTICAÇÃO ---
 
 export function updateAuthView() {
   const authMode = getState().authMode;
@@ -259,83 +219,106 @@ export function togglePasswordVisibility() {
     dom.eyeSlashIcon.classList.toggle('hidden', !isPassword);
 }
 
-/**
- * Renderiza o calendário interativo com os eventos do período usando FullCalendar.
- */
-async function renderInteractiveCalendar() {
-    dom.calendarContainer.innerHTML = '';
+function renderSummaryCards(disciplines, period) {
+    const container = dom.summaryCardsContainer;
+    if (!container) return;
+    const totalDisciplines = disciplines.length;
+    const nextAssessment = 'N/A';
+    const totalAbsences = disciplines.reduce((acc, dis) => acc + (dis.absences || 0), 0);
+    const periodStatus = period.status === 'closed' ? 'Encerrado' : 'Em andamento';
+    container.innerHTML = `
+        <div class="bg-surface p-4 rounded-xl shadow-lg border border-border"><h3 class="text-subtle text-sm font-bold">Total de Disciplinas</h3><p class="text-secondary text-2xl font-bold">${totalDisciplines}</p></div>
+        <div class="bg-surface p-4 rounded-xl shadow-lg border border-border"><h3 class="text-subtle text-sm font-bold">Próxima Avaliação</h3><p class="text-secondary text-2xl font-bold">${nextAssessment}</p></div>
+        <div class="bg-surface p-4 rounded-xl shadow-lg border border-border"><h3 class="text-subtle text-sm font-bold">Faltas Acumuladas</h3><p class="text-secondary text-2xl font-bold">${totalAbsences}</p></div>
+        <div class="bg-surface p-4 rounded-xl shadow-lg border border-border"><h3 class="text-subtle text-sm font-bold">Status do Período</h3><p class="text-secondary text-2xl font-bold">${periodStatus}</p></div>
+    `;
+}
 
-    const { activeEnrollmentId, activePeriodId, periods, activePeriodIndex } = getState();
-    const currentPeriod = periods[activePeriodIndex];
-    if (!currentPeriod) return;
-
-    const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
-    
-    const dayMap = { 'dom': 0, 'seg': 1, 'ter': 2, 'qua': 3, 'qui': 4, 'sex': 5, 'sab': 6 };
-    let events = [];
-
-    // Adiciona o início e fim do período como eventos
-    if (currentPeriod.startDate) {
-        events.push({ title: 'Início do Período', start: currentPeriod.startDate, allDay: true, color: 'var(--color-success)' });
-    }
-    if (currentPeriod.endDate) {
-        events.push({ title: 'Fim do Período', start: currentPeriod.endDate, allDay: true, color: 'var(--color-danger)' });
-    }
-
-    // Adiciona as aulas recorrentes
-    disciplines.forEach(discipline => { /* ... (código de parsing de horários permanece o mesmo) ... */ });
-
-    const calendar = new Calendar(dom.calendarContainer, {
-        plugins: [ dayGridPlugin ],
+function renderInteractiveCalendar(disciplines, period) {
+    const calendarEl = dom.calendarContainer;
+    if (!calendarEl) return;
+    calendarEl.innerHTML = '';
+    const calendar = new Calendar(calendarEl, {
+        plugins: [dayGridPlugin],
         initialView: 'dayGridMonth',
         locale: 'pt-br',
-        headerToolbar: { left: 'prev,next', center: 'title', right: 'today' },
-        height: 'auto', // Ajusta a altura ao container
-        events: events,
-        eventColor: 'var(--color-primary)',
-        
-        initialDate: currentPeriod.startDate || new Date(),
-        
+        headerToolbar: { left: 'prev', center: 'title', right: 'next today' },
+        height: 'auto',
         validRange: {
-            start: currentPeriod.startDate,
-            end: currentPeriod.endDate ? new Date(new Date(currentPeriod.endDate).setDate(new Date(currentPeriod.endDate).getDate() + 1)) : undefined
+            start: period.startDate,
+            end: period.endDate ? new Date(new Date(period.endDate).setDate(new Date(period.endDate).getDate() + 2)).toISOString().split('T')[0] : undefined
         },
+        initialDate: period.startDate || new Date(),
     });
     calendar.render();
 }
 
-/**
- * Renderiza os cards de resumo no topo do dashboard.
- */
-async function renderDashboardSummaryCards() {
-    const { activeEnrollmentId, activePeriodId } = getState();
-    const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
+function renderWeeklyAgenda(disciplines) {
+    const container = dom.weeklyAgendaContainer;
+    if (!container) return;
+    const weekDays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let agendaItems = [];
+    const dayMap = { 'dom': 0, 'seg': 1, 'ter': 2, 'qua': 3, 'qui': 4, 'sex': 5, 'sab': 6 };
 
-    // Card de Total de Disciplinas
-    dom.totalDisciplinesCard.textContent = disciplines.length;
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        const dayOfWeek = date.getDay();
+        const eventsForDay = disciplines.flatMap(discipline => {
+            const schedules = (discipline.schedule || '').split(',').map(s => s.trim().toLowerCase());
+            return schedules.filter(schedule => schedule.startsWith(Object.keys(dayMap).find(key => dayMap[key] === dayOfWeek)))
+                .map(schedule => {
+                    const timeMatch = schedule.match(/(\d{1,2}h?-\d{1,2}h?|\d{1,2}h?)/);
+                    return {
+                        time: timeMatch ? timeMatch[0].replace(/h/g, ':00') : 'Indefinido',
+                        disciplineName: discipline.name,
+                        disciplineColor: discipline.color || '#71717a',
+                        location: discipline.location
+                    };
+                });
+        });
+        if (eventsForDay.length > 0) agendaItems.push({ date, events: eventsForDay });
+    }
 
-    // Card de Faltas Acumuladas
-    const totalAbsences = disciplines.reduce((sum, d) => sum + (d.absences || 0), 0);
-    dom.totalAbsencesCard.textContent = totalAbsences;
+    if (agendaItems.length === 0) {
+        container.innerHTML = `<div class="bg-surface border border-border p-4 rounded-lg text-center text-subtle">Nenhum compromisso para os próximos 7 dias.</div>`;
+        return;
+    }
 
-    // Card de Próxima Avaliação (placeholder por enquanto)
-    dom.nextExamCard.textContent = '-'; // Lógica a ser implementada no futuro
+    container.innerHTML = agendaItems.map(({ date, events }) => {
+        let dayLabel;
+        const diffDays = Math.round((date - today) / 86400000);
+        if (diffDays === 0) dayLabel = 'Hoje';
+        else if (diffDays === 1) dayLabel = 'Amanhã';
+        else dayLabel = weekDays[date.getDay()];
+        return `
+            <div class="agenda-day">
+                <h4 class="font-bold text-lg text-secondary mb-2">${dayLabel} <span class="text-sm font-normal text-subtle">${date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span></h4>
+                <div class="space-y-2">
+                    ${events.map(event => `
+                        <div class="flex items-center bg-surface border border-border p-3 rounded-lg shadow-sm">
+                            <span class="w-2 h-10 rounded-full mr-4 flex-shrink-0" style="background-color: ${event.disciplineColor};"></span>
+                            <div class="flex-grow"><p class="font-semibold text-secondary">${event.disciplineName}</p><p class="text-sm text-subtle">${event.location || 'Local não definido'}</p></div>
+                            <span class="text-sm font-medium text-primary">${event.time}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
-/**
- * Atualiza todos os componentes dinâmicos do dashboard.
- * Deve ser chamada após qualquer alteração nos dados do período.
- */
 export async function refreshDashboard() {
     const { activeEnrollmentId, activePeriodId, periods, activePeriodIndex } = getState();
     if (!activeEnrollmentId || !activePeriodId) return;
-
-    const isPeriodClosed = periods[activePeriodIndex]?.status === 'closed';
-
-    // Atualiza os componentes em paralelo para mais performance
-    await Promise.all([
-        renderDashboardSummaryCards(),
-        renderDisciplines(activeEnrollmentId, activePeriodId, isPeriodClosed),
-        renderInteractiveCalendar()
-    ]);
+    const currentPeriod = periods[activePeriodIndex];
+    if (!currentPeriod) return;
+    const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
+    const isPeriodClosed = currentPeriod.status === 'closed';
+    renderSummaryCards(disciplines, currentPeriod);
+    renderDisciplines(activeEnrollmentId, activePeriodId, isPeriodClosed);
+    renderWeeklyAgenda(disciplines);
+    renderInteractiveCalendar(disciplines, currentPeriod);
 }
