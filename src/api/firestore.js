@@ -161,15 +161,19 @@ export function getPeriod(enrollmentId, periodId) {
     return getDoc(periodRef);
 }
 
-export async function createPeriod(enrollmentId, periodName) {
+export async function createPeriod(enrollmentId, periodData) {
     const userId = getCurrentUserId();
     if (!userId) throw new Error("Usuário não autenticado.");
+    
+    // Agora 'periodData' é um objeto
     const periodsRef = collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods');
+    
     const newPeriodDoc = await addDoc(periodsRef, {
-        name: periodName,
+        ...periodData, // Salva todos os campos do objeto (name, startDate, endDate)
         status: 'active',
         createdAt: new Date()
     });
+
     await updateActivePeriod(enrollmentId, newPeriodDoc.id);
     return newPeriodDoc;
 }

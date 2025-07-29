@@ -26,16 +26,13 @@ export function initializeAuthListeners() {
             view.updateAuthView();
         }
     });
-    const authToggleBtn = document.querySelector('#auth-screen [data-toggle-password]');
-    if (authToggleBtn) {
+    const authToggleBtn = dom.authScreen.querySelector('[data-toggle-password]');
+    if(authToggleBtn) {
         authToggleBtn.addEventListener('click', () => view.togglePasswordVisibility(dom.authPasswordInput));
     }
 }
 
 export function initializeAppListeners() {
-    document.addEventListener('click', handleOutsideClick, true);
-
-    // Listeners Globais e de Modais (sempre devem existir no DOM após o login)
     if (dom.appContainer) dom.appContainer.addEventListener('click', handleAppContainerClick);
     if (dom.logoutBtn) dom.logoutBtn.addEventListener('click', authApi.logOut);
     if (dom.themeToggleBtn) dom.themeToggleBtn.addEventListener('click', toggleTheme);
@@ -51,10 +48,9 @@ export function initializeAppListeners() {
     if (dom.periodOptionsForm) dom.periodOptionsForm.addEventListener('submit', handlePeriodOptionsFormSubmit);
     if (dom.addGradeFieldBtn) dom.addGradeFieldBtn.addEventListener('click', handleAddGradeField);
 
-    // Listener de input para notas (só existe no dashboard)
     if (dom.disciplinesList) dom.disciplinesList.addEventListener('input', handleGradeInput);
     
-    // Listeners de botões de "cancelar" dos modais
+    // Listeners de "cancelar" dos modais
     if (dom.cancelEnrollmentBtn) dom.cancelEnrollmentBtn.addEventListener('click', modals.hideEnrollmentModal);
     if (dom.cancelDisciplineBtn) dom.cancelDisciplineBtn.addEventListener('click', modals.hideDisciplineModal);
     if (dom.cancelPeriodBtn) dom.cancelPeriodBtn.addEventListener('click', modals.hidePeriodModal);
@@ -72,45 +68,58 @@ export function initializeAppListeners() {
  * Handler centralizado que captura todos os cliques dentro do #app-container
  * e delega a ação para a função correta.
  */
-function handleAppContainerClick(e) {
+async function handleAppContainerClick(e) {
     const target = e.target;
-    const actionTarget = target.closest('[data-action]');
+    const button = target.closest('button');
 
-    // Ações na tela de Matrículas
+    // 1. Ações na tela de Matrículas
     const enrollmentCard = target.closest('#enrollments-list [data-id]');
     if (enrollmentCard) {
         const id = enrollmentCard.dataset.id;
-        const action = actionTarget ? actionTarget.dataset.action : null;
-        if (action === 'edit-enrollment') modals.showEnrollmentModal(id);
-        else if (action === 'delete-enrollment') modals.showConfirmDeleteModal({ type: 'enrollment', id });
-        else view.showDashboardView(id); // Ação padrão do card
+        if (target.closest('.edit-btn')) {
+            modals.showEnrollmentModal(id);
+        } else if (target.closest('.delete-btn')) {
+            modals.showConfirmDeleteModal({ type: 'enrollment', id });
+        } else {
+            view.showDashboardView(id);
+        }
         return;
-    }
-    
-    // Ações na tela de Resumo do Período Atual
-    if (target.closest('.view-enrollment-dashboard-btn')) {
-        view.showDashboardView(target.closest('[data-id]').dataset.id);
-        return;
-    }
-    
-    // Ações globais (botões principais)
-    const globalActionId = target.closest('button')?.id;
-    switch (globalActionId) {
-        case 'add-enrollment-btn': modals.showEnrollmentModal(); break;
-        case 'add-discipline-btn': modals.showDisciplineModal(); break;
-        case 'back-to-enrollments-btn': view.showEnrollmentsView(); break;
-        case 'new-period-btn': modals.showPeriodModal(); break;
-        case 'manage-period-btn': modals.showPeriodOptionsModal(); break;
-        case 'prev-period-btn': switchPeriod('prev'); break;
-        case 'next-period-btn': switchPeriod('next'); break;
     }
 
-    // Ações em cards de disciplina
+    // 2. Ações nos botões principais por ID
+    if (button && button.id) {
+        switch (button.id) {
+            case 'add-enrollment-btn': modals.showEnrollmentModal(); return;
+            case 'add-discipline-btn': modals.showDisciplineModal(); return;
+            case 'new-period-btn': modals.showPeriodModal(); return;
+            case 'manage-period-btn': modals.showPeriodOptionsModal(); return;
+            case 'back-to-enrollments-btn': view.showEnrollmentsView(); return;
+            case 'prev-period-btn': switchPeriod('next'); return; // A lógica está invertida intencionalmente (ordem desc)
+            case 'next-period-btn': switchPeriod('prev'); return;
+        }
+    }
+
+    // 3. Ações nos Cards de Disciplina
     const disciplineCard = target.closest('#disciplines-list [data-id]');
     if (disciplineCard) {
-        handleDisciplinesListClick(e, disciplineCard, actionTarget);
+        handleDisciplinesListClick(e, disciplineCard);
+        return;
     }
+
+    // 4. Ações no modal de opções do período
+    if (target.closest('#end-period-btn')) handleEndPeriod();
+    if (target.closest('#reopen-period-btn')) handleReopenPeriod();
+    if (target.closest('#delete-period-btn')) handleDeletePeriod();
+    if (target.closest('#view-calendar-btn')) handleViewCalendar();
+
+    // 5. Ações no histórico de faltas
+     const absenceAction = target.closest('#absence-history-list button');
+     if (absenceAction) {
+         handleAbsenceHistoryListClick(e);
+         return;
+     }
 }
+
 async function handleAuthFormSubmit(e) {
     e.preventDefault();
     const email = dom.authEmailInput.value;
@@ -144,15 +153,80 @@ async function handleEnrollmentFormSubmit(e) {
 async function handlePeriodFormSubmit(e) {
     e.preventDefault();
     const { activeEnrollmentId } = getState();
-    const periodName = dom.addPeriodForm.querySelector('#period-name').value;
-    if (!periodName) return alert("O nome do período é obrigatório.");
+    // Lendo os novos campos de data
+    const payload = {
+        name: dom.addPeriodForm.querySelector('#period-name').value,
+        startDate: dom.addPeriodForm.querySelector('#period-start-date-new').value,
+        endDate: dom.addPeriodForm.querySelector('#period-end-date-new').value,
+    };
+    if (!payload.name || !payload.startDate || !payload.endDate) {
+        return alert("Todos os campos são obrigatórios.");
+    }
     try {
-        await firestoreApi.createPeriod(activeEnrollmentId, periodName);
+        await firestoreApi.createPeriod(activeEnrollmentId, payload);
         modals.hidePeriodModal();
         await view.showDashboardView(activeEnrollmentId);
     } catch (error) {
         console.error("Erro ao criar período:", error);
     }
+}
+
+function renderGradeFields() {
+    const rule = dom.configGradesForm.querySelector('#grade-calculation-rule').value;
+    dom.gradesContainer.innerHTML = ''; // Limpa os campos existentes
+    updateWeightsSum(); // Atualiza o totalizador
+    // Adiciona um campo inicial
+    addGradeField();
+}
+
+function addGradeField() {
+    const rule = dom.configGradesForm.querySelector('#grade-calculation-rule').value;
+    const gradeField = document.createElement('div');
+    gradeField.className = 'flex items-center space-x-2 animate-fade-in';
+
+    const baseInputClasses = "w-full px-3 py-2 bg-bkg text-secondary border border-border rounded-md";
+    let fieldsHTML = '';
+    
+    if (rule === 'weighted') {
+        fieldsHTML = `
+            <input type="text" name="name" placeholder="Nome (ex: P1)" class="${baseInputClasses}">
+            <input type="number" name="weight" min="1" max="100" placeholder="Peso (%)" class="${baseInputClasses} w-32">
+        `;
+    } else { // 'min-max' para Média Aritmética
+        fieldsHTML = `
+            <input type="text" name="name" placeholder="Nome (ex: Prova 1)" class="${baseInputClasses}">
+        `;
+    }
+
+    gradeField.innerHTML = `
+        ${fieldsHTML}
+        <button type="button" class="remove-field-btn text-danger p-2 rounded-full hover:bg-danger/10">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+        </button>
+    `;
+    gradeField.querySelector('.remove-field-btn').addEventListener('click', () => {
+        gradeField.remove();
+        updateWeightsSum();
+    });
+    dom.gradesContainer.appendChild(gradeField);
+}
+
+function updateWeightsSum() {
+    const rule = dom.configGradesForm.querySelector('#grade-calculation-rule').value;
+    const summaryContainer = dom.configGradesForm.querySelector('#grades-summary');
+    if (rule !== 'weighted') {
+        summaryContainer.innerHTML = '';
+        return;
+    }
+
+    let totalWeight = 0;
+    const weightInputs = dom.gradesContainer.querySelectorAll('[name="weight"]');
+    weightInputs.forEach(input => {
+        totalWeight += Number(input.value) || 0;
+    });
+
+    const colorClass = totalWeight === 100 ? 'text-success' : (totalWeight > 100 ? 'text-danger' : 'text-subtle');
+    summaryContainer.innerHTML = `<p class="text-sm font-bold ${colorClass}">Soma dos Pesos: ${totalWeight}%</p>`;
 }
 
 function handleAddGradeField() {
@@ -274,15 +348,27 @@ function handleGradeInput(e) {
 async function handleDisciplineFormSubmit(e) {
     e.preventDefault();
     const { activeEnrollmentId, activePeriodId, editingDisciplineId } = getState();
+    
+    // Lendo os novos horários estruturados
+    const schedules = [];
+    const scheduleElements = dom.addDisciplineForm.querySelectorAll('#schedules-container .schedule-field');
+    scheduleElements.forEach(field => {
+        schedules.push({
+            day: field.querySelector('[name="schedule-day"]').value,
+            startTime: field.querySelector('[name="schedule-start"]').value,
+            endTime: field.querySelector('[name="schedule-end"]').value,
+        });
+    });
+
     const payload = {
         name: dom.addDisciplineForm.querySelector('#discipline-name').value,
-        code: dom.addDisciplineForm.querySelector('#discipline-code').value,
         teacher: dom.addDisciplineForm.querySelector('#discipline-teacher').value,
         location: dom.addDisciplineForm.querySelector('#discipline-location').value,
-        schedule: dom.addDisciplineForm.querySelector('#discipline-schedule').value,
+        schedules: schedules, // Salva o array de horários
         workload: parseInt(dom.addDisciplineForm.querySelector('#discipline-workload').value),
         hoursPerClass: parseInt(dom.addDisciplineForm.querySelector('#discipline-hours-per-class').value),
     };
+
     try {
         await firestoreApi.saveDiscipline(payload, { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId: editingDisciplineId });
         modals.hideDisciplineModal();
@@ -292,48 +378,66 @@ async function handleDisciplineFormSubmit(e) {
     }
 }
 
+function addScheduleField() {
+    const container = dom.addDisciplineForm.querySelector('#schedules-container');
+    const field = document.createElement('div');
+    field.className = 'schedule-field grid grid-cols-[1fr,auto,auto,auto] gap-2 items-center';
+    field.innerHTML = `
+        <select name="schedule-day" class="w-full px-3 py-2 bg-bkg text-secondary border border-border rounded-md">
+            <option value="Seg">Segunda</option>
+            <option value="Ter">Terça</option>
+            <option value="Qua">Quarta</option>
+            <option value="Qui">Quinta</option>
+            <option value="Sex">Sexta</option>
+            <option value="Sab">Sábado</option>
+            <option value="Dom">Domingo</option>
+        </select>
+        <input type="time" name="schedule-start" required class="px-3 py-2 bg-bkg text-secondary border border-border rounded-md">
+        <input type="time" name="schedule-end" required class="px-3 py-2 bg-bkg text-secondary border border-border rounded-md">
+        <button type="button" class="remove-schedule-btn text-danger p-2 rounded-full hover:bg-danger/10">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+        </button>
+    `;
+    field.querySelector('.remove-schedule-btn').addEventListener('click', () => field.remove());
+    container.appendChild(field);
+}
+
 /**
  * Lida com cliques na lista de disciplinas, delegando para ações específicas.
  */
-function handleDisciplinesListClick(e, card, actionTarget) {
-    // Se há um alvo de ação (um botão), executa a ação.
-    if (actionTarget) {
-        e.preventDefault();
-        const action = actionTarget.dataset.action;
-        const disciplineId = card.dataset.id;
-        const disciplineName = actionTarget.dataset.name;
-        const { activeEnrollmentId, activePeriodId } = getState();
+function handleDisciplinesListClick(e, card) {
+    const target = e.target;
+    const actionTarget = target.closest('[data-id]');
+    if (!actionTarget) return;
 
-        const menu = card.querySelector('.menu-options');
-        if (menu) menu.classList.add('hidden');
-    
-        switch (action) {
-            case 'toggle-menu':
-                e.stopPropagation();
-                menu.classList.toggle('hidden');
-                break;
-            case 'edit-discipline':
-                modals.showDisciplineModal(disciplineId);
-                break;
-            case 'delete-discipline':
-                modals.showConfirmDeleteModal({ type: 'discipline', id: disciplineId, enrollmentId: activeEnrollmentId, periodId: activePeriodId });
-                break;
-            case 'add-absence':
-                modals.showAbsenceModal(disciplineId, disciplineName);
-                break;
-            case 'history-absence':
-                modals.showAbsenceHistoryModal(disciplineId, disciplineName);
-                view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, disciplineId);
-                break;
-            case 'config-grades':
-                modals.showConfigGradesModal(disciplineId, disciplineName);
-                break;
+    const id = card.dataset.id;
+    const name = actionTarget.dataset.name;
+    const { activeEnrollmentId, activePeriodId } = getState();
+
+    // Lógica para o menu de 3 pontos
+    if (target.closest('.discipline-menu-btn')) {
+        const menu = document.getElementById(`menu-${id}`);
+        if (menu) {
+            document.querySelectorAll('[id^="menu-"]').forEach(m => {
+                if (m.id !== menu.id) m.classList.add('hidden');
+            });
+            menu.classList.toggle('hidden');
         }
-    } 
-    // Se o clique foi no cabeçalho do card (mas não em um botão de ação), expande/contrai.
-    else if (e.target.closest('.card-header')) {
-        toggleCardExpansion(card);
+        return;
     }
+    
+    // Fecha o menu após clicar numa opção
+    const menu = document.getElementById(`menu-${id}`);
+    if (menu) menu.classList.add('hidden');
+    
+    // Lógica para os botões de ação
+    if (target.matches('.edit-discipline-btn, .edit-discipline-btn *')) modals.showDisciplineModal(id);
+    else if (target.matches('.delete-discipline-btn, .delete-discipline-btn *')) modals.showConfirmDeleteModal({ type: 'discipline', id, enrollmentId: activeEnrollmentId, periodId: activePeriodId });
+    else if (target.matches('.add-absence-btn, .add-absence-btn *')) modals.showAbsenceModal(id, name);
+    else if (target.matches('.absence-history-btn, .absence-history-btn *')) {
+        modals.showAbsenceHistoryModal(id, name);
+        view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, id);
+    } else if (target.matches('.config-grades-btn, .config-grades-btn *')) modals.showConfigGradesModal(id, name);
 }
 
 /**

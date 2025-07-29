@@ -116,48 +116,47 @@ const mainHTML = `
   </div>
 `;
 
-// O modalHTML do seu arquivo original não precisa de alterações
 const modalHTML = `
-  <div id="add-enrollment-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-md border border-border">
-      <h3 id="enrollment-modal-title" class="text-2xl font-bold mb-6 text-secondary">Nova Matrícula</h3>
-      <form id="add-enrollment-form">
-        <div class="space-y-4">
-          <input type="text" id="enrollment-course" placeholder="Nome do Curso (ex: Ciência da Computação)" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary">
-          <input type="text" id="enrollment-institution" placeholder="Instituição de Ensino" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary">
-          <input type="text" id="enrollment-period" placeholder="Período Inicial (ex: 2025.1)" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary">
-        </div>
-        <div class="mt-8 flex justify-end space-x-4">
-          <button type="button" id="cancel-enrollment-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-80">Cancelar</button>
-          <button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-90">Salvar</button>
-        </div>
-      </form>
-    </div>
-  </div>
-  <div id="confirm-delete-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-sm border border-border">
-      <h3 class="text-xl font-bold text-secondary">Confirmar Exclusão</h3>
-      <p id="confirm-delete-message" class="text-subtle mt-2">Tem certeza que deseja excluir? Esta ação não pode ser desfeita.</p>
-      <div class="mt-6 flex justify-end space-x-4">
-        <button id="cancel-delete-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-80">Cancelar</button>
-        <button id="confirm-delete-btn" class="bg-danger text-white font-semibold py-2 px-4 rounded-lg hover:opacity-90">Excluir</button>
-      </div>
-    </div>
-  </div>
   <div id="add-discipline-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-md border border-border">
+    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-xl border border-border">
       <h3 id="discipline-modal-title" class="text-2xl font-bold mb-6 text-secondary">Nova Disciplina</h3>
       <form id="add-discipline-form">
-        <div class="space-y-4">
-          <input type="text" id="discipline-name" placeholder="Nome da Disciplina" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary">
-          <input type="text" id="discipline-code" placeholder="Código (opcional)" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary">
-          <input type="text" id="discipline-teacher" placeholder="Professor(a) (opcional)" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary">
-          <input type="text" id="discipline-location" placeholder="Local (sala, prédio, etc.)" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary">
-          <input type="text" id="discipline-schedule" placeholder="Horários (ex: Seg 10-12h, Qua 10-12h)" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary">
-          <div class="flex items-center space-x-4">
-            <input type="number" id="discipline-workload" placeholder="C.H. Total (horas)" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary">
-            <input type="number" id="discipline-hours-per-class" placeholder="Horas por aula" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary">
-          </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+            <div class="md:col-span-2">
+                <label for="discipline-name" class="block text-sm font-medium text-subtle mb-1">Nome da Disciplina*</label>
+                <input type="text" id="discipline-name" placeholder="Ex: Cálculo I" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+            </div>
+            <div>
+                <label for="discipline-teacher" class="block text-sm font-medium text-subtle mb-1">Professor(a)</label>
+                <input type="text" id="discipline-teacher" placeholder="Opcional" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+            </div>
+            <div>
+                <label for="discipline-location" class="block text-sm font-medium text-subtle mb-1">Local</label>
+                <input type="text" id="discipline-location" placeholder="Ex: Sala 203, Bloco A" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-subtle mb-1">Horários</label>
+                <div id="schedules-container" class="space-y-2">
+                    </div>
+                <button type="button" id="add-schedule-btn" class="mt-2 text-sm text-primary hover:opacity-80 flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                    Adicionar Horário
+                </button>
+            </div>
+            
+            <div class="md:col-span-2 pt-2">
+                <p class="text-sm font-medium text-subtle">Controle de Faltas</p>
+                <small class="text-xs text-subtle/70">Usado para calcular o limite de 25% de faltas.</small>
+            </div>
+            <div>
+                <label for="discipline-workload" class="block text-sm font-medium text-subtle mb-1">Carga Horária Total (em horas)*</label>
+                <input type="number" id="discipline-workload" min="1" placeholder="Ex: 60" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+            </div>
+            <div>
+                <label for="discipline-hours-per-class" class="block text-sm font-medium text-subtle mb-1">Horas por Aula*</label>
+                <input type="number" id="discipline-hours-per-class" min="1" placeholder="Ex: 2" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+            </div>
         </div>
         <div class="mt-8 flex justify-end space-x-4">
           <button type="button" id="cancel-discipline-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-80">Cancelar</button>
@@ -166,121 +165,8 @@ const modalHTML = `
       </form>
     </div>
   </div>
-  <div id="add-absence-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-md border border-border">
-      <h3 class="text-2xl font-bold mb-6 text-secondary">Registrar Falta</h3>
-      <form id="add-absence-form">
-        <div class="space-y-4">
-          <div>
-            <label for="absence-date" class="block text-sm font-medium text-subtle mb-1">Data da Falta</label>
-            <input type="date" id="absence-date" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary">
-          </div>
-          <div>
-            <label for="absence-justification" class="block text-sm font-medium text-subtle mb-1">Justificativa (opcional)</label>
-            <textarea id="absence-justification" placeholder="Ex: Consulta médica" rows="3" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary"></textarea>
-          </div>
-        </div>
-        <div class="mt-8 flex justify-end space-x-4">
-          <button type="button" id="cancel-absence-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-80">Cancelar</button>
-          <button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-90">Salvar Falta</button>
-        </div>
-      </form>
-    </div>
-  </div>
-  <div id="absence-history-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border flex flex-col" style="max-height: 90vh;">
-      <h3 id="absence-history-title" class="text-2xl font-bold mb-4 text-secondary">Histórico de Faltas</h3>
-      <div id="absence-history-list" class="flex-grow overflow-y-auto pr-4 -mr-4">
-        </div>
-      <button type="button" id="close-absence-history-btn" class="mt-6 w-full bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-80">Fechar</button>
-    </div>
-  </div>
-  <div id="add-period-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-md border border-border">
-      <h3 class="text-2xl font-bold mb-6 text-secondary">Novo Período Letivo</h3>
-      <form id="add-period-form">
-        <div class="space-y-4">
-          <input type="text" id="period-name" placeholder="Nome do Período (ex: 2025.2)" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md focus:ring-primary focus:border-primary">
-        </div>
-        <div class="mt-8 flex justify-end space-x-4">
-          <button type="button" id="cancel-period-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-80">Cancelar</button>
-          <button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-90">Criar Período</button>
-        </div>
-      </form>
-    </div>
-  </div>
-  <div id="config-grades-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border">
-      <h3 id="config-grades-title" class="text-2xl font-bold mb-6 text-secondary">Configurar Avaliações</h3>
-      <form id="config-grades-form">
-        <div class="space-y-4">
-          <div>
-            <label for="grade-calculation-rule" class="block text-sm font-medium text-subtle mb-1">Tipo de Média</label>
-            <select id="grade-calculation-rule" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
-              <option value="weighted" class="bg-surface text-secondary">Média Ponderada (com pesos)</option>
-              <option value="min-max" class="bg-surface text-secondary">Média Aritmética (com nota mín/máx)</option>
-            </select>
-          </div>
-          <div id="grades-container" class="space-y-3">
-            </div>
-          <button type="button" id="add-grade-field-btn" class="text-sm text-primary hover:opacity-80 flex items-center">
-            + Adicionar outra avaliação
-          </button>
-        </div>
-        <div class="mt-8 flex justify-end space-x-4">
-          <button type="button" id="cancel-config-grades-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-80">Cancelar</button>
-          <button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-90">Salvar Configuração</button>
-        </div>
-      </form>
-    </div>
-  </div>
-  <div id="period-options-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border">
-      <h3 id="period-options-title" class="text-2xl font-bold mb-6 text-secondary">Opções do Período</h3>
-      <form id="period-options-form">
-        <div class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label for="period-start-date" class="block text-sm font-medium text-subtle mb-1">Data de Início</label>
-              <input type="date" id="period-start-date" class="w-full px-3 py-2 bg-bkg text-secondary border border-border rounded-md">
-            </div>
-            <div>
-              <label for="period-end-date" class="block text-sm font-medium text-subtle mb-1">Data de Fim</label>
-              <input type="date" id="period-end-date" class="w-full px-3 py-2 bg-bkg text-secondary border border-border rounded-md">
-            </div>
-          </div>
-          <div>
-            <label for="period-calendar-file" class="block text-sm font-medium text-subtle mb-1">Calendário Acadêmico (PDF/Imagem)</label>
-            <input type="file" id="period-calendar-file" accept=".pdf,.jpg,.jpeg,.png" class="w-full text-sm text-subtle file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20">
-            <a href="#" id="view-calendar-link" class="hidden mt-2 text-sm text-primary hover:underline">Visualizar Calendário Atual</a>
-          </div>
-          <div class="pt-4 border-t border-border space-y-3">
-              <button type="button" id="end-period-btn" class="w-full text-left px-4 py-2 text-sm text-secondary hover:bg-bkg">Encerrar Período</button>
-              <button type="button" id="reopen-period-btn" class="w-full text-left hidden px-4 py-2 text-sm text-secondary hover:bg-bkg">Reabrir Período</button>
-              <button type="button" id="delete-period-btn" class="w-full text-left px-4 py-2 text-sm text-danger hover:bg-red-50 dark:hover:bg-red-900/50">Deletar Período</button>
-          </div>
-        </div>
-        <div class="mt-8 flex justify-end space-x-4">
-          <button type="button" data-action="cancel" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-80">Cancelar</button>
-          <button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-90">Salvar Alterações</button>
-        </div>
-      </form>
-    </div>
-  </div>
-  <div id="pdf-viewer-modal" class="hidden fixed inset-0 bg-black bg-opacity-85 flex items-center justify-center z-50 p-4">
-    <div class="bg-surface w-full h-full max-w-4xl max-h-[90vh] rounded-lg shadow-xl flex flex-col border border-border">
-      <div class="flex justify-between items-center p-4 border-b border-border">
-        <h3 class="text-xl font-bold text-secondary">Calendário Acadêmico</h3>
-        <button id="close-pdf-viewer-btn" class="p-2 rounded-full hover:bg-bkg">
-            <svg class="w-6 h-6 text-subtle" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
-      </div>
-      <div class="flex-grow p-2">
-        <iframe id="pdf-viewer-iframe" class="w-full h-full border-0" src=""></iframe>
-      </div>
-    </div>
-  </div>
-`;
+
+  `;
 
 export function injectHTML() {
     document.querySelector('#app').innerHTML = mainHTML;

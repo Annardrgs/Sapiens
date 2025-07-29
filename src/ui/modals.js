@@ -45,6 +45,10 @@ export function hideEnrollmentModal() {
 export function showDisciplineModal(disciplineId = null) {
   setState('editingDisciplineId', disciplineId);
   dom.addDisciplineForm.reset();
+  
+  // Limpa os horários antigos
+  const schedulesContainer = dom.addDisciplineForm.querySelector('#schedules-container');
+  schedulesContainer.innerHTML = '';
 
   if (disciplineId) {
     dom.disciplineModalTitle.textContent = "Editar Disciplina";
@@ -59,10 +63,15 @@ export function showDisciplineModal(disciplineId = null) {
             dom.addDisciplineForm.querySelector('#discipline-schedule').value = data.schedule || '';
             dom.addDisciplineForm.querySelector('#discipline-workload').value = data.workload || '';
             dom.addDisciplineForm.querySelector('#discipline-hours-per-class').value = data.hoursPerClass || '';
+
+            if (data.schedules && Array.isArray(data.schedules)) {
+                data.schedules.forEach(schedule => addScheduleField(schedule));
+            }
         }
     });
   } else {
     dom.disciplineModalTitle.textContent = "Nova Disciplina";
+    addScheduleField();
   }
   showModal(dom.addDisciplineModal);
 }
@@ -184,6 +193,7 @@ export function showConfigGradesModal(disciplineId, disciplineName) {
     setState('currentDisciplineForGrades', { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId });
     dom.configGradesTitle.textContent = `Avaliações de ${disciplineName}`;
     showModal(dom.configGradesModal);
+    document.querySelector('#grade-calculation-rule').dispatchEvent(new Event('change'));
 }
 
 export function hideConfigGradesModal() {
