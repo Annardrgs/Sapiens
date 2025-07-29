@@ -107,6 +107,11 @@ export function initializeDOMElements() {
     closePdfViewerBtn: document.getElementById('close-pdf-viewer-btn'),
     viewCalendarBtn: document.getElementById('view-calendar-btn'),
 
+    // Cards de Resumo do Dashboard
+    totalDisciplinesCard: document.getElementById('total-disciplines-card'),
+    nextExamCard: document.getElementById('next-exam-card'),
+    totalAbsencesCard: document.getElementById('total-absences-card'),
+
     // Calendário
     calendarContainer: document.getElementById('calendar-container'),
   });

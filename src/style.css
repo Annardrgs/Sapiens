@@ -27,3 +27,38 @@
   --color-success: #34d399;
   --color-danger: #f87171;
 }
+
+/* --- Customização do FullCalendar --- */
+:root {
+  --fc-border-color: var(--color-border);
+  --fc-daygrid-day-bg-color: transparent;
+  --fc-daygrid-day-number-font-size: 0.85em;
+  --fc-today-bg-color: var(--color-bkg);
+  --fc-event-bg-color: var(--color-primary);
+  --fc-event-border-color: var(--color-primary);
+  --fc-event-text-color: #ffffff; /* Branco fixo para melhor contraste com a cor primária */
+  --fc-button-bg-color: var(--color-surface);
+  --fc-button-text-color: var(--color-subtle);
+  --fc-button-border-color: var(--color-border);
+  --fc-button-hover-bg-color: var(--color-bkg);
+  --fc-button-hover-border-color: var(--color-border);
+  --fc-button-active-bg-color: var(--color-bkg);
+  --fc-button-active-border-color: var(--color-primary);
+  --fc-day-header-bg-color: transparent;
+  --fc-list-event-hover-bg-color: var(--color-bkg);
+  --fc-page-bg-color: var(--color-surface);
+}
+
+.fc { font-family: 'Inter', sans-serif; }
+.fc .fc-toolbar.fc-header-toolbar { margin-bottom: 1em; }
+.fc .fc-toolbar-title { font-size: 1.1em; font-weight: 600; color: var(--color-secondary); }
+.fc .fc-daygrid-day { border-radius: 8px; }
+.fc .fc-day-today { border: 1px solid var(--color-primary) !important; font-weight: 700; }
+.fc .fc-day-today .fc-daygrid-day-number { color: var(--color-primary); }
+.fc .fc-button { text-transform: capitalize; box-shadow: none !important; font-weight: 500; }
+.fc .fc-button .fc-icon { vertical-align: baseline; }
+.fc .fc-day-header { border: none !important; color: var(--color-subtle); text-transform: uppercase; font-size: 0.7em; }
+.fc-theme-standard .fc-scrollgrid { border: none; }
+.fc-theme-standard td, .fc-theme-standard th { border-color: var(--color-border); }
+.fc .fc-daygrid-day-frame { padding: 4px; }
+#calendar-container { padding: 0.75rem; }

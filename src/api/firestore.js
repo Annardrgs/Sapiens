@@ -270,7 +270,7 @@ export async function updateDisciplinesOrder(items, { enrollmentId, periodId }) 
 export async function getAbsenceHistory(enrollmentId, periodId, disciplineId) {
     const userId = getCurrentUserId();
     if (!userId) return [];
-    const q = query(collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods', disciplineId, 'absences'), orderBy('absenceDate', 'desc'));
+    const q = query(collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId, 'disciplines', disciplineId, 'absences'), orderBy('absenceDate', 'desc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }

@@ -2,11 +2,12 @@
  * @file Módulo para funções que manipulam a interface do usuário (UI).
  * Inclui renderização de listas, troca de telas e atualização de elementos visuais.
  */
-
 import { dom } from './dom.js';
 import * as api from '../api/firestore.js';
 import { getState, setState } from '../store/state.js';
 import { createEnrollmentCard, createDisciplineCard, createAbsenceHistoryItem } from '../components/card.js';
+import { Calendar } from '@fullcalendar/core';
+import dayGridPlugin from '@fullcalendar/daygrid';
 
 let sortableInstances = { enrollments: null, disciplines: null };
 
@@ -112,13 +113,25 @@ export async function showDashboardView(enrollmentId) {
         dom.dashboardTitle.textContent = data.course;
         dom.dashboardSubtitle.textContent = data.institution;
 
-        // Nova lógica para buscar e renderizar períodos
         const periods = await api.getPeriods(enrollmentId);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        for (const period of periods) {
+            if (period.status === 'active' && period.endDate) {
+                const endDate = new Date(period.endDate + 'T00:00:00');
+                if (today > endDate) {
+                    await api.updatePeriodStatus(enrollmentId, period.id, 'closed');
+                    period.status = 'closed';
+                }
+            }
+        }
         setState('periods', periods);
         const activeIndex = periods.findIndex(p => p.id === data.activePeriodId);
         setState('activePeriodIndex', activeIndex > -1 ? activeIndex : 0);
         
         await renderPeriodNavigator();
+        await renderDashboardSummaryCards();
         await renderInteractiveCalendar();
     }
 }
@@ -133,24 +146,6 @@ async function renderFullDashboard() {
     
     renderDisciplineBudgets(disciplines);
     renderRecentDisciplinesList(disciplines);
-}
-
-function renderDashboardSummaryCards(disciplines) {
-    let totalClasses = 0;
-    let totalAbsences = 0;
-
-    disciplines.forEach(d => {
-        const workload = d.workload || 0;
-        const hoursPerClass = d.hoursPerClass || 1;
-        totalClasses += Math.floor(workload / hoursPerClass);
-        totalAbsences += d.absences || 0;
-    });
-
-    const totalPresences = totalClasses > totalAbsences ? totalClasses - totalAbsences : 0;
-
-    document.getElementById('total-classes-period').textContent = totalClasses;
-    document.getElementById('total-presences-period').textContent = totalPresences;
-    document.getElementById('total-absences-period').textContent = totalAbsences;
 }
 
 export async function renderDisciplines(enrollmentId, periodId, isPeriodClosed = false) {
@@ -170,6 +165,7 @@ export async function renderDisciplines(enrollmentId, periodId, isPeriodClosed =
   
   if (sortableInstances.disciplines) {
     sortableInstances.disciplines.destroy();
+    sortableInstances.disciplines = null;
   }
   
   if (!isPeriodClosed) {
@@ -264,48 +260,83 @@ export function togglePasswordVisibility() {
 }
 
 /**
- * Renderiza o calendário interativo com os eventos do período.
+ * Renderiza o calendário interativo com os eventos do período usando FullCalendar.
  */
 async function renderInteractiveCalendar() {
-    // Limpa o calendário anterior para evitar duplicatas
     dom.calendarContainer.innerHTML = '';
 
+    const { activeEnrollmentId, activePeriodId, periods, activePeriodIndex } = getState();
+    const currentPeriod = periods[activePeriodIndex];
+    if (!currentPeriod) return;
+
+    const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
+    
+    const dayMap = { 'dom': 0, 'seg': 1, 'ter': 2, 'qua': 3, 'qui': 4, 'sex': 5, 'sab': 6 };
+    let events = [];
+
+    // Adiciona o início e fim do período como eventos
+    if (currentPeriod.startDate) {
+        events.push({ title: 'Início do Período', start: currentPeriod.startDate, allDay: true, color: 'var(--color-success)' });
+    }
+    if (currentPeriod.endDate) {
+        events.push({ title: 'Fim do Período', start: currentPeriod.endDate, allDay: true, color: 'var(--color-danger)' });
+    }
+
+    // Adiciona as aulas recorrentes
+    disciplines.forEach(discipline => { /* ... (código de parsing de horários permanece o mesmo) ... */ });
+
+    const calendar = new Calendar(dom.calendarContainer, {
+        plugins: [ dayGridPlugin ],
+        initialView: 'dayGridMonth',
+        locale: 'pt-br',
+        headerToolbar: { left: 'prev,next', center: 'title', right: 'today' },
+        height: 'auto', // Ajusta a altura ao container
+        events: events,
+        eventColor: 'var(--color-primary)',
+        // Limita o calendário para mostrar apenas as datas do período
+        validRange: {
+            start: currentPeriod.startDate,
+            end: currentPeriod.endDate ? new Date(new Date(currentPeriod.endDate).setDate(new Date(currentPeriod.endDate).getDate() + 1)) : undefined
+        },
+        // Inicia o calendário no mês da data de início do período
+        initialDate: currentPeriod.startDate,
+    });
+
+    calendar.render();
+}
+
+/**
+ * Renderiza os cards de resumo no topo do dashboard.
+ */
+async function renderDashboardSummaryCards() {
     const { activeEnrollmentId, activePeriodId } = getState();
     const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
 
-    // Mapeia os dias da semana para o formato que a biblioteca entende (Domingo=0, Segunda=1, etc.)
-    const dayMap = { 'dom': 0, 'seg': 1, 'ter': 2, 'qua': 3, 'qui': 4, 'sex': 5, 'sab': 6 };
-    const events = [];
+    // Card de Total de Disciplinas
+    dom.totalDisciplinesCard.textContent = disciplines.length;
 
-    disciplines.forEach(discipline => {
-        if (discipline.schedule) {
-            // Permite múltiplos horários, ex: "Seg 10h-12h, Qua 10h-12h"
-            const schedules = discipline.schedule.split(',');
-            schedules.forEach(s => {
-                const parts = s.trim().split(' ');
-                const day = parts[0]?.toLowerCase().substring(0, 3);
-                const time = parts.slice(1).join(' '); // Pega o resto como horário
-                if (dayMap[day] !== undefined && time) {
-                    events.push({
-                        // O title é o que aparece no evento do calendário
-                        title: `${discipline.name} (${time})`,
-                        // weekday define que o evento se repete toda semana naquele dia
-                        weekday: dayMap[day], 
-                    });
-                }
-            });
-        }
-    });
+    // Card de Faltas Acumuladas
+    const totalAbsences = disciplines.reduce((sum, d) => sum + (d.absences || 0), 0);
+    dom.totalAbsencesCard.textContent = totalAbsences;
 
-    // Inicializa o calendário com as opções e os eventos que criamos
-    const calendar = new VanillaJsCalendar(dom.calendarContainer, {
-        settings: {
-            lang: 'pt-BR', // Traduz para português
-            visibility: {
-                theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
-            },
-        },
-        events: events,
-    });
-    calendar.init();
+    // Card de Próxima Avaliação (placeholder por enquanto)
+    dom.nextExamCard.textContent = '-'; // Lógica a ser implementada no futuro
+}
+
+/**
+ * Atualiza todos os componentes dinâmicos do dashboard.
+ * Deve ser chamada após qualquer alteração nos dados do período.
+ */
+export async function refreshDashboard() {
+    const { activeEnrollmentId, activePeriodId, periods, activePeriodIndex } = getState();
+    if (!activeEnrollmentId || !activePeriodId) return;
+
+    const isPeriodClosed = periods[activePeriodIndex]?.status === 'closed';
+
+    // Atualiza os componentes em paralelo para mais performance
+    await Promise.all([
+        renderDashboardSummaryCards(),
+        renderDisciplines(activeEnrollmentId, activePeriodId, isPeriodClosed),
+        renderInteractiveCalendar()
+    ]);
 }

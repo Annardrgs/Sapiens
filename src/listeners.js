@@ -65,7 +65,6 @@ export function initializeAppListeners() {
     // Listeners para o navegador de período
     dom.prevPeriodBtn.addEventListener('click', () => switchPeriod('prev'));
     dom.nextPeriodBtn.addEventListener('click', () => switchPeriod('next'));
-    dom.managePeriodBtn.addEventListener('click', modals.showPeriodOptionsModal);
 
     dom.cancelConfigGradesBtn.addEventListener('click', modals.hideConfigGradesModal);
     dom.addGradeFieldBtn.addEventListener('click', handleAddGradeField);
@@ -141,14 +140,19 @@ async function handleAppContainerClick(e) {
         } else {
             view.showDashboardView(id);
         }
-        return; // Evita que outros handlers disparem
+        return;
     }
 
-    // NOVO: Handler para o botão "Ver Painel" do dashboard geral
     const viewDashboardBtn = e.target.closest('.view-enrollment-dashboard-btn');
     if (viewDashboardBtn) {
         const enrollmentId = viewDashboardBtn.dataset.id;
         view.showDashboardView(enrollmentId);
+    }
+
+    const managePeriodBtn = e.target.closest('#manage-period-btn');
+    if (managePeriodBtn) {
+        modals.showPeriodOptionsModal();
+        return;
     }
 }
 
@@ -300,7 +304,7 @@ async function handleDisciplineFormSubmit(e) {
     try {
         await firestoreApi.saveDiscipline(payload, { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId: editingDisciplineId });
         modals.hideDisciplineModal();
-        await view.renderDisciplines(activeEnrollmentId, activePeriodId);
+        await view.refreshDashboard();
     } catch (error) {
         console.error("Erro ao salvar disciplina:", error);
     }
@@ -380,7 +384,7 @@ async function handleAbsenceFormSubmit(e) {
     try {
         await firestoreApi.addAbsence(payload, currentDisciplineForAbsence);
         modals.hideAbsenceModal();
-        await view.renderDisciplines(currentDisciplineForAbsence.enrollmentId, currentDisciplineForAbsence.periodId);
+        await view.refreshDashboard();
     } catch (error) {
         console.error("Erro ao registrar falta:", error);
     }
@@ -394,7 +398,7 @@ async function handleAbsenceHistoryListClick(e) {
         try {
             await firestoreApi.removeAbsence(removeBtn.dataset.id, currentDisciplineForAbsence);
             view.renderAbsenceHistory(currentDisciplineForAbsence.enrollmentId, currentDisciplineForAbsence.periodId, currentDisciplineForAbsence.disciplineId);
-            await view.renderDisciplines(currentDisciplineForAbsence.enrollmentId, currentDisciplineForAbsence.periodId);
+            await view.refreshDashboard();
         } catch (error) {
             console.error("Erro ao remover falta:", error);
         }
@@ -436,7 +440,9 @@ async function switchPeriod(direction) {
         setState('activePeriodIndex', newIndex);
         const newActivePeriodId = periods[newIndex].id;
         await firestoreApi.updateActivePeriod(activeEnrollmentId, newActivePeriodId);
+        
         await view.renderPeriodNavigator();
+        await view.refreshDashboard();
     }
 }
 

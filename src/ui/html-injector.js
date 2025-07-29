@@ -63,53 +63,49 @@ const mainHTML = `
       </div>
 
       <div id="dashboard-view" class="hidden">
-        <div class="px-4 py-6 sm:px-0">
+        <div class="px-4 sm:px-0">
           <button id="back-to-enrollments-btn" class="mb-6 text-sm text-primary hover:opacity-80 flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
             Voltar para Matrículas
           </button>
           <h2 id="dashboard-title" class="text-3xl font-bold text-secondary"></h2>
           <p id="dashboard-subtitle" class="text-subtle mt-1"></p>
+
           <div class="mt-6 flex items-center justify-between">
-            
-            <div class="flex items-center space-x-4">
-              <div id="period-navigator" class="flex items-center space-x-1 p-1 bg-surface rounded-lg shadow-sm">
-                  <button id="prev-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-50">
-                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                  </button>
-                  <div class="text-center w-28 px-2">
-                      <span id="current-period-name" class="font-bold text-secondary"></span>
-                      <button id="view-calendar-btn" class="hidden text-xs text-primary hover:underline">Ver Calendário</button>
-                  </div>
-                  <button id="next-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-50">
-                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-                  </button>
+            <div id="period-navigator-container" class="flex items-center space-x-4">
               </div>
-              <div class="relative">
-                  <button id="manage-period-btn" class="p-2 rounded-lg hover:bg-surface" title="Opções do período">
-                      <svg class="w-6 h-6 text-subtle" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
-                  </button>
-                  </div>
+            <button id="new-period-btn" class="bg-primary text-bkg text-sm font-semibold py-2 px-3 rounded-lg shadow-md hover:opacity-90 transition-opacity">+ Novo Período</button>
           </div>
-            <button id="view-calendar-btn" class="hidden bg-surface border border-border text-primary text-sm font-semibold py-2 px-3 rounded-lg shadow-md hover:bg-bkg transition-opacity">
-              Ver Calendário
-            </button>
-            <button id="new-period-btn" class="bg-primary text-bkg text-sm font-semibold py-2 px-3 rounded-lg shadow-md hover:opacity-90 transition-opacity">
-              + Novo Período
-            </button>
-          </div>
-          <div class="mt-8 border-t border-border pt-8">
+        </div>
+
+        <div class="px-4 sm:px-0 grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+            <div class="bg-surface p-6 rounded-xl shadow-sm border border-border">
+                <h3 class="text-sm font-medium text-subtle">Total de Disciplinas</h3>
+                <p id="total-disciplines-card" class="text-3xl font-bold text-secondary mt-2">0</p>
+            </div>
+            <div class="bg-surface p-6 rounded-xl shadow-sm border border-border">
+                <h3 class="text-sm font-medium text-subtle">Próxima Avaliação</h3>
+                <p id="next-exam-card" class="text-3xl font-bold text-secondary mt-2">-</p>
+            </div>
+            <div class="bg-surface p-6 rounded-xl shadow-sm border border-border">
+                <h3 class="text-sm font-medium text-subtle">Faltas Acumuladas</h3>
+                <p id="total-absences-card" class="text-3xl font-bold text-secondary mt-2">0</p>
+            </div>
+        </div>
+
+        <div class="mt-8 lg:grid lg:grid-cols-3 lg:gap-8 px-4 sm:px-0">
+          <div class="lg:col-span-2">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-2xl font-bold text-secondary">Disciplinas</h3>
-                <button id="add-discipline-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity">
-                  + Adicionar Disciplina
-                </button>
+                <button id="add-discipline-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity">+ Adicionar Disciplina</button>
             </div>
-            <div id="disciplines-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+            <div id="disciplines-list" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
           </div>
-          <div id="calendar-section" class="mt-8 border-t border-border pt-8 px-4 sm:px-0">
-            <h3 class="text-2xl font-bold text-secondary mb-6">Calendário do Período</h3>
-            <div id="calendar-container" class="bg-surface p-4 rounded-lg border border-border"></div>
+          <div class="lg:col-span-1 mt-8 lg:mt-0">
+             <div id="calendar-section">
+                <h3 class="text-2xl font-bold text-secondary mb-6">Calendário</h3>
+                <div id="calendar-container" class="bg-surface rounded-lg border border-border"></div>
+             </div>
           </div>
         </div>
       </div>
