@@ -107,6 +107,10 @@ const mainHTML = `
             </div>
             <div id="disciplines-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
           </div>
+          <div id="calendar-section" class="mt-8 border-t border-border pt-8 px-4 sm:px-0">
+            <h3 class="text-2xl font-bold text-secondary mb-6">Calendário do Período</h3>
+            <div id="calendar-container" class="bg-surface p-4 rounded-lg border border-border"></div>
+          </div>
         </div>
       </div>
     </main>

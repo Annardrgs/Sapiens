@@ -119,6 +119,7 @@ export async function showDashboardView(enrollmentId) {
         setState('activePeriodIndex', activeIndex > -1 ? activeIndex : 0);
         
         await renderPeriodNavigator();
+        await renderInteractiveCalendar();
     }
 }
 
@@ -260,4 +261,51 @@ export function togglePasswordVisibility() {
     dom.authPasswordInput.type = isPassword ? 'text' : 'password';
     dom.eyeIcon.classList.toggle('hidden', isPassword);
     dom.eyeSlashIcon.classList.toggle('hidden', !isPassword);
+}
+
+/**
+ * Renderiza o calendário interativo com os eventos do período.
+ */
+async function renderInteractiveCalendar() {
+    // Limpa o calendário anterior para evitar duplicatas
+    dom.calendarContainer.innerHTML = '';
+
+    const { activeEnrollmentId, activePeriodId } = getState();
+    const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
+
+    // Mapeia os dias da semana para o formato que a biblioteca entende (Domingo=0, Segunda=1, etc.)
+    const dayMap = { 'dom': 0, 'seg': 1, 'ter': 2, 'qua': 3, 'qui': 4, 'sex': 5, 'sab': 6 };
+    const events = [];
+
+    disciplines.forEach(discipline => {
+        if (discipline.schedule) {
+            // Permite múltiplos horários, ex: "Seg 10h-12h, Qua 10h-12h"
+            const schedules = discipline.schedule.split(',');
+            schedules.forEach(s => {
+                const parts = s.trim().split(' ');
+                const day = parts[0]?.toLowerCase().substring(0, 3);
+                const time = parts.slice(1).join(' '); // Pega o resto como horário
+                if (dayMap[day] !== undefined && time) {
+                    events.push({
+                        // O title é o que aparece no evento do calendário
+                        title: `${discipline.name} (${time})`,
+                        // weekday define que o evento se repete toda semana naquele dia
+                        weekday: dayMap[day], 
+                    });
+                }
+            });
+        }
+    });
+
+    // Inicializa o calendário com as opções e os eventos que criamos
+    const calendar = new VanillaJsCalendar(dom.calendarContainer, {
+        settings: {
+            lang: 'pt-BR', // Traduz para português
+            visibility: {
+                theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+            },
+        },
+        events: events,
+    });
+    calendar.init();
 }

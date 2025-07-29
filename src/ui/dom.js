@@ -101,10 +101,13 @@ export function initializeDOMElements() {
     periodOptionsTitle: document.getElementById('period-options-title'),
     viewCalendarLink: document.getElementById('view-calendar-link'),
 
-    // Em dom.js, dentro de Object.assign
+    // PDF
     pdfViewerModal: document.getElementById('pdf-viewer-modal'),
     pdfViewerIframe: document.getElementById('pdf-viewer-iframe'),
     closePdfViewerBtn: document.getElementById('close-pdf-viewer-btn'),
     viewCalendarBtn: document.getElementById('view-calendar-btn'),
+
+    // Calendário
+    calendarContainer: document.getElementById('calendar-container'),
   });
 }
