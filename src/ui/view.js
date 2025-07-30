@@ -17,10 +17,16 @@ let sortableInstances = { enrollments: null, disciplines: null };
 export function updateDisciplineCard(disciplineData) {
     const cardToReplace = document.querySelector(`#disciplines-list [data-id="${disciplineData.id}"]`);
     if (cardToReplace) {
-        const { periods, activePeriodIndex } = getState();
-        const isPeriodClosed = periods[activePeriodIndex]?.status === 'closed';
-        const newCard = createDisciplineCard(disciplineData, isPeriodClosed);
-        cardToReplace.replaceWith(newCard);
+        const { activeEnrollmentId } = getState();
+        api.getEnrollment(activeEnrollmentId).then(enrollmentSnap => {
+            if (enrollmentSnap.exists()) {
+                const enrollmentData = enrollmentSnap.data();
+                const { periods, activePeriodIndex } = getState();
+                const isPeriodClosed = periods[activePeriodIndex]?.status === 'closed';
+                const newCard = createDisciplineCard(disciplineData, enrollmentData, isPeriodClosed);
+                cardToReplace.replaceWith(newCard);
+            }
+        });
     }
 }
 
@@ -38,22 +44,18 @@ export function showAppScreen() {
 }
 
 export function showEnrollmentsView() {
-    // Verifica se a instância do Sortable existe E se seu elemento ainda está no DOM
     if (sortableInstances.disciplines && sortableInstances.disciplines.el) {
-        try {
-            sortableInstances.disciplines.destroy();
-        } catch (error) {
-            console.warn("Não foi possível destruir a instância do Sortable:", error);
-        }
+        try { sortableInstances.disciplines.destroy(); } catch (e) {}
     }
     sortableInstances.disciplines = null;
 
-    dom.dashboardView.classList.add('hidden');
-    dom.enrollmentsView.classList.remove('hidden');
+    if (dom.dashboardView) dom.dashboardView.classList.add('hidden');
+    if (dom.enrollmentsView) dom.enrollmentsView.classList.remove('hidden');
+    if (dom.generalDashboard) dom.generalDashboard.classList.add('hidden'); // Simplifica a tela
+    
     setState('activeEnrollmentId', null);
     setState('activePeriodId', null);
     renderEnrollments();
-    renderGeneralDashboard();
 }
 
 // --- RENDERIZAÇÃO DE CONTEÚDO ---
@@ -62,6 +64,7 @@ export function renderUserEmail(email) {
 }
 
 export async function renderEnrollments() {
+  if (!dom.enrollmentsList) return;
   dom.enrollmentsList.innerHTML = `<p class="text-subtle">Carregando...</p>`;
   const enrollments = await api.getEnrollments();
   dom.enrollmentsList.innerHTML = '';
@@ -112,24 +115,25 @@ async function renderGeneralDashboard() {
 }
 
 export async function showDashboardView(enrollmentId) {
-    if (sortableInstances.enrollments) {
-        sortableInstances.enrollments.destroy();
-        sortableInstances.enrollments = null;
-    }
+    if (!dom.dashboardView || !dom.enrollmentsView) return;
+
     dom.enrollmentsView.classList.add('hidden');
     dom.dashboardView.classList.remove('hidden');
     setState('activeEnrollmentId', enrollmentId);
 
+    // Limpa o conteúdo antigo enquanto carrega
+    if (dom.disciplinesList) dom.disciplinesList.innerHTML = `<p class="text-subtle">Carregando...</p>`;
+    if (dom.weeklyAgendaContainer) dom.weeklyAgendaContainer.innerHTML = '';
+    
     const enrollmentSnap = await api.getEnrollment(enrollmentId);
     if (enrollmentSnap.exists()) {
         const data = enrollmentSnap.data();
-        // Agora estes elementos existem e podem ser preenchidos com segurança
-        dom.dashboardTitle.textContent = data.course;
-        dom.dashboardSubtitle.textContent = data.institution;
+        
+        if (dom.dashboardTitle) dom.dashboardTitle.textContent = data.course;
+        if (dom.dashboardSubtitle) dom.dashboardSubtitle.textContent = data.institution;
         
         const periods = await api.getPeriods(enrollmentId);
         setState('periods', periods);
-        
         const activeIndex = periods.findIndex(p => p.id === data.activePeriodId);
         setState('activePeriodIndex', activeIndex > -1 ? activeIndex : 0);
         
@@ -139,24 +143,29 @@ export async function showDashboardView(enrollmentId) {
 }
 
 export async function renderDisciplines(enrollmentId, periodId, enrollmentData, isPeriodClosed = false) {
-  if (!dom.disciplinesList) return;
-  dom.disciplinesList.innerHTML = `<p class="text-subtle">Carregando disciplinas...</p>`;
-  const disciplines = await api.getDisciplines(enrollmentId, periodId);
-  dom.disciplinesList.innerHTML = !disciplines.length ? `<p class="text-subtle col-span-full text-center">Nenhuma disciplina adicionada.</p>` : '';
-  
-  disciplines.forEach(discipline => {
-    const card = createDisciplineCard(discipline, enrollmentData, isPeriodClosed);
-    dom.disciplinesList.appendChild(card);
-  });
-
-  if (!isPeriodClosed) {
-    sortableInstances.disciplines = new Sortable(dom.disciplinesList, {
-        animation: 150,
-        ghostClass: 'opacity-50',
-        handle: '.cursor-grab',
-        onEnd: (evt) => api.updateDisciplinesOrder(Array.from(evt.to.children), { enrollmentId, periodId }),
+    if (!dom.disciplinesList) return;
+    dom.disciplinesList.innerHTML = ''; // Limpa antes de adicionar
+    const disciplines = await api.getDisciplines(enrollmentId, periodId);
+    if (!disciplines.length) {
+        dom.disciplinesList.innerHTML = `<p class="text-subtle col-span-full text-center">Nenhuma disciplina adicionada.</p>`;
+        return;
+    }
+    
+    disciplines.forEach(discipline => {
+        const card = createDisciplineCard(discipline, enrollmentData, isPeriodClosed);
+        dom.disciplinesList.appendChild(card);
     });
-  }
+
+    if (sortableInstances.disciplines && sortableInstances.disciplines.el) {
+        sortableInstances.disciplines.destroy();
+    }
+    if (!isPeriodClosed) {
+        sortableInstances.disciplines = new Sortable(dom.disciplinesList, {
+            animation: 150,
+            handle: '.cursor-grab',
+            onEnd: (evt) => api.updateDisciplinesOrder(Array.from(evt.to.children), { enrollmentId, periodId }),
+        });
+    }
 }
 
 export async function renderAbsenceHistory(enrollmentId, periodId, disciplineId) {

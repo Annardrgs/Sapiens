@@ -9,7 +9,6 @@ import * as firestoreApi from './api/firestore.js';
 import * as view from './ui/view.js';
 import * as modals from './ui/modals.js';
 import { toggleTheme } from './ui/theme.js';
-import { calculateAverage } from './components/card.js';
 
 // --- INICIALIZAÇÃO DOS LISTENERS ---
 
@@ -30,6 +29,7 @@ export function initializeAppListeners() {
     if (dom.themeToggleBtn) dom.themeToggleBtn.addEventListener('click', toggleTheme);
     document.addEventListener('click', handleOutsideClick, true);
 
+    // Formulários
     if (dom.addEnrollmentForm) dom.addEnrollmentForm.addEventListener('submit', handleEnrollmentFormSubmit);
     if (dom.addDisciplineForm) dom.addDisciplineForm.addEventListener('submit', handleDisciplineFormSubmit);
     if (dom.addPeriodForm) dom.addPeriodForm.addEventListener('submit', handlePeriodFormSubmit);
@@ -38,6 +38,7 @@ export function initializeAppListeners() {
     if (dom.configGradesForm) dom.configGradesForm.addEventListener('submit', handleConfigGradesSubmit);
     if (dom.periodOptionsForm) dom.periodOptionsForm.addEventListener('submit', handlePeriodOptionsFormSubmit);
     
+    // Modais interativos
     if (dom.addDisciplineModal) dom.addDisciplineModal.querySelector('#add-schedule-btn').addEventListener('click', modals.addScheduleField);
     if (dom.configGradesForm) {
         dom.configGradesForm.querySelector('#grade-calculation-rule').addEventListener('change', modals.renderGradeFields);
@@ -46,6 +47,7 @@ export function initializeAppListeners() {
     }
     if (dom.disciplinesList) dom.disciplinesList.addEventListener('input', handleGradeInput);
     
+    // Botões de Cancelar
     if (dom.cancelEnrollmentBtn) dom.cancelEnrollmentBtn.addEventListener('click', modals.hideEnrollmentModal);
     if (dom.cancelDisciplineBtn) dom.cancelDisciplineBtn.addEventListener('click', modals.hideDisciplineModal);
     if (dom.cancelPeriodBtn) dom.cancelPeriodBtn.addEventListener('click', modals.hidePeriodModal);
@@ -55,11 +57,7 @@ export function initializeAppListeners() {
     if (dom.cancelConfigGradesBtn) dom.cancelConfigGradesBtn.addEventListener('click', modals.hideConfigGradesModal);
     if (dom.periodOptionsModal) dom.periodOptionsModal.querySelector('[data-action="cancel"]')?.addEventListener('click', modals.hidePeriodOptionsModal);
     if (dom.closePdfViewerBtn) dom.closePdfViewerBtn.addEventListener('click', modals.hidePdfViewerModal);
-
-    // Listeners de "cancelar" dos modais
-    if (dom.cancelEnrollmentBtn) dom.cancelEnrollmentBtn.addEventListener('click', modals.hideEnrollmentModal);
 }
-
 
 // --- HANDLERS (LÓGICA DOS EVENTOS) ---
 
@@ -68,54 +66,60 @@ async function handlePeriodOptionsFormSubmit(e) {
     const { activeEnrollmentId, activePeriodId } = getState();
     const fileInput = dom.periodOptionsForm.querySelector('#period-calendar-file');
     const file = fileInput.files[0];
-
     const payload = {
         startDate: dom.periodOptionsForm.querySelector('#period-start-date').value,
         endDate: dom.periodOptionsForm.querySelector('#period-end-date').value,
     };
-
     const submitButton = dom.periodOptionsForm.querySelector('button[type="submit"]');
     try {
-        submitButton.textContent = 'Salvando...';
-        submitButton.disabled = true;
+        if(submitButton) { submitButton.textContent = 'Salvando...'; submitButton.disabled = true; }
         if (file) {
-            const downloadURL = await firestoreApi.uploadPeriodCalendar(file);
-            payload.calendarUrl = downloadURL;
+            payload.calendarUrl = await firestoreApi.uploadPeriodCalendar(file);
         }
         await firestoreApi.updatePeriodDetails(activeEnrollmentId, activePeriodId, payload);
         modals.hidePeriodOptionsModal();
         await view.showDashboardView(activeEnrollmentId);
     } catch (error) {
         console.error("Erro ao salvar opções do período:", error);
-        alert("Não foi possível salvar as alterações.");
     } finally {
-        if(submitButton) {
-            submitButton.textContent = 'Salvar Alterações';
-            submitButton.disabled = false;
-        }
+        if(submitButton) { submitButton.textContent = 'Salvar'; submitButton.disabled = false; }
     }
 }
 
 async function handleAppContainerClick(e) {
+    console.log('===================================');
+    console.log('[DEBUG] Clique detectado! Elemento alvo:', e.target);
+
     const target = e.target;
     const button = target.closest('button');
     const actionTarget = target.closest('[data-action]');
     
+    console.log('[DEBUG] Identificando o clique:', {
+        buttonId: button ? button.id : 'Nenhum',
+        action: actionTarget ? actionTarget.dataset.action : 'Nenhum'
+    });
+
     if (button && button.id) {
+        console.log(`[DEBUG] Verificando se o botão com ID "${button.id}" tem uma ação.`);
         switch (button.id) {
-            case 'add-enrollment-btn': modals.showEnrollmentModal(); return;
-            case 'add-discipline-btn': modals.showDisciplineModal(); return;
-            case 'new-period-btn': modals.showPeriodModal(); return;
-            case 'manage-period-btn': modals.showPeriodOptionsModal(); return;
-            case 'back-to-enrollments-btn': view.showEnrollmentsView(); return;
-            case 'prev-period-btn': switchPeriod('prev'); return;
-            case 'next-period-btn': switchPeriod('next'); return;
+            case 'add-enrollment-btn': console.log('[DEBUG] Ação: Abrir modal de matrícula.'); modals.showEnrollmentModal(); return;
+            case 'add-discipline-btn': console.log('[DEBUG] Ação: Abrir modal de disciplina.'); modals.showDisciplineModal(); return;
+            case 'new-period-btn': console.log('[DEBUG] Ação: Abrir modal de período.'); modals.showPeriodModal(); return;
+            case 'manage-period-btn': console.log('[DEBUG] Ação: Abrir opções do período.'); modals.showPeriodOptionsModal(); return;
+            case 'back-to-enrollments-btn': console.log('[DEBUG] Ação: Voltar para matrículas.'); view.showEnrollmentsView(); return;
+            case 'prev-period-btn': console.log('[DEBUG] Ação: Período anterior.'); switchPeriod('next'); return;
+            case 'next-period-btn': console.log('[DEBUG] Ação: Próximo período.'); switchPeriod('prev'); return;
         }
     }
+
+
+    // 2. Ações baseadas em data-action (cards de matrícula e menus de disciplina)
     if (actionTarget) {
+        console.log(`[DEBUG] Verificando se a data-action "${actionTarget.dataset.action}" tem uma ação.`);
         const action = actionTarget.dataset.action;
         const card = target.closest('[data-id]');
         const id = card ? card.dataset.id : null;
+
         switch (action) {
             case 'edit-enrollment': modals.showEnrollmentModal(id); break;
             case 'delete-enrollment': modals.showConfirmDeleteModal({ type: 'enrollment', id }); break;
@@ -137,24 +141,25 @@ async function handleAppContainerClick(e) {
         }
         return;
     }
+
+    // 3. Ação padrão para clique em card de matrícula
     const enrollmentCard = target.closest('#enrollments-list [data-id]');
     if (enrollmentCard) {
+        console.log('[DEBUG] Ação: Abrir painel da matrícula ID:', enrollmentCard.dataset.id);
         view.showDashboardView(enrollmentCard.dataset.id);
         return;
     }
-    const detailsButton = target.closest('.view-enrollment-dashboard-btn');
-    if (detailsButton) {
-        const section = target.closest('[data-id]');
-        if (section) {
-            view.showDashboardView(section.dataset.id);
-        }
-        return;
-    }
+    
+    // 4. Ação padrão para clique em card de disciplina (expandir)
     const disciplineCard = target.closest('#disciplines-list [data-id]');
     if (disciplineCard && target.closest('.card-header')) {
+        console.log('[DEBUG] Ação: Expandir/recolher card de disciplina ID:', disciplineCard.dataset.id);
         toggleCardExpansion(disciplineCard);
         return;
     }
+
+    console.log('[DEBUG] Nenhuma ação correspondente encontrada para este clique.');
+    console.log('===================================\n');
 }
 
 async function handleAuthFormSubmit(e) {
