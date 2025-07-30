@@ -124,36 +124,47 @@ function populateGradesInputs(container, discipline, isPeriodClosed) {
 }
 
 export function calculateAverage(data) {
-    if (!data.gradeConfig || !data.gradeConfig.evaluations || !data.grades || data.grades.every(g => g.grade === null)) {
+    if (!data.gradeConfig || !data.gradeConfig.evaluations || !data.grades) {
         return 'N/A';
     }
+
     let averageGrade = 'N/A';
     const { rule, evaluations } = data.gradeConfig;
     const { grades } = data;
+    
+    // Verifica se existe pelo menos uma avaliação configurada
+    if (evaluations.length === 0) {
+        return 'N/A';
+    }
+
     if (rule === 'weighted') {
         let totalWeight = 0;
         let weightedSum = 0;
         evaluations.forEach((evaluation, index) => {
             const gradeInfo = grades[index];
-            if (gradeInfo && typeof gradeInfo.grade === 'number') {
-                if (evaluation.weight > 0) {
-                    weightedSum += gradeInfo.grade * (evaluation.weight / 100);
-                    totalWeight += (evaluation.weight / 100);
-                }
+            // Trata a nota não preenchida (null/undefined) como 0
+            const grade = (gradeInfo && typeof gradeInfo.grade === 'number') ? gradeInfo.grade : 0;
+            
+            if (evaluation.weight > 0) {
+                weightedSum += grade * (evaluation.weight / 100);
+                totalWeight += (evaluation.weight / 100);
             }
         });
         if (totalWeight > 0) averageGrade = (weightedSum / totalWeight).toFixed(2);
-    } else {
+
+    } else { // Média Aritmética
         let gradeSum = 0;
-        let gradeCount = 0;
+        let gradeCount = evaluations.length; // Usa o total de avaliações como divisor
+        if(gradeCount === 0) return 'N/A';
+        
         grades.forEach(gradeInfo => {
-            if (gradeInfo && typeof gradeInfo.grade === 'number') {
-                gradeSum += gradeInfo.grade;
-                gradeCount++;
-            }
+            // Trata a nota não preenchida como 0
+            const grade = (gradeInfo && typeof gradeInfo.grade === 'number') ? gradeInfo.grade : 0;
+            gradeSum += grade;
         });
-        if (gradeCount > 0) averageGrade = (gradeSum / gradeCount).toFixed(2);
+        averageGrade = (gradeSum / gradeCount).toFixed(2);
     }
+    
     return parseFloat(averageGrade) === 0 ? "0.00" : averageGrade;
 }
 

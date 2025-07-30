@@ -11,7 +11,6 @@ import * as modals from './ui/modals.js';
 import { toggleTheme } from './ui/theme.js';
 
 // --- INICIALIZAÇÃO DOS LISTENERS ---
-
 export function initializeAuthListeners() {
     if (dom.authForm) dom.authForm.addEventListener('submit', handleAuthFormSubmit);
     if (dom.authPrompt) dom.authPrompt.addEventListener('click', (e) => {
@@ -38,7 +37,7 @@ export function initializeAppListeners() {
     if (dom.configGradesForm) dom.configGradesForm.addEventListener('submit', handleConfigGradesSubmit);
     if (dom.periodOptionsForm) dom.periodOptionsForm.addEventListener('submit', handlePeriodOptionsFormSubmit);
     
-    // Modais interativos
+    // Modais interativos (agora chamam as funções do modals.js)
     if (dom.addDisciplineModal) dom.addDisciplineModal.querySelector('#add-schedule-btn').addEventListener('click', modals.addScheduleField);
     if (dom.configGradesForm) {
         dom.configGradesForm.querySelector('#grade-calculation-rule').addEventListener('change', modals.renderGradeFields);
@@ -87,79 +86,44 @@ async function handlePeriodOptionsFormSubmit(e) {
 }
 
 async function handleAppContainerClick(e) {
-    console.log('===================================');
-    console.log('[DEBUG] Clique detectado! Elemento alvo:', e.target);
-
     const target = e.target;
     const button = target.closest('button');
     const actionTarget = target.closest('[data-action]');
     
-    console.log('[DEBUG] Identificando o clique:', {
-        buttonId: button ? button.id : 'Nenhum',
-        action: actionTarget ? actionTarget.dataset.action : 'Nenhum'
-    });
-
     if (button && button.id) {
-        console.log(`[DEBUG] Verificando se o botão com ID "${button.id}" tem uma ação.`);
         switch (button.id) {
-            case 'add-enrollment-btn': console.log('[DEBUG] Ação: Abrir modal de matrícula.'); modals.showEnrollmentModal(); return;
-            case 'add-discipline-btn': console.log('[DEBUG] Ação: Abrir modal de disciplina.'); modals.showDisciplineModal(); return;
-            case 'new-period-btn': console.log('[DEBUG] Ação: Abrir modal de período.'); modals.showPeriodModal(); return;
-            case 'manage-period-btn': console.log('[DEBUG] Ação: Abrir opções do período.'); modals.showPeriodOptionsModal(); return;
-            case 'back-to-enrollments-btn': console.log('[DEBUG] Ação: Voltar para matrículas.'); view.showEnrollmentsView(); return;
-            case 'prev-period-btn': console.log('[DEBUG] Ação: Período anterior.'); switchPeriod('next'); return;
-            case 'next-period-btn': console.log('[DEBUG] Ação: Próximo período.'); switchPeriod('prev'); return;
+            case 'add-enrollment-btn': modals.showEnrollmentModal(); return;
+            case 'add-discipline-btn': modals.showDisciplineModal(); return;
+            case 'new-period-btn': modals.showPeriodModal(); return;
+            case 'manage-period-btn': modals.showPeriodOptionsModal(); return;
+            case 'back-to-enrollments-btn': view.showEnrollmentsView(); return;
+            case 'prev-period-btn': switchPeriod('prev'); return;
+            case 'next-period-btn': switchPeriod('next'); return;
         }
     }
 
-
-    // 2. Ações baseadas em data-action (cards de matrícula e menus de disciplina)
     if (actionTarget) {
-        console.log(`[DEBUG] Verificando se a data-action "${actionTarget.dataset.action}" tem uma ação.`);
         const action = actionTarget.dataset.action;
         const card = target.closest('[data-id]');
         const id = card ? card.dataset.id : null;
-
         switch (action) {
             case 'edit-enrollment': modals.showEnrollmentModal(id); break;
             case 'delete-enrollment': modals.showConfirmDeleteModal({ type: 'enrollment', id }); break;
             case 'toggle-menu': e.stopPropagation(); document.getElementById(`menu-${id}`)?.classList.toggle('hidden'); break;
             case 'edit-discipline': modals.showDisciplineModal(id); break;
-            case 'delete-discipline': {
-                const { activeEnrollmentId, activePeriodId } = getState();
-                modals.showConfirmDeleteModal({ type: 'discipline', id, enrollmentId: activeEnrollmentId, periodId: activePeriodId });
-                break;
-            }
+            case 'delete-discipline': { const { activeEnrollmentId, activePeriodId } = getState(); modals.showConfirmDeleteModal({ type: 'discipline', id, enrollmentId: activeEnrollmentId, periodId: activePeriodId }); break; }
             case 'add-absence': modals.showAbsenceModal(id, actionTarget.dataset.name); break;
-            case 'history-absence': {
-                const { activeEnrollmentId, activePeriodId } = getState();
-                modals.showAbsenceHistoryModal(id, actionTarget.dataset.name);
-                view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, id);
-                break;
-            }
+            case 'history-absence': { const { activeEnrollmentId, activePeriodId } = getState(); modals.showAbsenceHistoryModal(id, actionTarget.dataset.name); view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, id); break; }
             case 'config-grades': modals.showConfigGradesModal(id, actionTarget.dataset.name); break;
         }
         return;
     }
 
-    // 3. Ação padrão para clique em card de matrícula
     const enrollmentCard = target.closest('#enrollments-list [data-id]');
-    if (enrollmentCard) {
-        console.log('[DEBUG] Ação: Abrir painel da matrícula ID:', enrollmentCard.dataset.id);
-        view.showDashboardView(enrollmentCard.dataset.id);
-        return;
-    }
+    if (enrollmentCard) { view.showDashboardView(enrollmentCard.dataset.id); return; }
     
-    // 4. Ação padrão para clique em card de disciplina (expandir)
     const disciplineCard = target.closest('#disciplines-list [data-id]');
-    if (disciplineCard && target.closest('.card-header')) {
-        console.log('[DEBUG] Ação: Expandir/recolher card de disciplina ID:', disciplineCard.dataset.id);
-        toggleCardExpansion(disciplineCard);
-        return;
-    }
-
-    console.log('[DEBUG] Nenhuma ação correspondente encontrada para este clique.');
-    console.log('===================================\n');
+    if (disciplineCard && target.closest('.card-header')) { toggleCardExpansion(disciplineCard); return; }
 }
 
 async function handleAuthFormSubmit(e) {
@@ -172,11 +136,14 @@ async function handleAuthFormSubmit(e) {
 
 async function handleEnrollmentFormSubmit(e) {
     e.preventDefault();
+    const selectedModality = dom.addEnrollmentForm.querySelector('input[name="enrollment-modality"]:checked').value;
+
     const payload = {
         course: dom.addEnrollmentForm.querySelector('#enrollment-course').value,
         institution: dom.addEnrollmentForm.querySelector('#enrollment-institution').value,
         currentPeriod: dom.addEnrollmentForm.querySelector('#enrollment-period').value,
         passingGrade: parseFloat(dom.addEnrollmentForm.querySelector('#enrollment-passing-grade').value) || 7.0,
+        modality: selectedModality,
     };
     const { editingEnrollmentId } = getState();
     try {
@@ -207,19 +174,32 @@ async function handlePeriodFormSubmit(e) {
 async function handleDisciplineFormSubmit(e) {
     e.preventDefault();
     const { activeEnrollmentId, activePeriodId, editingDisciplineId } = getState();
+    
     const schedules = [];
-    dom.addDisciplineForm.querySelectorAll('#schedules-container .schedule-field').forEach(field => {
-        schedules.push({
-            day: field.querySelector('[name="schedule-day"]').value,
-            startTime: field.querySelector('[name="schedule-start"]').value,
-            endTime: field.querySelector('[name="schedule-end"]').value,
-        });
+    const scheduleElements = dom.addDisciplineForm.querySelectorAll('#schedules-container .schedule-field');
+    let hasInvalidTime = false;
+    scheduleElements.forEach(field => {
+        const startTime = field.querySelector('[name="schedule-start"]').value;
+        const endTime = field.querySelector('[name="schedule-end"]').value;
+
+        // VALIDAÇÃO DE HORÁRIOS
+        if (!startTime || !endTime) {
+            hasInvalidTime = true;
+        }
+
+        schedules.push({ day: field.querySelector('[name="schedule-day"]').value, startTime, endTime });
     });
+
+    if (hasInvalidTime) {
+        return alert('Por favor, preencha a hora de início e fim para todos os horários.');
+    }
+
     const payload = {
         name: dom.addDisciplineForm.querySelector('#discipline-name').value,
         teacher: dom.addDisciplineForm.querySelector('#discipline-teacher').value,
+        campus: dom.addDisciplineForm.querySelector('#discipline-campus').value, // Salva o campus
         location: dom.addDisciplineForm.querySelector('#discipline-location').value,
-        schedules: schedules,
+        schedules: schedules, 
         workload: parseInt(dom.addDisciplineForm.querySelector('#discipline-workload').value),
         hoursPerClass: parseInt(dom.addDisciplineForm.querySelector('#discipline-hours-per-class').value),
     };
