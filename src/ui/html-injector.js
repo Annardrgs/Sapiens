@@ -43,7 +43,73 @@ const modalHTML = `
     </div>
   </div>
 
-  <div id="period-options-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"><div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border"><h3 id="period-options-title" class="text-2xl font-bold mb-6 text-secondary">Opções do Período</h3><form id="period-options-form"><div class="space-y-4"><div class="grid grid-cols-2 gap-4"><div><label for="period-start-date" class="block text-sm font-medium text-subtle mb-1">Início</label><input type="date" id="period-start-date" class="w-full px-3 py-2 bg-bkg text-secondary border border-border rounded-md"></div><div><label for="period-end-date" class="block text-sm font-medium text-subtle mb-1">Fim</label><input type="date" id="period-end-date" class="w-full px-3 py-2 bg-bkg text-secondary border border-border rounded-md"></div></div><div><label for="period-calendar-file" class="block text-sm font-medium text-subtle mb-1">Calendário</label><input type="file" id="period-calendar-file" accept=".pdf,.jpg,.jpeg,.png" class="w-full text-sm text-subtle file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"><a href="#" id="view-calendar-link" class="hidden mt-2 text-sm text-primary hover:underline">Ver</a></div><div class="pt-4 border-t border-border space-y-3"><button type="button" id="end-period-btn" class="w-full text-left px-4 py-2 text-sm text-secondary hover:bg-bkg">Encerrar Período</button><button type="button" id="reopen-period-btn" class="w-full text-left hidden px-4 py-2 text-sm text-secondary hover:bg-bkg">Reabrir</button><button type="button" id="delete-period-btn" class="w-full text-left px-4 py-2 text-sm text-danger hover:bg-red-900/50">Deletar</button></div></div><div class="mt-8 flex justify-end space-x-4"><button type="button" data-action="cancel" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg">Cancelar</button><button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg">Salvar</button></div></form></div></div>
+   <div id="period-options-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border">
+      <div>
+        <h3 class="text-2xl font-bold text-secondary">Gerenciar Período</h3>
+        <p id="period-options-subtitle" class="text-subtle"></p>
+      </div>
+      
+      <form id="period-options-form" class="mt-6">
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="period-start-date" class="block text-sm font-medium text-subtle mb-1">Início</label>
+              <input type="date" id="period-start-date" class="w-full px-3 py-2 bg-bkg text-secondary border border-border rounded-md">
+            </div>
+            <div>
+              <label for="period-end-date" class="block text-sm font-medium text-subtle mb-1">Fim</label>
+              <input type="date" id="period-end-date" class="w-full px-3 py-2 bg-bkg text-secondary border border-border rounded-md">
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-subtle mb-1">Calendário Acadêmico</label>
+            <input type="file" id="period-calendar-file" accept=".pdf,.jpg,.jpeg,.png" class="hidden">
+            <div id="calendar-upload-view">
+                <label for="period-calendar-file" class="w-full cursor-pointer text-center px-4 py-2 text-sm rounded-md border border-dashed border-border hover:bg-bkg flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4 text-subtle" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                    Anexar arquivo
+                </label>
+            </div>
+            <div id="calendar-uploaded-view" class="hidden flex items-center justify-between p-2 bg-bkg rounded-md border border-border">
+                <span id="calendar-file-name" class="text-sm text-secondary truncate ml-2"></span>
+                <div>
+                    <a href="#" target="_blank" id="view-calendar-link" class="text-sm text-primary hover:underline px-2">Ver</a>
+                    <button type="button" id="remove-calendar-btn" class="text-sm text-danger hover:underline px-2">Remover</button>
+                </div>
+            </div>
+          </div>
+        </div>
+      </form>
+      
+      <div class="mt-6 pt-4 border-t border-border">
+        <div class="p-4 rounded-lg border border-danger/50 bg-danger/10">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <h3 class="text-sm font-bold text-danger">⚠️</h3>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-bold text-danger">Zona de Perigo</h3>
+                    <div class="mt-2 text-sm text-danger/80">
+                        <p>As ações abaixo são permanentes. Tenha cuidado.</p>
+                    </div>
+                    <div class="mt-4 flex space-x-4">
+                        <button type="button" id="end-period-btn" class="flex-1 justify-center text-center px-3 py-2 text-sm font-semibold text-warning bg-transparent border border-warning rounded-md hover:bg-warning/10">Encerrar Período</button>
+                        <button type="button" id="delete-period-btn" class="flex-1 justify-center text-center px-3 py-2 text-sm font-semibold text-danger bg-transparent border border-danger rounded-md hover:bg-danger/10">Deletar Período</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <button type="button" id="reopen-period-btn" class="hidden w-full mt-4 text-center px-3 py-2 text-sm font-semibold text-secondary border border-border rounded-md hover:bg-bkg">Reabrir Período</button>
+      </div>
+      
+      <div class="mt-8 flex justify-end space-x-4">
+        <button type="button" data-action="cancel" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg">Cancelar</button>
+        <button type="submit" form="period-options-form" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg">Salvar Alterações</button>
+      </div>
+    </div>
+  </div>
+
   <div id="pdf-viewer-modal" class="hidden fixed inset-0 bg-black bg-opacity-85 flex items-center justify-center z-50 p-4"><div class="bg-surface w-full h-full max-w-4xl max-h-[90vh] rounded-lg shadow-xl flex flex-col border border-border"><div class="flex justify-between items-center p-4 border-b border-border"><h3 class="text-xl font-bold text-secondary">Calendário</h3><button id="close-pdf-viewer-btn" class="p-2 rounded-full hover:bg-bkg"><svg class="w-6 h-6 text-subtle" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M6 18L18 6M6 6l12 12" /></svg></button></div><div class="flex-grow p-2"><iframe id="pdf-viewer-iframe" class="w-full h-full border-0" src=""></iframe></div></div></div>
 `;
 

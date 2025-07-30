@@ -146,22 +146,38 @@ export function showAbsenceHistoryModal(disciplineId, disciplineName) {
 
 export async function showPeriodOptionsModal() { 
     if (!dom.periodOptionsModal) return; 
+    
     const { periods, activePeriodIndex } = getState(); 
     const currentPeriod = periods[activePeriodIndex]; 
     if (!currentPeriod) return; 
-    if (dom.periodOptionsTitle) dom.periodOptionsTitle.textContent = `Opções de "${currentPeriod.name}"`; 
+
+    // Atualiza o subtítulo com o nome do período
+    if (dom.periodOptionsSubtitle) dom.periodOptionsSubtitle.textContent = currentPeriod.name; 
+    
+    // Preenche as datas
     if (dom.periodOptionsForm) { 
         dom.periodOptionsForm.querySelector('#period-start-date').value = currentPeriod.startDate || ''; 
         dom.periodOptionsForm.querySelector('#period-end-date').value = currentPeriod.endDate || ''; 
     } 
-    if (dom.viewCalendarLink) { 
-        if (currentPeriod.calendarUrl) { 
-            dom.viewCalendarLink.href = currentPeriod.calendarUrl; 
-            dom.viewCalendarLink.classList.remove('hidden'); 
-        } else { 
-            dom.viewCalendarLink.classList.add('hidden'); 
-        } 
-    } 
+
+    // Lógica para exibir o estado do calendário (com ou sem arquivo)
+    const uploadView = document.getElementById('calendar-upload-view');
+    const uploadedView = document.getElementById('calendar-uploaded-view');
+    const fileNameSpan = document.getElementById('calendar-file-name');
+    const viewLink = document.getElementById('view-calendar-link');
+
+    if (currentPeriod.calendarUrl) {
+        uploadView.classList.add('hidden');
+        uploadedView.classList.remove('hidden');
+        // Extrai um nome de arquivo mais amigável da URL
+        fileNameSpan.textContent = currentPeriod.calendarUrl.split('/').pop().slice(0, 30) + '...';
+        viewLink.href = currentPeriod.calendarUrl;
+    } else {
+        uploadView.classList.remove('hidden');
+        uploadedView.classList.add('hidden');
+    }
+    
+    // Controla a visibilidade dos botões de encerrar/reabrir
     if (dom.endPeriodBtn && dom.reopenPeriodBtn) { 
         if (currentPeriod.status === 'closed') { 
             dom.endPeriodBtn.classList.add('hidden'); 
@@ -171,9 +187,9 @@ export async function showPeriodOptionsModal() {
             dom.reopenPeriodBtn.classList.add('hidden'); 
         } 
     } 
+    
     showModal(dom.periodOptionsModal); 
 }
-
 export function showConfigGradesModal(disciplineId, disciplineName) { 
     if (!dom.configGradesModal || !dom.configGradesTitle || !dom.configGradesForm) return; 
     const { activeEnrollmentId, activePeriodId } = getState(); 

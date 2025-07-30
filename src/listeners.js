@@ -11,6 +11,38 @@ import * as modals from './ui/modals.js';
 import { toggleTheme } from './ui/theme.js';
 
 // --- INICIALIZAÇÃO DOS LISTENERS ---
+
+function handleCalendarFileChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const uploadView = document.getElementById('calendar-upload-view');
+    const uploadedView = document.getElementById('calendar-uploaded-view');
+    const fileNameSpan = document.getElementById('calendar-file-name');
+    const viewLink = document.getElementById('view-calendar-link');
+    const removeBtn = document.getElementById('remove-calendar-btn');
+
+    fileNameSpan.textContent = file.name;
+    viewLink.classList.add('hidden'); // Esconde o link "Ver" para arquivos novos não salvos
+    removeBtn.classList.remove('hidden'); // Garante que o botão "Remover" apareça
+    uploadView.classList.add('hidden');
+    uploadedView.classList.remove('hidden');
+}
+
+// Adicione esta nova função também
+function handleRemoveCalendarFile() {
+    const fileInput = document.getElementById('period-calendar-file');
+    fileInput.value = ''; // Limpa o arquivo selecionado
+
+    const uploadView = document.getElementById('calendar-upload-view');
+    const uploadedView = document.getElementById('calendar-uploaded-view');
+    uploadView.classList.remove('hidden');
+    uploadedView.classList.add('hidden');
+
+    // Futuramente, você pode adicionar uma lógica para marcar a remoção de um arquivo já salvo
+    setState('calendarMarkedForDeletion', true);
+}
+
 export function initializeAuthListeners() {
     if (dom.authForm) dom.authForm.addEventListener('submit', handleAuthFormSubmit);
     if (dom.authPrompt) dom.authPrompt.addEventListener('click', (e) => {
@@ -64,6 +96,12 @@ export function initializeAppListeners() {
     if (dom.cancelConfigGradesBtn) dom.cancelConfigGradesBtn.addEventListener('click', modals.hideConfigGradesModal);
     if (dom.periodOptionsModal) dom.periodOptionsModal.querySelector('[data-action="cancel"]')?.addEventListener('click', modals.hidePeriodOptionsModal);
     if (dom.closePdfViewerBtn) dom.closePdfViewerBtn.addEventListener('click', modals.hidePdfViewerModal);
+
+    const calendarFileInput = document.getElementById('period-calendar-file');
+    if (calendarFileInput) calendarFileInput.addEventListener('change', handleCalendarFileChange);
+
+    const removeCalendarBtn = document.getElementById('remove-calendar-btn');
+    if (removeCalendarBtn) removeCalendarBtn.addEventListener('click', handleRemoveCalendarFile);
 }
 
 
