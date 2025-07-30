@@ -123,37 +123,32 @@ export async function showDashboardView(enrollmentId) {
     const enrollmentSnap = await api.getEnrollment(enrollmentId);
     if (enrollmentSnap.exists()) {
         const data = enrollmentSnap.data();
+        // Agora estes elementos existem e podem ser preenchidos com segurança
         dom.dashboardTitle.textContent = data.course;
         dom.dashboardSubtitle.textContent = data.institution;
+        
         const periods = await api.getPeriods(enrollmentId);
         setState('periods', periods);
+        
         const activeIndex = periods.findIndex(p => p.id === data.activePeriodId);
         setState('activePeriodIndex', activeIndex > -1 ? activeIndex : 0);
+        
         await renderPeriodNavigator();
         await refreshDashboard();
     }
 }
 
-export async function renderDisciplines(enrollmentId, periodId, isPeriodClosed = false) {
-  // 1. Destrói a instância ANTES de limpar a lista
-  if (sortableInstances.disciplines && sortableInstances.disciplines.el) {
-    try {
-      sortableInstances.disciplines.destroy();
-    } catch (e) { console.warn("Sortable instance could not be destroyed.", e); }
-  }
-  sortableInstances.disciplines = null;
-
-  // 2. Agora limpa a lista com segurança
+export async function renderDisciplines(enrollmentId, periodId, enrollmentData, isPeriodClosed = false) {
+  if (!dom.disciplinesList) return;
   dom.disciplinesList.innerHTML = `<p class="text-subtle">Carregando disciplinas...</p>`;
   const disciplines = await api.getDisciplines(enrollmentId, periodId);
   dom.disciplinesList.innerHTML = !disciplines.length ? `<p class="text-subtle col-span-full text-center">Nenhuma disciplina adicionada.</p>` : '';
   
   disciplines.forEach(discipline => {
-    const card = createDisciplineCard(discipline, isPeriodClosed);
+    const card = createDisciplineCard(discipline, enrollmentData, isPeriodClosed);
     dom.disciplinesList.appendChild(card);
   });
-  
-  // 3. Cria a nova instância
+
   if (!isPeriodClosed) {
     sortableInstances.disciplines = new Sortable(dom.disciplinesList, {
         animation: 150,
@@ -313,12 +308,19 @@ function renderWeeklyAgenda(disciplines) {
 export async function refreshDashboard() {
     const { activeEnrollmentId, activePeriodId, periods, activePeriodIndex } = getState();
     if (!activeEnrollmentId || !activePeriodId) return;
+    
+    const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
+    if (!enrollmentSnap.exists()) return;
+    
+    const enrollmentData = enrollmentSnap.data();
     const currentPeriod = periods[activePeriodIndex];
     if (!currentPeriod) return;
+
     const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
     const isPeriodClosed = currentPeriod.status === 'closed';
+
     renderSummaryCards(disciplines, currentPeriod);
-    renderDisciplines(activeEnrollmentId, activePeriodId, isPeriodClosed);
+    renderDisciplines(activeEnrollmentId, activePeriodId, enrollmentData, isPeriodClosed);
     renderWeeklyAgenda(disciplines);
     renderInteractiveCalendar(disciplines, currentPeriod);
 }

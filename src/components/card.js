@@ -52,62 +52,41 @@ export function createDisciplineCard(discipline, isPeriodClosed = false) {
     const progressBarColor = colorMap[absenceStatus];
 
     const averageGrade = calculateAverage(discipline);
-    const averageColor = parseFloat(averageGrade) >= 7 ? 'green' : (parseFloat(averageGrade) >= 5 ? 'yellow' : 'red');
+    // const averageColor = parseFloat(averageGrade) >= 7 ? 'green' : (parseFloat(averageGrade) >= 5 ? 'yellow' : 'red');
+    const passingGrade = enrollmentData.passingGrade || 7.0;
+    let status = { text: 'N/A', color: 'subtle' };
+    
+    if (averageGrade !== 'N/A') {
+        const numericAverage = parseFloat(averageGrade);
+        const allGradesFilled = discipline.grades && discipline.grades.every(g => g.grade !== null);
 
+        if (numericAverage >= passingGrade) {
+            status = { text: 'Aprovado', color: 'success' };
+        } else if (allGradesFilled) {
+            status = { text: 'Reprovado', color: 'danger' };
+        } else {
+            status = { text: 'Em Andamento', color: 'yellow' };
+        }
+    }
+    
     card.innerHTML = `
         <div class="card-header p-4 cursor-pointer">
-            <div class="flex items-start justify-between">
-                <div class="flex items-center gap-4">
-                    <span class="w-2 h-10 rounded-full flex-shrink-0 cursor-grab" style="background-color: ${discipline.color || '#4f46e5'}"></span>
-                    <div>
-                        <h4 class="text-xl font-bold text-secondary">${discipline.name}</h4>
-                        <p class="text-sm text-subtle">${discipline.schedule || 'Horário não definido'}</p>
-                    </div>
-                </div>
-                <div class="relative">
-                    <button data-action="toggle-menu" class="text-subtle hover:text-primary p-1 rounded-full"><svg class="w-6 h-6 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg></button>
-                    <div id="menu-${discipline.id}" class="menu-options hidden absolute right-0 mt-2 w-48 bg-bkg rounded-md shadow-lg z-20 border border-border">
-                        <a href="#" data-action="edit-discipline" class="block px-4 py-2 text-sm text-secondary hover:bg-surface">Editar Disciplina</a>
-                        <a href="#" data-action="config-grades" data-name="${discipline.name}" class="block px-4 py-2 text-sm text-secondary hover:bg-surface">Configurar Avaliações</a>
-                        <a href="#" data-action="delete-discipline" class="block px-4 py-2 text-sm text-danger hover:bg-surface">Excluir Disciplina</a>
-                    </div>
-                </div>
-            </div>
             <div class="mt-4 space-y-3">
-                <div>
-                    <div class="flex justify-between text-sm font-medium text-subtle mb-1"><span>Faltas</span><span>${currentAbsences} de ${absenceLimit}</span></div>
-                    <div class="w-full bg-bkg rounded-full h-2.5">
-                        <div class="h-2.5 rounded-full" style="width: ${Math.min(absencePercentage, 100)}%; background-color: ${progressBarColor};"></div>
-                    </div>
+                <div class="flex justify-between text-sm font-medium text-subtle">
+                    <span>Média</span>
+                    <span class="font-bold">${averageGrade}</span>
                 </div>
-                <div>
-                     <div class="flex justify-between text-sm font-medium text-subtle"><span>Média</span><span class="font-bold text-${averageGrade === 'N/A' ? 'subtle' : (averageColor + '-500')}">${averageGrade}</span></div>
-                </div>
-            </div>
-        </div>
-        <div class="details-content overflow-hidden max-h-0 transition-all duration-500 ease-in-out">
-            <div class="border-t border-border p-4 space-y-4">
-                <div class="text-sm space-y-1">
-                    <p><strong class="text-subtle">Professor:</strong> ${discipline.teacher || 'Não definido'}</p>
-                    <p><strong class="text-subtle">Local:</strong> ${discipline.location || 'Não definido'}</p>
-                </div>
-                <div>
-                    <div class="flex items-center justify-between">
-                        <h5 class="font-bold text-md text-secondary">Faltas</h5>
-                        ${!isPeriodClosed ? `<button data-action="add-absence" data-name="${discipline.name}" class="bg-primary text-bkg rounded-full w-6 h-6 flex items-center justify-center font-bold hover:opacity-80 text-lg">+</button>` : ''}
-                    </div>
-                    <div class="mt-2"><button data-action="history-absence" data-name="${discipline.name}" class="text-sm text-primary hover:underline">Ver Histórico</button></div>
-                </div>
-                <div>
-                    <h5 class="font-bold text-md text-secondary mb-2">Notas</h5>
-                    <div class="grades-container grid grid-cols-2 md:grid-cols-3 gap-2"></div>
+                <div class="flex justify-between text-sm font-medium text-subtle">
+                    <span>Status</span>
+                    <span class="font-bold text-${status.color}">${status.text}</span>
                 </div>
             </div>
         </div>
-    `;
+        `;
     populateGradesInputs(card.querySelector('.grades-container'), discipline, isPeriodClosed);
     return card;
 }
+
 
 /**
  * Popula os inputs de notas dentro de um card de disciplina.

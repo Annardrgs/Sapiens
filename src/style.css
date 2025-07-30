@@ -13,10 +13,10 @@
   --color-border: #e5e7eb;
   --color-success: #10b981;
   --color-danger: #ef4444;
+  --color-warning: #f59e0b; 
 }
 
 .dark {
-  /* Tema Escuro */
   --color-bkg: #111827;
   --color-surface: #1f2937;
   --color-primary: #4f46e5;
@@ -26,9 +26,21 @@
   --color-border: #374151;
   --color-success: #34d399;
   --color-danger: #f87171;
+  --color-warning: #f59e0b;
 }
 
-/* --- Customização do FullCalendar --- */
+@layer components {
+  .text-link {
+    @apply text-primary font-semibold text-sm hover:underline focus:outline-none focus:ring-2 focus:ring-primary/50 rounded;
+  }
+  .dashboard-header {
+    @apply flex items-center gap-4 mb-6;
+  }
+  .back-button {
+    @apply p-2 rounded-full text-subtle hover:bg-surface;
+  }
+}
+
 :root {
   --fc-border-color: var(--color-border);
   --fc-daygrid-day-bg-color: transparent;
@@ -36,7 +48,7 @@
   --fc-today-bg-color: var(--color-bkg);
   --fc-event-bg-color: var(--color-primary);
   --fc-event-border-color: var(--color-primary);
-  --fc-event-text-color: #ffffff; /* Branco fixo para melhor contraste com a cor primária */
+  --fc-event-text-color: #ffffff;
   --fc-button-bg-color: var(--color-surface);
   --fc-button-text-color: var(--color-subtle);
   --fc-button-border-color: var(--color-border);

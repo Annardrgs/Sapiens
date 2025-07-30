@@ -49,9 +49,7 @@ const mainHTML = `
         <div class="px-4 py-6 sm:px-0">
           <div class="flex justify-between items-center mb-6">
             <h2 class="text-3xl font-bold text-secondary">Minhas Matrículas</h2>
-            <button id="add-enrollment-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity">
-              + Adicionar Matrícula
-            </button>
+            <button id="add-enrollment-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 transition-opacity">+ Adicionar Matrícula</button>
           </div>
           <div id="enrollments-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
         </div>
@@ -60,112 +58,35 @@ const mainHTML = `
             <div id="general-dashboard-content" class="space-y-8"></div>
         </div>
       </div>
-
       <div id="dashboard-view" class="hidden">
-          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-              <div>
-                  <button id="back-to-enrollments-btn" class="text-sm text-subtle hover:text-primary mb-2 flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                      Voltar para Matrículas
-                  </button>
-                  <h2 id="dashboard-title" class="text-3xl font-bold text-secondary"></h2>
-                  <p id="dashboard-subtitle" class="text-subtle"></p>
-              </div>
-              <div class="flex items-center space-x-2 mt-4 sm:mt-0">
-                  <div class="flex items-center bg-surface rounded-lg shadow-sm border border-border">
-                      <button id="prev-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-50"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
-                      <span id="current-period-name" class="font-bold text-secondary px-4 text-center w-28"></span>
-                      <button id="next-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-50"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
-                  </div>
-                  <button id="new-period-btn" class="bg-primary text-bkg font-bold py-2 px-4 rounded-lg flex items-center shadow-md hover:opacity-90">
-                      Novo Período
-                  </button>
-                   <div class="relative">
-                      <button id="manage-period-btn" class="p-2 rounded-lg hover:bg-surface" title="Opções do período">
-                          <svg class="w-6 h-6 text-subtle pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
-                      </button>
-                  </div>
-              </div>
-          </div>
-
-          <div id="summary-cards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"></div>
-
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div class="lg:col-span-1 flex flex-col gap-8">
-                  <div>
-                      <h3 class="text-2xl font-bold text-secondary mb-4">Agenda da Semana</h3>
-                      <div id="weekly-agenda-container" class="space-y-4"></div>
-                  </div>
-                  <div>
-                      <h3 class="text-2xl font-bold text-secondary mb-4">Calendário do Período</h3>
-                      <div id="calendar-container" class="bg-surface p-4 rounded-xl shadow-lg border border-border"></div>
-                  </div>
-              </div>
-              <div class="lg:col-span-2">
-                  <div class="flex justify-between items-center mb-4">
-                      <h3 class="text-2xl font-bold text-secondary">Disciplinas</h3>
-                      <button id="add-discipline-btn" class="bg-primary text-bkg font-bold py-2 px-4 rounded-lg flex items-center shadow-md hover:opacity-90">
-                          Adicionar Disciplina
-                      </button>
-                  </div>
-                  <div id="disciplines-list" class="space-y-4"></div>
-              </div>
-          </div>
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6"><button id="back-to-enrollments-btn" class="text-sm text-subtle hover:text-primary mb-2 flex items-center"><svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>Voltar</button><div><h2 id="dashboard-title" class="text-3xl font-bold text-secondary"></h2><p id="dashboard-subtitle" class="text-subtle"></p></div><div class="flex items-center space-x-2 mt-4 sm:mt-0"><div class="flex items-center bg-surface rounded-lg shadow-sm border border-border"><button id="prev-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-50"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M15 19l-7-7 7-7"></path></svg></button><span id="current-period-name" class="font-bold text-secondary px-4 text-center w-28"></span><button id="next-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-50"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 5l7 7-7 7"></path></svg></button></div><button id="new-period-btn" class="bg-primary text-bkg font-bold py-2 px-4 rounded-lg flex items-center shadow-md hover:opacity-90">Novo Período</button><div class="relative"><button id="manage-period-btn" class="p-2 rounded-lg hover:bg-surface" title="Opções"><svg class="w-6 h-6 text-subtle pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg></button></div></div></div>
+        <div id="summary-cards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"></div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8"><div class="lg:col-span-1 flex flex-col gap-8"><div><h3 class="text-2xl font-bold text-secondary mb-4">Agenda</h3><div id="weekly-agenda-container" class="space-y-4"></div></div><div><h3 class="text-2xl font-bold text-secondary mb-4">Calendário</h3><div id="calendar-container" class="bg-surface p-4 rounded-xl shadow-lg border border-border"></div></div></div><div class="lg:col-span-2"><div class="flex justify-between items-center mb-4"><h3 class="text-2xl font-bold text-secondary">Disciplinas</h3><button id="add-discipline-btn" class="bg-primary text-bkg font-bold py-2 px-4 rounded-lg flex items-center shadow-md hover:opacity-90">Adicionar</button></div><div id="disciplines-list" class="space-y-4"></div></div></div>
       </div>
     </main>
   </div>
 `;
 
 const modalHTML = `
-  <div id="add-discipline-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-xl border border-border">
-      <h3 id="discipline-modal-title" class="text-2xl font-bold mb-6 text-secondary">Nova Disciplina</h3>
-      <form id="add-discipline-form">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-            <div class="md:col-span-2">
-                <label for="discipline-name" class="block text-sm font-medium text-subtle mb-1">Nome da Disciplina*</label>
-                <input type="text" id="discipline-name" placeholder="Ex: Cálculo I" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
-            </div>
-            <div>
-                <label for="discipline-teacher" class="block text-sm font-medium text-subtle mb-1">Professor(a)</label>
-                <input type="text" id="discipline-teacher" placeholder="Opcional" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
-            </div>
-            <div>
-                <label for="discipline-location" class="block text-sm font-medium text-subtle mb-1">Local</label>
-                <input type="text" id="discipline-location" placeholder="Ex: Sala 203, Bloco A" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
-            </div>
-
-            <div class="md:col-span-2">
-                <label class="block text-sm font-medium text-subtle mb-1">Horários</label>
-                <div id="schedules-container" class="space-y-2">
-                    </div>
-                <button type="button" id="add-schedule-btn" class="mt-2 text-sm text-primary hover:opacity-80 flex items-center">
-                    <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                    Adicionar Horário
-                </button>
-            </div>
-            
-            <div class="md:col-span-2 pt-2">
-                <p class="text-sm font-medium text-subtle">Controle de Faltas</p>
-                <small class="text-xs text-subtle/70">Usado para calcular o limite de 25% de faltas.</small>
-            </div>
-            <div>
-                <label for="discipline-workload" class="block text-sm font-medium text-subtle mb-1">Carga Horária Total (em horas)*</label>
-                <input type="number" id="discipline-workload" min="1" placeholder="Ex: 60" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
-            </div>
-            <div>
-                <label for="discipline-hours-per-class" class="block text-sm font-medium text-subtle mb-1">Horas por Aula*</label>
-                <input type="number" id="discipline-hours-per-class" min="1" placeholder="Ex: 2" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
-            </div>
+  <div id="add-enrollment-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-md border border-border">
+      <h3 id="enrollment-modal-title" class="text-2xl font-bold mb-6 text-secondary">Nova Matrícula</h3>
+      <form id="add-enrollment-form">
+        <div class="space-y-4">
+          <input type="text" id="enrollment-course" placeholder="Nome do Curso" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+          <input type="text" id="enrollment-institution" placeholder="Instituição de Ensino" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+          <div class="grid grid-cols-2 gap-4">
+            <input type="text" id="enrollment-period" placeholder="Período Inicial" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+            <input type="number" step="0.1" id="enrollment-passing-grade" placeholder="Média p/ Aprovação" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+          </div>
         </div>
         <div class="mt-8 flex justify-end space-x-4">
-          <button type="button" id="cancel-discipline-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-80">Cancelar</button>
+          <button type="button" id="cancel-enrollment-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-80">Cancelar</button>
           <button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg hover:opacity-90">Salvar</button>
         </div>
       </form>
     </div>
   </div>
-
   `;
 
 export function injectHTML() {
