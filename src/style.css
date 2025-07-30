@@ -39,6 +39,10 @@
   .back-button {
     @apply p-2 rounded-full text-subtle hover:bg-surface;
   }
+  /* Adicionando classe de z-index maior */
+  .z-60 {
+    z-index: 60;
+  }
 }
 
 /* --- Customização do FullCalendar --- */

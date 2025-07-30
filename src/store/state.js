@@ -16,6 +16,7 @@ const state = {
 
   // Objetos para operações em modais
   itemToDelete: null,
+  onConfirmAction: null,
   currentDisciplineForAbsence: null,
   currentDisciplineForGrades: null,
 

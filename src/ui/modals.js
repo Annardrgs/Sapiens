@@ -6,7 +6,12 @@ import { dom } from './dom.js';
 import { setState, getState } from '../store/state.js';
 import * as api from '../api/firestore.js';
 
-// --- FUNÇÕES AUXILIARES PARA MODAIS ---
+// --- FUNÇÕES DE CONTROLE DE MODAL (GENÉRICAS) ---
+function showModal(modalElement) { if (modalElement) modalElement.classList.remove('hidden'); }
+function hideModal(modalElement) { if (modalElement) modalElement.classList.add('hidden'); }
+
+
+// --- FUNÇÕES AUXILIARES PARA FORMULÁRIOS NOS MODAIS ---
 export function addScheduleField(schedule = {}) {
     if (!dom.addDisciplineForm) return;
     const container = dom.addDisciplineForm.querySelector('#schedules-container');
@@ -50,9 +55,8 @@ export function renderGradeFields() {
     addGradeField();
 }
 
-// --- FUNÇÕES DE CONTROLE DE MODAL ---
-function showModal(modalElement) { if (modalElement) modalElement.classList.remove('hidden'); }
-function hideModal(modalElement) { if (modalElement) modalElement.classList.add('hidden'); }
+
+// --- FUNÇÕES DE VISIBILIDADE DOS MODAIS ---
 
 export function showEnrollmentModal(enrollmentId = null) {
   if (!dom.addEnrollmentModal || !dom.addEnrollmentForm || !dom.enrollmentModalTitle) return;
@@ -68,38 +72,35 @@ export function showEnrollmentModal(enrollmentId = null) {
             dom.addEnrollmentForm.querySelector('#enrollment-institution').value = data.institution;
             dom.addEnrollmentForm.querySelector('#enrollment-period').value = data.currentPeriod;
             dom.addEnrollmentForm.querySelector('#enrollment-passing-grade').value = data.passingGrade || '';
-            
-            // LÓGICA ATUALIZADA para selecionar o botão de rádio correto
             const modality = data.modality || 'Presencial';
             const radioToCheck = dom.addEnrollmentForm.querySelector(`input[name="enrollment-modality"][value="${modality}"]`);
-            if (radioToCheck) {
-                radioToCheck.checked = true;
-            }
+            if (radioToCheck) radioToCheck.checked = true;
         }
     });
   } else {
     dom.enrollmentModalTitle.textContent = "Nova Matrícula";
-    // Garante que 'Presencial' seja o padrão ao criar uma nova
     dom.addEnrollmentForm.querySelector('#modality-presencial').checked = true;
   }
   showModal(dom.addEnrollmentModal);
 }
 
-
 export async function showDisciplineModal(disciplineId = null) {
   if (!dom.addDisciplineModal || !dom.addDisciplineForm || !dom.disciplineModalTitle) return;
-  const { activeEnrollmentId, activePeriodId } = getState();
+  const { activeEnrollmentId } = getState();
   setState('editingDisciplineId', disciplineId);
   dom.addDisciplineForm.reset();
   const schedulesContainer = dom.addDisciplineForm.querySelector('#schedules-container');
   if (schedulesContainer) schedulesContainer.innerHTML = '';
+  
   const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
   const isEAD = enrollmentSnap.exists() && enrollmentSnap.data().modality === 'EAD';
   const campusInput = dom.addDisciplineForm.querySelector('#discipline-campus');
   if (isEAD) { campusInput.value = 'Remoto'; campusInput.disabled = true; } 
   else { campusInput.disabled = false; }
+
   if (disciplineId) {
     dom.disciplineModalTitle.textContent = "Editar Disciplina";
+    const { activePeriodId } = getState();
     api.getDiscipline(activeEnrollmentId, activePeriodId, disciplineId).then(docSnap => {
         if(docSnap.exists()) {
             const data = docSnap.data();
@@ -120,20 +121,111 @@ export async function showDisciplineModal(disciplineId = null) {
   showModal(dom.addDisciplineModal);
 }
 
-export function showPeriodModal() { if (!dom.addPeriodModal || !dom.addPeriodForm) return; dom.addPeriodForm.reset(); showModal(dom.addPeriodModal); }
-export function showAbsenceModal(disciplineId, disciplineName) { if (!dom.addAbsenceModal || !dom.addAbsenceForm) return; const { activeEnrollmentId, activePeriodId } = getState(); setState('currentDisciplineForAbsence', { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId }); dom.addAbsenceForm.reset(); dom.addAbsenceForm.querySelector('#absence-date').valueAsDate = new Date(); showModal(dom.addAbsenceModal); }
-export function showAbsenceHistoryModal(disciplineId, disciplineName) { if (!dom.absenceHistoryModal || !dom.absenceHistoryTitle) return; const { activeEnrollmentId, activePeriodId } = getState(); setState('currentDisciplineForAbsence', { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId }); dom.absenceHistoryTitle.textContent = `Histórico de Faltas - ${disciplineName}`; showModal(dom.absenceHistoryModal); }
-export async function showPeriodOptionsModal() { if (!dom.periodOptionsModal) return; const { periods, activePeriodIndex } = getState(); const currentPeriod = periods[activePeriodIndex]; if (!currentPeriod) return; if (dom.periodOptionsTitle) dom.periodOptionsTitle.textContent = `Opções de "${currentPeriod.name}"`; if (dom.periodOptionsForm) { dom.periodOptionsForm.querySelector('#period-start-date').value = currentPeriod.startDate || ''; dom.periodOptionsForm.querySelector('#period-end-date').value = currentPeriod.endDate || ''; } if (dom.viewCalendarLink) { if (currentPeriod.calendarUrl) { dom.viewCalendarLink.href = currentPeriod.calendarUrl; dom.viewCalendarLink.classList.remove('hidden'); } else { dom.viewCalendarLink.classList.add('hidden'); } } if (dom.endPeriodBtn && dom.reopenPeriodBtn) { if (currentPeriod.status === 'closed') { dom.endPeriodBtn.classList.add('hidden'); dom.reopenPeriodBtn.classList.remove('hidden'); } else { dom.endPeriodBtn.classList.remove('hidden'); dom.reopenPeriodBtn.classList.add('hidden'); } } showModal(dom.periodOptionsModal); }
-export function showConfirmDeleteModal(item) { if (!dom.confirmDeleteModal || !dom.confirmDeleteMessage) return; setState('itemToDelete', item); let message = "Tem certeza?"; if (item.type === 'enrollment') message = "Excluir esta matrícula removerá todos os seus períodos e disciplinas."; else if (item.type === 'period') message = "Excluir este período removerá todas as suas disciplinas."; dom.confirmDeleteMessage.textContent = message; showModal(dom.confirmDeleteModal); }
-export function showConfigGradesModal(disciplineId, disciplineName) { if (!dom.configGradesModal || !dom.configGradesTitle || !dom.configGradesForm) return; const { activeEnrollmentId, activePeriodId } = getState(); setState('currentDisciplineForGrades', { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId }); dom.configGradesTitle.textContent = `Avaliações de ${disciplineName}`; showModal(dom.configGradesModal); dom.configGradesForm.querySelector('#grade-calculation-rule').dispatchEvent(new Event('change')); }
-export function showPdfViewerModal(url) { if (!dom.pdfViewerModal || !dom.pdfViewerIframe) return; dom.pdfViewerIframe.src = url; showModal(dom.pdfViewerModal); }
+export function showPeriodModal() { 
+    if (!dom.addPeriodModal || !dom.addPeriodForm) return; 
+    dom.addPeriodForm.reset(); 
+    showModal(dom.addPeriodModal); 
+}
 
+export function showAbsenceModal(disciplineId, disciplineName) { 
+    if (!dom.addAbsenceModal || !dom.addAbsenceForm) return; 
+    const { activeEnrollmentId, activePeriodId } = getState(); 
+    setState('currentDisciplineForAbsence', { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId }); 
+    dom.addAbsenceForm.reset(); 
+    dom.addAbsenceForm.querySelector('#absence-date').valueAsDate = new Date(); 
+    showModal(dom.addAbsenceModal); 
+}
+
+export function showAbsenceHistoryModal(disciplineId, disciplineName) { 
+    if (!dom.absenceHistoryModal || !dom.absenceHistoryTitle) return; 
+    const { activeEnrollmentId, activePeriodId } = getState(); 
+    setState('currentDisciplineForAbsence', { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId }); 
+    dom.absenceHistoryTitle.textContent = `Histórico de Faltas - ${disciplineName}`; 
+    showModal(dom.absenceHistoryModal); 
+}
+
+export async function showPeriodOptionsModal() { 
+    if (!dom.periodOptionsModal) return; 
+    const { periods, activePeriodIndex } = getState(); 
+    const currentPeriod = periods[activePeriodIndex]; 
+    if (!currentPeriod) return; 
+    if (dom.periodOptionsTitle) dom.periodOptionsTitle.textContent = `Opções de "${currentPeriod.name}"`; 
+    if (dom.periodOptionsForm) { 
+        dom.periodOptionsForm.querySelector('#period-start-date').value = currentPeriod.startDate || ''; 
+        dom.periodOptionsForm.querySelector('#period-end-date').value = currentPeriod.endDate || ''; 
+    } 
+    if (dom.viewCalendarLink) { 
+        if (currentPeriod.calendarUrl) { 
+            dom.viewCalendarLink.href = currentPeriod.calendarUrl; 
+            dom.viewCalendarLink.classList.remove('hidden'); 
+        } else { 
+            dom.viewCalendarLink.classList.add('hidden'); 
+        } 
+    } 
+    if (dom.endPeriodBtn && dom.reopenPeriodBtn) { 
+        if (currentPeriod.status === 'closed') { 
+            dom.endPeriodBtn.classList.add('hidden'); 
+            dom.reopenPeriodBtn.classList.remove('hidden'); 
+        } else { 
+            dom.endPeriodBtn.classList.remove('hidden'); 
+            dom.reopenPeriodBtn.classList.add('hidden'); 
+        } 
+    } 
+    showModal(dom.periodOptionsModal); 
+}
+
+export function showConfigGradesModal(disciplineId, disciplineName) { 
+    if (!dom.configGradesModal || !dom.configGradesTitle || !dom.configGradesForm) return; 
+    const { activeEnrollmentId, activePeriodId } = getState(); 
+    setState('currentDisciplineForGrades', { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId }); 
+    dom.configGradesTitle.textContent = `Avaliações de ${disciplineName}`; 
+    showModal(dom.configGradesModal); 
+    dom.configGradesForm.querySelector('#grade-calculation-rule').dispatchEvent(new Event('change')); 
+}
+
+export function showPdfViewerModal(url) { 
+    if (!dom.pdfViewerModal || !dom.pdfViewerIframe) return; 
+    dom.pdfViewerIframe.src = url; 
+    showModal(dom.pdfViewerModal); 
+}
+
+/**
+ * Exibe um modal de confirmação genérico.
+ * @param {object} options - As opções para o modal.
+ * @param {string} options.title - O título do modal.
+ * @param {string} options.message - A mensagem de confirmação.
+ * @param {string} options.confirmText - O texto para o botão de confirmação.
+ * @param {string} [options.confirmClass='bg-danger'] - A classe de cor para o botão de confirmação.
+ * @param {Function} options.onConfirm - A função a ser executada ao confirmar.
+ */
+export function showConfirmModal({ title, message, confirmText, confirmClass = 'bg-danger', onConfirm }) {
+    if (!dom.confirmModal || !dom.confirmModalTitle || !dom.confirmModalMessage || !dom.confirmModalConfirmBtn) return;
+    
+    setState('onConfirmAction', onConfirm);
+
+    dom.confirmModalTitle.textContent = title;
+    dom.confirmModalMessage.textContent = message;
+    dom.confirmModalConfirmBtn.textContent = confirmText;
+    
+    dom.confirmModalConfirmBtn.className = 'font-semibold py-2 px-4 rounded-lg text-white';
+    dom.confirmModalConfirmBtn.classList.add(confirmClass);
+    
+    showModal(dom.confirmModal);
+}
+
+
+// --- FUNÇÕES PARA ESCONDER MODAIS ---
 export function hideEnrollmentModal() { hideModal(dom.addEnrollmentModal); }
 export function hideDisciplineModal() { hideModal(dom.addDisciplineModal); }
 export function hidePeriodModal() { hideModal(dom.addPeriodModal); }
 export function hideAbsenceModal() { hideModal(dom.addAbsenceModal); }
 export function hideAbsenceHistoryModal() { hideModal(dom.absenceHistoryModal); }
-export function hideConfirmDeleteModal() { setState('itemToDelete', null); hideModal(dom.confirmDeleteModal); }
 export function hideConfigGradesModal() { hideModal(dom.configGradesModal); }
 export function hidePeriodOptionsModal() { hideModal(dom.periodOptionsModal); }
 export function hidePdfViewerModal() { if (dom.pdfViewerIframe) dom.pdfViewerIframe.src = ''; hideModal(dom.pdfViewerModal); }
+
+export function hideConfirmModal() {
+    setState('itemToDelete', null);
+    setState('onConfirmAction', null);
+    hideModal(dom.confirmModal);
+}

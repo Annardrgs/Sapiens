@@ -143,7 +143,9 @@ export async function saveGrade(grade, gradeIndex, { enrollmentId, periodId, dis
 export async function getPeriods(enrollmentId) {
     const userId = getCurrentUserId();
     if (!userId) return [];
-    const q = query(collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods'), orderBy('name', 'desc'));
+
+    const q = query(collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods'), orderBy('startDate', 'desc'));
+    
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }

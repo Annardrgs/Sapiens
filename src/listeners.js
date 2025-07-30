@@ -33,11 +33,19 @@ export function initializeAppListeners() {
     if (dom.addDisciplineForm) dom.addDisciplineForm.addEventListener('submit', handleDisciplineFormSubmit);
     if (dom.addPeriodForm) dom.addPeriodForm.addEventListener('submit', handlePeriodFormSubmit);
     if (dom.addAbsenceForm) dom.addAbsenceForm.addEventListener('submit', handleAbsenceFormSubmit);
-    if (dom.confirmDeleteBtn) dom.confirmDeleteBtn.addEventListener('click', handleConfirmDelete);
     if (dom.configGradesForm) dom.configGradesForm.addEventListener('submit', handleConfigGradesSubmit);
     if (dom.periodOptionsForm) dom.periodOptionsForm.addEventListener('submit', handlePeriodOptionsFormSubmit);
     
-    // Modais interativos (agora chamam as funções do modals.js)
+    // --- BOTÕES DO MODAL DE CONFIRMAÇÃO GENÉRICO ---
+    if (dom.confirmModalConfirmBtn) dom.confirmModalConfirmBtn.addEventListener('click', handleConfirmAction);
+    if (dom.confirmModalCancelBtn) dom.confirmModalCancelBtn.addEventListener('click', modals.hideConfirmModal);
+
+    // --- BOTÕES DAS OPÇÕES DO PERÍODO ---
+    if (dom.endPeriodBtn) dom.endPeriodBtn.addEventListener('click', handleEndPeriod);
+    if (dom.reopenPeriodBtn) dom.reopenPeriodBtn.addEventListener('click', handleReopenPeriod);
+    if (dom.deletePeriodBtn) dom.deletePeriodBtn.addEventListener('click', handleDeletePeriod);
+
+    // Modais interativos
     if (dom.addDisciplineModal) dom.addDisciplineModal.querySelector('#add-schedule-btn').addEventListener('click', modals.addScheduleField);
     if (dom.configGradesForm) {
         dom.configGradesForm.querySelector('#grade-calculation-rule').addEventListener('change', modals.renderGradeFields);
@@ -45,6 +53,7 @@ export function initializeAppListeners() {
         dom.gradesContainer.addEventListener('input', modals.updateWeightsSum);
     }
     if (dom.disciplinesList) dom.disciplinesList.addEventListener('input', handleGradeInput);
+    if (dom.absenceHistoryList) dom.absenceHistoryList.addEventListener('click', handleAbsenceHistoryListClick);
     
     // Botões de Cancelar
     if (dom.cancelEnrollmentBtn) dom.cancelEnrollmentBtn.addEventListener('click', modals.hideEnrollmentModal);
@@ -52,38 +61,13 @@ export function initializeAppListeners() {
     if (dom.cancelPeriodBtn) dom.cancelPeriodBtn.addEventListener('click', modals.hidePeriodModal);
     if (dom.cancelAbsenceBtn) dom.cancelAbsenceBtn.addEventListener('click', modals.hideAbsenceModal);
     if (dom.closeAbsenceHistoryBtn) dom.closeAbsenceHistoryBtn.addEventListener('click', modals.hideAbsenceHistoryModal);
-    if (dom.cancelDeleteBtn) dom.cancelDeleteBtn.addEventListener('click', modals.hideConfirmDeleteModal);
     if (dom.cancelConfigGradesBtn) dom.cancelConfigGradesBtn.addEventListener('click', modals.hideConfigGradesModal);
     if (dom.periodOptionsModal) dom.periodOptionsModal.querySelector('[data-action="cancel"]')?.addEventListener('click', modals.hidePeriodOptionsModal);
     if (dom.closePdfViewerBtn) dom.closePdfViewerBtn.addEventListener('click', modals.hidePdfViewerModal);
 }
 
-// --- HANDLERS (LÓGICA DOS EVENTOS) ---
 
-async function handlePeriodOptionsFormSubmit(e) {
-    e.preventDefault();
-    const { activeEnrollmentId, activePeriodId } = getState();
-    const fileInput = dom.periodOptionsForm.querySelector('#period-calendar-file');
-    const file = fileInput.files[0];
-    const payload = {
-        startDate: dom.periodOptionsForm.querySelector('#period-start-date').value,
-        endDate: dom.periodOptionsForm.querySelector('#period-end-date').value,
-    };
-    const submitButton = dom.periodOptionsForm.querySelector('button[type="submit"]');
-    try {
-        if(submitButton) { submitButton.textContent = 'Salvando...'; submitButton.disabled = true; }
-        if (file) {
-            payload.calendarUrl = await firestoreApi.uploadPeriodCalendar(file);
-        }
-        await firestoreApi.updatePeriodDetails(activeEnrollmentId, activePeriodId, payload);
-        modals.hidePeriodOptionsModal();
-        await view.showDashboardView(activeEnrollmentId);
-    } catch (error) {
-        console.error("Erro ao salvar opções do período:", error);
-    } finally {
-        if(submitButton) { submitButton.textContent = 'Salvar'; submitButton.disabled = false; }
-    }
-}
+// --- HANDLERS (LÓGICA DOS EVENTOS) ---
 
 async function handleAppContainerClick(e) {
     const target = e.target;
@@ -108,10 +92,10 @@ async function handleAppContainerClick(e) {
         const id = card ? card.dataset.id : null;
         switch (action) {
             case 'edit-enrollment': modals.showEnrollmentModal(id); break;
-            case 'delete-enrollment': modals.showConfirmDeleteModal({ type: 'enrollment', id }); break;
+            case 'delete-enrollment': handleDeleteEnrollment(id); break;
             case 'toggle-menu': e.stopPropagation(); document.getElementById(`menu-${id}`)?.classList.toggle('hidden'); break;
             case 'edit-discipline': modals.showDisciplineModal(id); break;
-            case 'delete-discipline': { const { activeEnrollmentId, activePeriodId } = getState(); modals.showConfirmDeleteModal({ type: 'discipline', id, enrollmentId: activeEnrollmentId, periodId: activePeriodId }); break; }
+            case 'delete-discipline': handleDeleteDiscipline(id); break;
             case 'add-absence': modals.showAbsenceModal(id, actionTarget.dataset.name); break;
             case 'history-absence': { const { activeEnrollmentId, activePeriodId } = getState(); modals.showAbsenceHistoryModal(id, actionTarget.dataset.name); view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, id); break; }
             case 'config-grades': modals.showConfigGradesModal(id, actionTarget.dataset.name); break;
@@ -125,6 +109,91 @@ async function handleAppContainerClick(e) {
     const disciplineCard = target.closest('#disciplines-list [data-id]');
     if (disciplineCard && target.closest('.card-header')) { toggleCardExpansion(disciplineCard); return; }
 }
+
+async function handleConfirmAction() {
+    const onConfirm = getState().onConfirmAction;
+    if (typeof onConfirm === 'function') {
+        try {
+            await onConfirm();
+        } catch (error) {
+            console.error("Erro ao executar ação de confirmação:", error);
+            // Poderia mostrar um alerta de erro para o usuário aqui
+        }
+    }
+    modals.hideConfirmModal();
+}
+
+// --- FUNÇÕES DE AÇÃO ESPECÍFICAS (CHAMAM O MODAL) ---
+
+function handleDeleteEnrollment(id) {
+    modals.showConfirmModal({
+        title: 'Excluir Matrícula',
+        message: 'Esta ação removerá todos os períodos e disciplinas associados. Não pode ser desfeita.',
+        confirmText: 'Excluir',
+        confirmClass: 'bg-danger',
+        onConfirm: async () => {
+            await firestoreApi.deleteEnrollment(id);
+            await view.renderEnrollments();
+        }
+    });
+}
+
+function handleDeleteDiscipline(id) {
+    const { activeEnrollmentId, activePeriodId } = getState();
+    modals.showConfirmModal({
+        title: 'Excluir Disciplina',
+        message: 'Tem certeza que deseja excluir esta disciplina?',
+        confirmText: 'Excluir',
+        confirmClass: 'bg-danger',
+        onConfirm: async () => {
+            await firestoreApi.deleteDiscipline(activeEnrollmentId, activePeriodId, id);
+            await view.refreshDashboard();
+        }
+    });
+}
+
+function handleDeletePeriod() {
+    const { activeEnrollmentId, activePeriodId } = getState();
+    modals.showConfirmModal({
+        title: 'Excluir Período',
+        message: 'Excluir este período removerá todas as suas disciplinas. Esta ação não pode ser desfeita.',
+        confirmText: 'Excluir',
+        confirmClass: 'bg-danger',
+        onConfirm: async () => {
+            await firestoreApi.deletePeriod(activeEnrollmentId, activePeriodId);
+            modals.hidePeriodOptionsModal();
+            await view.showDashboardView(activeEnrollmentId);
+        }
+    });
+}
+
+function handleEndPeriod() {
+    const { activeEnrollmentId, activePeriodId } = getState();
+    modals.showConfirmModal({
+        title: 'Encerrar Período',
+        message: 'Tem certeza? Após encerrado, o período não poderá mais ser editado.',
+        confirmText: 'Encerrar',
+        confirmClass: 'bg-warning', // Usando a classe de aviso
+        onConfirm: async () => {
+            await firestoreApi.updatePeriodStatus(activeEnrollmentId, activePeriodId, 'closed');
+            modals.hidePeriodOptionsModal();
+            await view.showDashboardView(activeEnrollmentId);
+        }
+    });
+}
+
+async function handleReopenPeriod() {
+    const { activeEnrollmentId, activePeriodId } = getState();
+    try {
+        await firestoreApi.updatePeriodStatus(activeEnrollmentId, activePeriodId, 'active');
+        modals.hidePeriodOptionsModal();
+        await view.showDashboardView(activeEnrollmentId);
+    } catch(error) {
+        console.error("Erro ao reabrir o período:", error);
+    }
+}
+
+// --- OUTROS HANDLERS (EXISTENTES) ---
 
 async function handleAuthFormSubmit(e) {
     e.preventDefault();
@@ -182,7 +251,6 @@ async function handleDisciplineFormSubmit(e) {
         const startTime = field.querySelector('[name="schedule-start"]').value;
         const endTime = field.querySelector('[name="schedule-end"]').value;
 
-        // VALIDAÇÃO DE HORÁRIOS
         if (!startTime || !endTime) {
             hasInvalidTime = true;
         }
@@ -197,7 +265,7 @@ async function handleDisciplineFormSubmit(e) {
     const payload = {
         name: dom.addDisciplineForm.querySelector('#discipline-name').value,
         teacher: dom.addDisciplineForm.querySelector('#discipline-teacher').value,
-        campus: dom.addDisciplineForm.querySelector('#discipline-campus').value, // Salva o campus
+        campus: dom.addDisciplineForm.querySelector('#discipline-campus').value,
         location: dom.addDisciplineForm.querySelector('#discipline-location').value,
         schedules: schedules, 
         workload: parseInt(dom.addDisciplineForm.querySelector('#discipline-workload').value),
@@ -254,24 +322,6 @@ async function handleAbsenceFormSubmit(e) {
     } catch (error) { console.error("Error saving absence:", error); }
 }
 
-async function handleConfirmDelete() {
-    const item = getState().itemToDelete;
-    if (!item) return;
-    try {
-        if (item.type === 'discipline') {
-            await firestoreApi.deleteDiscipline(item.enrollmentId, item.periodId, item.id);
-            await view.refreshDashboard();
-        } else if (item.type === 'period') {
-            await firestoreApi.deletePeriod(item.enrollmentId, item.id);
-            await view.showDashboardView(item.enrollmentId);
-        } else {
-            await firestoreApi.deleteEnrollment(item.id);
-            await view.renderEnrollments();
-        }
-    } catch (error) { console.error("Error deleting:", error); }
-    finally { modals.hideConfirmDeleteModal(); }
-}
-
 let gradeInputTimeout;
 function handleGradeInput(e) {
     if (!e.target.matches('.grade-input')) return;
@@ -316,78 +366,51 @@ async function switchPeriod(direction) {
     }
 }
 
-function handleEndPeriod() {
+async function handlePeriodOptionsFormSubmit(e) {
+    e.preventDefault();
     const { activeEnrollmentId, activePeriodId } = getState();
-    if (confirm("Encerrar período? Não será possível editar.")) {
-        firestoreApi.updatePeriodStatus(activeEnrollmentId, activePeriodId, 'closed').then(() => view.showDashboardView(activeEnrollmentId));
-    }
-}
-
-function handleReopenPeriod() {
-    const { activeEnrollmentId, activePeriodId } = getState();
-    firestoreApi.updatePeriodStatus(activeEnrollmentId, activePeriodId, 'active').then(() => view.showDashboardView(activeEnrollmentId));
-}
-
-function handleDeletePeriod() {
-    const { activeEnrollmentId, activePeriodId } = getState();
-    modals.showConfirmDeleteModal({ type: 'period', id: activePeriodId, enrollmentId: activeEnrollmentId });
-}
-
-async function handleViewCalendar() {
-    const { activeEnrollmentId, activePeriodId } = getState();
+    const fileInput = dom.periodOptionsForm.querySelector('#period-calendar-file');
+    const file = fileInput.files[0];
+    const payload = {
+        startDate: dom.periodOptionsForm.querySelector('#period-start-date').value,
+        endDate: dom.periodOptionsForm.querySelector('#period-end-date').value,
+    };
+    const submitButton = dom.periodOptionsForm.querySelector('button[type="submit"]');
     try {
-        const periodSnap = await firestoreApi.getPeriod(activeEnrollmentId, activePeriodId);
-        if (periodSnap?.exists()) {
-            const p = periodSnap.data();
-            if (p?.calendarUrl) modals.showPdfViewerModal(p.calendarUrl);
-            else alert("Nenhum calendário para este período.");
-        } else alert("Não foi possível encontrar dados do período.");
-    } catch (error) { console.error("Error fetching calendar:", error); }
+        if(submitButton) { submitButton.textContent = 'Salvando...'; submitButton.disabled = true; }
+        if (file) {
+            payload.calendarUrl = await firestoreApi.uploadPeriodCalendar(file);
+        }
+        await firestoreApi.updatePeriodDetails(activeEnrollmentId, activePeriodId, payload);
+        modals.hidePeriodOptionsModal();
+        await view.showDashboardView(activeEnrollmentId);
+    } catch (error) {
+        console.error("Erro ao salvar opções do período:", error);
+    } finally {
+        if(submitButton) { submitButton.textContent = 'Salvar'; submitButton.disabled = false; }
+    }
 }
 
 async function handleAbsenceHistoryListClick(e) {
     const removeBtn = e.target.closest('.remove-absence-btn');
     if (!removeBtn) return;
+    
     const { currentDisciplineForAbsence } = getState();
-    if (confirm("Remover esta falta?")) {
-        try {
-            await firestoreApi.removeAbsence(removeBtn.dataset.id, currentDisciplineForAbsence);
-            const updatedDiscipline = await firestoreApi.getDiscipline(currentDisciplineForAbsence.enrollmentId, currentDisciplineForAbsence.periodId, currentDisciplineForAbsence.disciplineId);
-            if (updatedDiscipline.exists()) view.updateDisciplineCard({ id: updatedDiscipline.id, ...updatedDiscipline.data() });
-            view.renderAbsenceHistory(currentDisciplineForAbsence.enrollmentId, currentDisciplineForAbsence.periodId, currentDisciplineForAbsence.disciplineId);
-        } catch (error) { console.error("Error removing absence:", error); }
-    }
-}
 
-// --- FUNÇÕES RECOLOCADAS DO MODALS.JS ---
-function addGradeField() {
-    if (!dom.configGradesForm) return;
-    const rule = dom.configGradesForm.querySelector('#grade-calculation-rule').value;
-    const gradeField = document.createElement('div');
-    gradeField.className = 'flex items-center space-x-2 animate-fade-in';
-    const baseInputClasses = "w-full px-3 py-2 bg-bkg text-secondary border border-border rounded-md";
-    let fieldsHTML = (rule === 'weighted')
-        ? `<input type="text" name="name" placeholder="Nome (ex: P1)" class="${baseInputClasses}"><input type="number" name="weight" min="1" max="100" placeholder="Peso (%)" class="${baseInputClasses} w-32">`
-        : `<input type="text" name="name" placeholder="Nome (ex: Prova 1)" class="${baseInputClasses}">`;
-
-    gradeField.innerHTML = `${fieldsHTML}<button type="button" class="remove-field-btn text-danger p-2 rounded-full hover:bg-danger/10"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>`;
-    gradeField.querySelector('.remove-field-btn').addEventListener('click', () => { gradeField.remove(); updateWeightsSum(); });
-    dom.gradesContainer.appendChild(gradeField);
-}
-
-function updateWeightsSum() {
-    if (!dom.configGradesForm) return;
-    const rule = dom.configGradesForm.querySelector('#grade-calculation-rule').value;
-    const summaryContainer = dom.configGradesForm.querySelector('#grades-summary');
-    if (rule !== 'weighted') { summaryContainer.innerHTML = ''; return; }
-    let totalWeight = 0;
-    dom.gradesContainer.querySelectorAll('[name="weight"]').forEach(input => totalWeight += Number(input.value) || 0);
-    const colorClass = totalWeight === 100 ? 'text-success' : (totalWeight > 100 ? 'text-danger' : 'text-subtle');
-    summaryContainer.innerHTML = `<p class="text-sm font-bold ${colorClass}">Soma dos Pesos: ${totalWeight}%</p>`;
-}
-
-function renderGradeFields() {
-    if (dom.gradesContainer) dom.gradesContainer.innerHTML = '';
-    updateWeightsSum();
-    addGradeField();
+    modals.showConfirmModal({
+        title: 'Remover Falta',
+        message: 'Tem certeza que deseja remover esta falta do histórico?',
+        confirmText: 'Remover',
+        confirmClass: 'bg-danger',
+        onConfirm: async () => {
+            try {
+                await firestoreApi.removeAbsence(removeBtn.dataset.id, currentDisciplineForAbsence);
+                const updatedDiscipline = await firestoreApi.getDiscipline(currentDisciplineForAbsence.enrollmentId, currentDisciplineForAbsence.periodId, currentDisciplineForAbsence.disciplineId);
+                if (updatedDiscipline.exists()) view.updateDisciplineCard({ id: updatedDiscipline.id, ...updatedDiscipline.data() });
+                view.renderAbsenceHistory(currentDisciplineForAbsence.enrollmentId, currentDisciplineForAbsence.periodId, currentDisciplineForAbsence.disciplineId);
+            } catch (error) { 
+                console.error("Error removing absence:", error); 
+            }
+        }
+    });
 }
