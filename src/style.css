@@ -13,10 +13,10 @@
   --color-border: #e5e7eb;
   --color-success: #10b981;
   --color-danger: #ef4444;
+  --color-warning: #f59e0b; 
 }
 
 .dark {
-  /* Tema Escuro */
   --color-bkg: #111827;
   --color-surface: #1f2937;
   --color-primary: #4f46e5;
@@ -26,4 +26,56 @@
   --color-border: #374151;
   --color-success: #34d399;
   --color-danger: #f87171;
+  --color-warning: #f59e0b;
 }
+
+@layer components {
+  .text-link {
+    @apply text-primary font-semibold text-sm opacity-90 hover:opacity-100 hover:underline focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 rounded;
+  }
+  .dashboard-header {
+    @apply flex items-center gap-4 mb-6;
+  }
+  .back-button {
+    @apply p-2 rounded-full text-subtle hover:bg-surface;
+  }
+  /* Adicionando classe de z-index maior */
+  .z-60 {
+    z-index: 60;
+  }
+}
+
+/* --- Customização do FullCalendar --- */
+:root {
+  --fc-border-color: var(--color-border);
+  --fc-daygrid-day-bg-color: transparent;
+  --fc-daygrid-day-number-font-size: 0.85em;
+  --fc-today-bg-color: var(--color-bkg);
+  --fc-event-bg-color: var(--color-primary);
+  --fc-event-border-color: var(--color-primary);
+  --fc-event-text-color: #ffffff;
+  --fc-button-bg-color: var(--color-surface);
+  --fc-button-text-color: var(--color-subtle);
+  --fc-button-border-color: var(--color-border);
+  --fc-button-hover-bg-color: var(--color-bkg);
+  --fc-button-hover-border-color: var(--color-border);
+  --fc-button-active-bg-color: var(--color-bkg);
+  --fc-button-active-border-color: var(--color-primary);
+  --fc-day-header-bg-color: transparent;
+  --fc-list-event-hover-bg-color: var(--color-bkg);
+  --fc-page-bg-color: var(--color-surface);
+}
+
+.fc { font-family: 'Inter', sans-serif; }
+.fc .fc-toolbar.fc-header-toolbar { margin-bottom: 1em; }
+.fc .fc-toolbar-title { font-size: 1.1em; font-weight: 600; color: var(--color-secondary); }
+.fc .fc-daygrid-day { border-radius: 8px; }
+.fc .fc-day-today { border: 1px solid var(--color-primary) !important; font-weight: 700; }
+.fc .fc-day-today .fc-daygrid-day-number { color: var(--color-primary); }
+.fc .fc-button { text-transform: capitalize; box-shadow: none !important; font-weight: 500; }
+.fc .fc-button .fc-icon { vertical-align: baseline; }
+.fc .fc-day-header { border: none !important; color: var(--color-subtle); text-transform: uppercase; font-size: 0.7em; }
+.fc-theme-standard .fc-scrollgrid { border: none; }
+.fc-theme-standard td, .fc-theme-standard th { border-color: var(--color-border); }
+.fc .fc-daygrid-day-frame { padding: 4px; }
+#calendar-container { padding: 0.75rem; }

@@ -16,6 +16,7 @@ export default {
             border: 'var(--color-border)',
             success: 'var(--color-success)',
             danger: 'var(--color-danger)',
+            warning: 'var(--color-warning)',
           },
           fontFamily: {
             sans: ['Inter', 'sans-serif'],

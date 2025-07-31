@@ -4,23 +4,21 @@
 
 import { db, auth } from '../firebase.js';
 import {
-  collection,
-  query,
-  orderBy,
-  getDocs,
-  getDoc,
-  doc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  writeBatch,
-  serverTimestamp,
-  increment,
-  runTransaction,
+  collection, query, orderBy, getDocs, getDoc, doc, addDoc, updateDoc,
+  deleteDoc, writeBatch, serverTimestamp, increment, runTransaction,
 } from 'firebase/firestore';
 import { cloudinaryConfig } from '../firebase.js';
 
 const getCurrentUserId = () => auth.currentUser?.uid;
+
+function getRandomColor() {
+    const colors = [
+        '#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e', '#10b981', 
+        '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', 
+        '#a855f7', '#d946ef', '#ec4899'
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
+}
 
 // --- MATRÍCULAS ---
 
@@ -145,7 +143,9 @@ export async function saveGrade(grade, gradeIndex, { enrollmentId, periodId, dis
 export async function getPeriods(enrollmentId) {
     const userId = getCurrentUserId();
     if (!userId) return [];
-    const q = query(collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods'), orderBy('name', 'desc'));
+
+    const q = query(collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods'), orderBy('startDate', 'asc'));
+    
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
@@ -163,15 +163,19 @@ export function getPeriod(enrollmentId, periodId) {
     return getDoc(periodRef);
 }
 
-export async function createPeriod(enrollmentId, periodName) {
+export async function createPeriod(enrollmentId, periodData) {
     const userId = getCurrentUserId();
     if (!userId) throw new Error("Usuário não autenticado.");
+    
+    // Agora 'periodData' é um objeto
     const periodsRef = collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods');
+    
     const newPeriodDoc = await addDoc(periodsRef, {
-        name: periodName,
+        ...periodData, // Salva todos os campos do objeto (name, startDate, endDate)
         status: 'active',
         createdAt: new Date()
     });
+
     await updateActivePeriod(enrollmentId, newPeriodDoc.id);
     return newPeriodDoc;
 }
@@ -241,9 +245,18 @@ export function saveDiscipline(payload, { enrollmentId, periodId, disciplineId =
   const collectionRef = collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId, 'disciplines');
 
   if (disciplineId) {
+    // Atualiza uma disciplina existente
     return updateDoc(doc(collectionRef, disciplineId), payload);
   } else {
-    return addDoc(collectionRef, { ...payload, createdAt: serverTimestamp(), position: Date.now(), absences: 0 });
+    // Cria uma nova disciplina
+    const newDiscipline = { 
+        ...payload, 
+        createdAt: serverTimestamp(), 
+        position: Date.now(), 
+        absences: 0,
+        color: getRandomColor()
+    };
+    return addDoc(collectionRef, newDiscipline);
   }
 }
 
@@ -270,7 +283,7 @@ export async function updateDisciplinesOrder(items, { enrollmentId, periodId }) 
 export async function getAbsenceHistory(enrollmentId, periodId, disciplineId) {
     const userId = getCurrentUserId();
     if (!userId) return [];
-    const q = query(collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods', disciplineId, 'absences'), orderBy('absenceDate', 'desc'));
+    const q = query(collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId, 'disciplines', disciplineId, 'absences'), orderBy('absenceDate', 'desc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
