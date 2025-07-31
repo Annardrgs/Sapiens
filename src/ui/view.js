@@ -4,11 +4,14 @@
 import { dom } from './dom.js';
 import * as api from '../api/firestore.js';
 import { getState, setState } from '../store/state.js';
-import { createEnrollmentCard, createDisciplineCard, createAbsenceHistoryItem } from '../components/card.js';
+import { createEnrollmentCard, createDisciplineCard, createAbsenceHistoryItem, calculateAverage } from '../components/card.js';
 import { Calendar } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
+import * as modals from './modals.js';
+import interactionPlugin from '@fullcalendar/interaction';
 
 let sortableInstances = { enrollments: null, disciplines: null };
+let performanceChartInstance = null;
 
 /**
  * Atualiza um único card de disciplina na tela com novos dados.
@@ -117,8 +120,9 @@ async function renderGeneralDashboard() {
 export async function showDashboardView(enrollmentId) {
     if (!dom.dashboardView || !dom.enrollmentsView) return;
 
-    dom.enrollmentsView.classList.add('hidden');
-    dom.dashboardView.classList.remove('hidden');
+    if (dom.enrollmentsView) dom.enrollmentsView.classList.add('hidden');
+    if (dom.disciplineDashboardView) dom.disciplineDashboardView.classList.add('hidden'); // Adicione esta linha
+    if (dom.dashboardView) dom.dashboardView.classList.remove('hidden');
     setState('activeEnrollmentId', enrollmentId);
 
     // Limpa o conteúdo antigo enquanto carrega
@@ -164,6 +168,182 @@ export async function showDashboardView(enrollmentId) {
         await renderPeriodNavigator();
         await refreshDashboard();
     }
+}
+
+function renderPerformanceChartWithChartJS(discipline) {
+    if (performanceChartInstance) {
+        performanceChartInstance.destroy();
+    }
+    if (!dom.disciplinePerformanceChart) return;
+    
+    const ctx = dom.disciplinePerformanceChart.getContext('2d');
+    const labels = discipline.grades?.map(g => g.name) || [];
+    const data = discipline.grades?.map(g => g.grade) || [];
+    
+    performanceChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Nota',
+                data: data,
+                backgroundColor: 'rgba(99, 102, 241, 0.6)',
+                borderColor: 'rgba(99, 102, 241, 1)',
+                borderWidth: 1,
+                borderRadius: 4,
+                barPercentage: 0.6,
+                categoryPercentage: 0.7,
+            }]
+        },
+        options: {
+            responsive: true, // <-- Mantenha como true
+            maintainAspectRatio: false, // <-- ESSA É A CHAVE: Diz ao gráfico para não manter a proporção e preencher a div
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 10,
+                    grid: { color: 'rgba(55, 65, 81, 0.6)' },
+                    ticks: { color: '#9ca3af' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#9ca3af' }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+}
+
+function renderEvaluationsList(discipline) {
+    if (!dom.evaluationsList) return;
+    dom.evaluationsList.innerHTML = ''; // Limpa a lista
+
+    if (!discipline.grades || discipline.grades.length === 0) {
+        dom.evaluationsList.innerHTML = `<p class="text-sm text-subtle">Nenhuma avaliação configurada.</p>`;
+        return;
+    }
+
+    discipline.grades.forEach(grade => {
+        const evaluationEl = document.createElement('div');
+        evaluationEl.className = 'bg-bkg p-3 rounded-lg flex justify-between items-center border border-border';
+        evaluationEl.innerHTML = `
+            <span class="font-semibold text-secondary">${grade.name}</span>
+            <span class="font-bold text-lg text-primary">${grade.grade ?? '-'}</span>
+        `;
+        dom.evaluationsList.appendChild(evaluationEl);
+    });
+}
+
+export async function showDisciplineDashboard(disciplineId) {
+    if (!dom.dashboardView || !dom.disciplineDashboardView) return;
+
+    // Garante que outras telas estejam escondidas
+    dom.dashboardView.classList.add('hidden');
+    dom.enrollmentsView.classList.add('hidden');
+    dom.disciplineDashboardView.classList.remove('hidden');
+
+    const { activeEnrollmentId, activePeriodId } = getState();
+    setState('activeDisciplineId', disciplineId); // Armazena o ID da disciplina ativa
+
+    const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
+    const disciplineSnap = await api.getDiscipline(activeEnrollmentId, activePeriodId, disciplineId);
+
+    if (disciplineSnap.exists() && enrollmentSnap.exists()) {
+        const discipline = { id: disciplineSnap.id, ...disciplineSnap.data() };
+        const enrollmentData = enrollmentSnap.data();
+
+        // --- INÍCIO DAS VERIFICAÇÕES DE SEGURANÇA ---
+        // Preenche os dados do cabeçalho
+        if (dom.disciplineDashTitle) dom.disciplineDashTitle.textContent = discipline.name;
+        if (dom.disciplineDashSubtitle) dom.disciplineDashSubtitle.textContent = discipline.teacher || 'Professor não definido';
+        
+        // Passa os dados para o botão "Gerenciar"
+        if (dom.disciplineDashConfigGradesBtn) {
+            dom.disciplineDashConfigGradesBtn.dataset.id = discipline.id;
+            dom.disciplineDashConfigGradesBtn.dataset.name = discipline.name;
+        }
+        // --- FIM DAS VERIFICAÇÕES DE SEGURANÇA ---
+        
+        // Chama todas as funções de renderização para construir a tela
+        renderStatCards(discipline, enrollmentData);
+        renderAbsenceControls(discipline);
+        renderEvaluationsList(discipline);
+        renderPerformanceChartWithChartJS(discipline);
+    }
+}
+
+function renderAbsenceControls(discipline) {
+    const container = document.getElementById('absences-section');
+    if (!container) return;
+
+    const workload = Number(discipline.workload) || 0;
+    const hoursPerClass = Number(discipline.hoursPerClass) || 1;
+    const totalClasses = workload > 0 && hoursPerClass > 0 ? Math.floor(workload / hoursPerClass) : 0;
+    const absenceLimit = totalClasses > 0 ? Math.floor(totalClasses * 0.25) : 0;
+    const currentAbsences = discipline.absences || 0;
+    const absencePercentage = absenceLimit > 0 ? (currentAbsences / absenceLimit) * 100 : 0;
+    
+    let absenceStatusColor = 'bg-success';
+    if (absencePercentage > 66.66) absenceStatusColor = 'bg-danger';
+    else if (absencePercentage > 33.33) absenceStatusColor = 'bg-warning';
+
+    container.innerHTML = `
+        <h3 class="text-xl font-bold text-secondary mb-4">Controle de Faltas</h3>
+        <div class="bg-surface p-4 rounded-xl border border-border space-y-4">
+            <div>
+                <div class="flex justify-between font-bold text-secondary mb-1">
+                    <span>${currentAbsences} / ${absenceLimit}</span>
+                    <span>${absencePercentage.toFixed(0)}%</span>
+                </div>
+                <div class="w-full bg-bkg rounded-full h-2.5">
+                    <div class="${absenceStatusColor} h-2.5 rounded-full" style="width: ${Math.min(absencePercentage, 100)}%"></div>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button data-action="add-absence" data-name="${discipline.name}" class="w-full text-center py-2 px-3 text-sm font-semibold text-primary bg-primary/10 rounded-md hover:bg-primary/20">
+                    + Adicionar Falta
+                </button>
+                <button data-action="history-absence" data-name="${discipline.name}" class="w-full text-center py-2 px-3 text-sm font-semibold text-secondary bg-bkg rounded-md hover:opacity-80 border border-border">
+                    Histórico
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function renderStatCards(discipline, enrollmentData) {
+    const container = document.getElementById('discipline-stats-container');
+    if (!container) return;
+
+    const averageGrade = calculateAverage(discipline);
+    const passingGrade = enrollmentData.passingGrade || 7.0;
+    const currentAbsences = discipline.absences || 0;
+
+    let status = { text: 'Em Andamento', color: 'text-warning' };
+    if (averageGrade !== 'N/A') {
+        const numericAverage = parseFloat(averageGrade);
+        const allGradesFilled = discipline.grades && discipline.grades.every(g => g.grade !== null);
+        if (numericAverage >= passingGrade) status = { text: 'Aprovado', color: 'text-success' };
+        else if (allGradesFilled) status = { text: 'Reprovado', color: 'text-danger' };
+    }
+
+    container.innerHTML = `
+        <div class="bg-surface p-4 rounded-xl border border-border">
+            <h4 class="text-sm font-bold text-subtle mb-1">Média Atual</h4>
+            <p class="text-3xl font-bold text-secondary">${averageGrade}</p>
+        </div>
+        <div class="bg-surface p-4 rounded-xl border border-border">
+            <h4 class="text-sm font-bold text-subtle mb-1">Faltas</h4>
+            <p class="text-3xl font-bold text-secondary">${currentAbsences}</p>
+        </div>
+        <div class="bg-surface p-4 rounded-xl border border-border">
+            <h4 class="text-sm font-bold text-subtle mb-1">Status</h4>
+            <p class="text-3xl font-bold ${status.color}">${status.text}</p>
+        </div>
+    `;
 }
 
 export async function renderDisciplines(enrollmentId, periodId, enrollmentData, isPeriodClosed = false) {
@@ -262,16 +442,25 @@ function renderSummaryCards(disciplines, period) {
     `;
 }
 
-function renderInteractiveCalendar(disciplines, period) {
+async function renderInteractiveCalendar(disciplines, period) { // A função agora é async
     const calendarEl = dom.calendarContainer;
     if (!calendarEl) return;
     calendarEl.innerHTML = '';
+
+    const { activeEnrollmentId, activePeriodId } = getState();
+    const events = await api.getCalendarEvents(activeEnrollmentId, activePeriodId);
+
     const calendar = new Calendar(calendarEl, {
-        plugins: [dayGridPlugin],
+        plugins: [dayGridPlugin, interactionPlugin],
         initialView: 'dayGridMonth',
         locale: 'pt-br',
         headerToolbar: { left: 'prev', center: 'title', right: 'next today' },
         height: 'auto',
+        events: events, // Carrega os eventos do Firestore
+        dateClick: function(info) {
+            // Abre o modal ao clicar em um dia
+            modals.showEventModal(info.dateStr);
+        },
         validRange: {
             start: period.startDate,
             end: period.endDate ? new Date(new Date(period.endDate).setDate(new Date(period.endDate).getDate() + 2)).toISOString().split('T')[0] : undefined

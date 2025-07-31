@@ -19,6 +19,7 @@ const state = {
   onConfirmAction: null,
   currentDisciplineForAbsence: null,
   currentDisciplineForGrades: null,
+  activeDisciplineId: null,
 
   // Lista de períodos para navegação
   periods: [],
