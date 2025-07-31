@@ -23,34 +23,19 @@ export function createEnrollmentCard(data) {
 /**
  * Cria o HTML para um card de disciplina com a nova estrutura expansível.
  */
-// ASSINATURA DA FUNÇÃO CORRIGIDA PARA ACEITAR 'enrollmentData'
 export function createDisciplineCard(discipline, enrollmentData, isPeriodClosed = false) {
     const card = document.createElement('div');
-    card.className = 'bg-surface border border-border rounded-xl shadow-sm transition-all duration-300 ease-in-out';
+    // Adicionamos a classe 'group' para controlar o hover dos botões
+    card.className = 'relative bg-surface border border-border rounded-xl shadow-sm transition-all duration-300 ease-in-out hover:border-primary group';
     card.dataset.id = discipline.id;
+    // Adicionamos data-action para o clique principal
+    card.dataset.action = 'view-discipline-details';
 
-    const workload = Number(discipline.workload) || 0;
-    const hoursPerClass = Number(discipline.hoursPerClass) || 1;
-    const totalClasses = workload > 0 && hoursPerClass > 0 ? Math.floor(workload / hoursPerClass) : 0;
-    const absenceLimit = totalClasses > 0 ? Math.floor(totalClasses * 0.25) : 0;
     const currentAbsences = discipline.absences || 0;
-    const absencePercentage = absenceLimit > 0 ? (currentAbsences / absenceLimit) * 100 : 0;
-    
-    let absenceStatus = 'green';
-    if (absencePercentage > 66.66) absenceStatus = 'red';
-    else if (absencePercentage > 33.33) absenceStatus = 'yellow';
-
-    const colorMap = {
-        green: '#22c55e', yellow: '#f59e0b', red: '#ef4444',
-    };
-    const progressBarColor = colorMap[absenceStatus];
-
     const averageGrade = calculateAverage(discipline);
-    
-    // Agora 'enrollmentData' está definido e pode ser usado
     const passingGrade = enrollmentData.passingGrade || 7.0;
-    let status = { text: 'N/A', color: 'subtle' };
     
+    let status = { text: 'N/A', color: 'subtle' };
     if (averageGrade !== 'N/A') {
         const numericAverage = parseFloat(averageGrade);
         const allGradesFilled = discipline.grades && discipline.grades.every(g => g.grade !== null);
@@ -60,47 +45,64 @@ export function createDisciplineCard(discipline, enrollmentData, isPeriodClosed 
     }
     
     card.innerHTML = `
-        <div class="card-header p-4 cursor-pointer">
+        <div class="p-4 cursor-pointer">
             <div class="flex items-start justify-between">
-                <div class="flex items-center gap-4">
-                    <span class="w-2 h-10 rounded-full flex-shrink-0 cursor-grab" style="background-color: ${discipline.color || '#4f46e5'}"></span>
+                <div class="flex items-center gap-4 pr-16">
+                    <span class="w-2 h-10 rounded-full flex-shrink-0" style="background-color: ${discipline.color || '#4f46e5'}"></span>
                     <div>
                         <h4 class="text-xl font-bold text-secondary">${discipline.name}</h4>
-                        <p class="text-sm text-subtle">${discipline.schedules?.map(s => `${s.day} ${s.startTime}-${s.endTime}`).join(', ') || 'Horário não definido'}</p>
-                    </div>
-                </div>
-                <div class="relative">
-                    <button data-action="toggle-menu" class="text-subtle hover:text-primary p-1 rounded-full"><svg class="w-6 h-6 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg></button>
-                    <div id="menu-${discipline.id}" class="menu-options hidden absolute right-0 mt-2 w-48 bg-bkg rounded-md shadow-lg z-20 border border-border">
-                        <a href="#" data-action="edit-discipline" class="block px-4 py-2 text-sm text-secondary hover:bg-surface">Editar Disciplina</a>
-                        <a href="#" data-action="config-grades" data-name="${discipline.name}" class="block px-4 py-2 text-sm text-secondary hover:bg-surface">Configurar Avaliações</a>
-                        <a href="#" data-action="delete-discipline" class="block px-4 py-2 text-sm text-danger hover:bg-surface">Excluir Disciplina</a>
+                        <p class="text-sm text-subtle">${discipline.schedules?.map(s => `${s.day} ${s.startTime}-${s.endTime}`).join(', ') || 'Horário indefinido'}</p>
                     </div>
                 </div>
             </div>
-            <div class="mt-4 space-y-3">
+            <div class="mt-4 grid grid-cols-3 gap-4 text-center">
                 <div>
-                    <div class="flex justify-between text-sm font-medium text-subtle mb-1"><span>Faltas</span><span>${currentAbsences} de ${absenceLimit}</span></div>
-                    <div class="w-full bg-bkg rounded-full h-2.5"><div class="h-2.5 rounded-full" style="width: ${Math.min(absencePercentage, 100)}%; background-color: ${progressBarColor};"></div></div>
+                    <span class="text-xs font-bold text-subtle">Faltas</span>
+                    <p class="font-bold text-lg text-secondary">${currentAbsences}</p>
                 </div>
-                <div class="flex justify-between text-sm font-medium text-subtle">
-                    <span>Média</span><span class="font-bold">${averageGrade}</span>
+                <div>
+                    <span class="text-xs font-bold text-subtle">Média</span>
+                    <p class="font-bold text-lg text-secondary">${averageGrade}</p>
                 </div>
-                <div class="flex justify-between text-sm font-medium text-subtle">
-                    <span>Status</span><span class="font-bold text-${status.color}">${status.text}</span>
+                <div>
+                    <span class="text-xs font-bold text-subtle">Status</span>
+                    <p class="font-bold text-lg text-${status.color}">${status.text}</p>
                 </div>
             </div>
         </div>
-        <div class="details-content overflow-hidden max-h-0 transition-all duration-500 ease-in-out">
-            <div class="border-t border-border p-4 space-y-4">
-                <div class="text-sm space-y-1"><p><strong class="text-subtle">Professor:</strong> ${discipline.teacher || 'Não definido'}</p><p><strong class="text-subtle">Local:</strong> ${discipline.location || 'Não definido'}</p></div>
-                <div><div class="flex items-center justify-between"><h5 class="font-bold text-md text-secondary">Faltas</h5>${!isPeriodClosed ? `<button data-action="add-absence" data-name="${discipline.name}" class="bg-primary text-bkg rounded-full w-6 h-6 flex items-center justify-center font-bold hover:opacity-80 text-lg">+</button>` : ''}</div><div class="mt-2"><button data-action="history-absence" data-name="${discipline.name}" class="text-link">Ver Histórico</button></div></div>
-                <div><h5 class="font-bold text-md text-secondary mb-2">Notas</h5><div class="grades-container grid grid-cols-2 md:grid-cols-3 gap-2"></div></div>
-            </div>
+
+        <div class="absolute top-3 right-3 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button data-action="edit-discipline" title="Editar Disciplina" class="p-2 rounded-full hover:bg-bkg text-subtle hover:text-primary">
+                <svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+            </button>
+            <button data-action="delete-discipline" title="Excluir Disciplina" class="p-2 rounded-full hover:bg-bkg text-subtle hover:text-danger">
+                <svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            </button>
         </div>
     `;
-    populateGradesInputs(card.querySelector('.grades-container'), discipline, isPeriodClosed);
     return card;
+}
+
+export function renderGradesChart(container, discipline) {
+    if (!container || !discipline.grades || discipline.grades.length === 0) {
+        container.innerHTML = `<p class="text-xs text-subtle self-center text-center">Nenhuma nota para exibir.</p>`;
+        return;
+    }
+
+    container.innerHTML = discipline.grades.map(gradeInfo => {
+        const grade = (gradeInfo && gradeInfo.grade !== null) ? parseFloat(gradeInfo.grade) : 0;
+        const heightPercentage = Math.max(grade * 10, 0); // Garante que a altura não seja negativa
+        const gradeLabel = (gradeInfo && gradeInfo.grade !== null) ? grade.toFixed(1) : '-';
+
+        return `
+            <div class="grade-chart-bar-wrapper" title="${gradeInfo.name}: ${gradeLabel}">
+                <div class="grade-chart-bar" style="height: ${heightPercentage}%">
+                    <span class="grade-chart-value">${gradeLabel}</span>
+                </div>
+                <span class="text-xs text-subtle mt-1 truncate w-full">${gradeInfo.name}</span>
+            </div>
+        `;
+    }).join('');
 }
 
 function populateGradesInputs(container, discipline, isPeriodClosed) {
@@ -177,4 +179,44 @@ export function createAbsenceHistoryItem(data) {
         <button data-id="${data.id}" class="remove-absence-btn p-1 rounded-full hover:bg-surface"><svg class="w-4 h-4 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
     `;
     return item;
+}
+
+function getNextClassInfo(schedules) {
+    if (!schedules || schedules.length === 0) return 'Horário não definido';
+
+    const dayMap = { 'Dom': 0, 'Seg': 1, 'Ter': 2, 'Qua': 3, 'Qui': 4, 'Sex': 5, 'Sab': 6 };
+    const now = new Date();
+    const currentDay = now.getDay();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+
+    let nextClass = null;
+
+    // Procura por aulas nos próximos 7 dias
+    for (let i = 0; i < 7; i++) {
+        const dayToCheck = (currentDay + i) % 7;
+        const classesToday = schedules
+            .filter(s => dayMap[s.day] === dayToCheck)
+            .map(s => {
+                const [h, m] = s.startTime.split(':').map(Number);
+                return { ...s, totalMinutes: h * 60 + m, dayOffset: i };
+            })
+            .sort((a, b) => a.totalMinutes - b.totalMinutes);
+
+        for (const classInfo of classesToday) {
+            // Se for hoje, verifica se a aula ainda não passou
+            if (i === 0 && classInfo.totalMinutes <= currentTime) {
+                continue;
+            }
+            nextClass = classInfo;
+            break;
+        }
+        if (nextClass) break;
+    }
+
+    if (!nextClass) return 'Sem aulas futuras';
+
+    const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+    if (nextClass.dayOffset === 0) return `Hoje, ${nextClass.startTime}`;
+    if (nextClass.dayOffset === 1) return `Amanhã, ${nextClass.startTime}`;
+    return `${dayNames[dayMap[nextClass.day]]}, ${nextClass.startTime}`;
 }

@@ -254,7 +254,6 @@ export function saveDiscipline(payload, { enrollmentId, periodId, disciplineId =
         createdAt: serverTimestamp(), 
         position: Date.now(), 
         absences: 0,
-        color: getRandomColor()
     };
     return addDoc(collectionRef, newDiscipline);
   }
@@ -361,4 +360,30 @@ export function updatePeriodDetails(enrollmentId, periodId, payload) {
     if (!userId) throw new Error("Usuário não autenticado.");
     const periodRef = doc(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId);
     return updateDoc(periodRef, payload);
+}
+
+export function saveCalendarEvent(payload, { enrollmentId, periodId }) {
+  const userId = getCurrentUserId();
+  if (!userId) throw new Error("Usuário não autenticado.");
+  const collectionRef = collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId, 'events');
+  return addDoc(collectionRef, payload);
+}
+
+export async function getCalendarEvents(enrollmentId, periodId) {
+  const userId = getCurrentUserId();
+  if (!userId || !periodId) return [];
+  const q = query(collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId, 'events'));
+  const snapshot = await getDocs(q);
+  // Formata para o padrão que o FullCalendar espera
+  return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+          id: doc.id,
+          title: data.title,
+          start: data.date,
+          allDay: true, // Define que são eventos de dia inteiro
+          backgroundColor: data.color || '#ef4444',
+          borderColor: data.color || '#ef4444'
+      }
+  });
 }

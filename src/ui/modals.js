@@ -5,11 +5,11 @@
 import { dom } from './dom.js';
 import { setState, getState } from '../store/state.js';
 import * as api from '../api/firestore.js';
+import { renderGradesChart } from '../components/card.js';
 
 // --- FUNÇÕES DE CONTROLE DE MODAL (GENÉRICAS) ---
 function showModal(modalElement) { if (modalElement) modalElement.classList.remove('hidden'); }
 function hideModal(modalElement) { if (modalElement) modalElement.classList.add('hidden'); }
-
 
 // --- FUNÇÕES AUXILIARES PARA FORMULÁRIOS NOS MODAIS ---
 export function addScheduleField(schedule = {}) {
@@ -18,7 +18,7 @@ export function addScheduleField(schedule = {}) {
     if (!container) return;
     const field = document.createElement('div');
     field.className = 'schedule-field grid grid-cols-[1fr,auto,auto,auto] gap-2 items-center animate-fade-in';
-    field.innerHTML = `<select name="schedule-day" class="w-full px-3 py-2 bg-bkg text-secondary border border-border rounded-md"><option value="Seg">Segunda</option><option value="Ter">Terça</option><option value="Qua">Quarta</option><option value="Qui">Quinta</option><option value="Sex">Sexta</option><option value="Sab">Sábado</option><option value="Dom">Domingo</option></select><input type="time" name="schedule-start" required class="px-3 py-2 bg-bkg text-secondary border border-border rounded-md"><input type="time" name="schedule-end" required class="px-3 py-2 bg-bkg text-secondary border border-border rounded-md"><button type="button" class="remove-schedule-btn text-danger p-2 rounded-full hover:bg-danger/10"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>`;
+    field.innerHTML = `<select name="schedule-day" class="w-full px-3 py-2 bg-bkg text-secondary border border-border rounded-md custom-select"><option value="Seg">Segunda</option><option value="Ter">Terça</option><option value="Qua">Quarta</option><option value="Qui">Quinta</option><option value="Sex">Sexta</option><option value="Sab">Sábado</option><option value="Dom">Domingo</option></select><input type="time" name="schedule-start" required class="px-3 py-2 bg-bkg text-secondary border border-border rounded-md"><input type="time" name="schedule-end" required class="px-3 py-2 bg-bkg text-secondary border border-border rounded-md"><button type="button" class="remove-schedule-btn text-danger p-2 rounded-full hover:bg-danger/10"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>`;
     field.querySelector('[name="schedule-day"]').value = schedule.day || 'Seg';
     field.querySelector('[name="schedule-start"]').value = schedule.startTime || '';
     field.querySelector('[name="schedule-end"]').value = schedule.endTime || '';
@@ -26,13 +26,50 @@ export function addScheduleField(schedule = {}) {
     container.appendChild(field);
 }
 
-export function addGradeField() {
+export async function showDisciplineDetailModal(disciplineId) {
+    if (!dom.disciplineDetailModal) return;
+
+    const { activeEnrollmentId, activePeriodId, periods, activePeriodIndex } = getState();
+    const isPeriodClosed = periods[activePeriodIndex]?.status === 'closed';
+
+    const disciplineSnap = await api.getDiscipline(activeEnrollmentId, activePeriodId, disciplineId);
+    if (disciplineSnap.exists()) {
+        const discipline = { id: disciplineSnap.id, ...disciplineSnap.data() };
+        
+        // Preenche o modal com os dados
+        dom.detailDisciplineName.textContent = discipline.name;
+        dom.detailDisciplineTeacher.textContent = discipline.teacher || 'Professor não definido';
+
+        // Renderiza o gráfico dentro do novo modal
+        renderGradesChart(dom.detailGradeChartContainer, discipline);
+        
+        // Passa o ID da disciplina para o botão "Configurar Avaliações"
+        dom.detailConfigGradesBtn.dataset.id = discipline.id;
+        dom.detailConfigGradesBtn.dataset.name = discipline.name;
+
+        // Esconde o botão se o período estiver encerrado
+        dom.detailConfigGradesBtn.classList.toggle('hidden', isPeriodClosed);
+        
+        showModal(dom.disciplineDetailModal);
+    }
+}
+
+export function hideDisciplineDetailModal() {
+    hideModal(dom.disciplineDetailModal);
+}
+
+export function addGradeField(evaluation = {}) {
     if (!dom.configGradesForm || !dom.gradesContainer) return;
     const rule = dom.configGradesForm.querySelector('#grade-calculation-rule').value;
     const gradeField = document.createElement('div');
     gradeField.className = 'flex items-center space-x-2 animate-fade-in';
     const baseInputClasses = "w-full px-3 py-2 bg-bkg text-secondary border border-border rounded-md";
-    let fieldsHTML = (rule === 'weighted') ? `<input type="text" name="name" placeholder="Nome (ex: P1)" class="${baseInputClasses}"><input type="number" name="weight" min="1" max="100" placeholder="Peso (%)" class="${baseInputClasses} w-32">` : `<input type="text" name="name" placeholder="Nome (ex: Prova 1)" class="${baseInputClasses}">`;
+    
+    let fieldsHTML = (rule === 'weighted') 
+        ? `<input type="text" name="name" placeholder="Nome (ex: P1)" class="${baseInputClasses}" value="${evaluation.name || ''}">
+           <input type="number" name="weight" min="1" max="100" placeholder="Peso (%)" class="${baseInputClasses} w-32" value="${evaluation.weight || ''}">` 
+        : `<input type="text" name="name" placeholder="Nome (ex: Prova 1)" class="${baseInputClasses}" value="${evaluation.name || ''}">`;
+    
     gradeField.innerHTML = `${fieldsHTML}<button type="button" class="remove-field-btn text-danger p-2 rounded-full hover:bg-danger/10"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>`;
     gradeField.querySelector('.remove-field-btn').addEventListener('click', () => { gradeField.remove(); updateWeightsSum(); });
     dom.gradesContainer.appendChild(gradeField);
@@ -84,6 +121,28 @@ export function showEnrollmentModal(enrollmentId = null) {
   showModal(dom.addEnrollmentModal);
 }
 
+function renderColorPalette(selectedColor) {
+    const paletteContainer = dom.addDisciplineForm.querySelector('#discipline-color-palette');
+    const colorInput = dom.addDisciplineForm.querySelector('#discipline-color-input');
+    if (!paletteContainer || !colorInput) return;
+
+    const colors = ['#6366f1', '#8b5cf6', '#d946ef', '#ef4444', '#f97316', '#eab308', '#22c55e', '#10b981', '#14b8a6', '#0ea5e9', '#ec4899'];
+    paletteContainer.innerHTML = ''; // Limpa a paleta
+
+    colors.forEach(color => {
+        const swatch = document.createElement('div');
+        swatch.className = 'color-swatch';
+        swatch.style.backgroundColor = color;
+        swatch.dataset.color = color;
+        if (color === selectedColor) {
+            swatch.classList.add('selected');
+        }
+        paletteContainer.appendChild(swatch);
+    });
+
+    colorInput.value = selectedColor;
+}
+
 export async function showDisciplineModal(disciplineId = null) {
   if (!dom.addDisciplineModal || !dom.addDisciplineForm || !dom.disciplineModalTitle) return;
   const { activeEnrollmentId } = getState();
@@ -111,11 +170,17 @@ export async function showDisciplineModal(disciplineId = null) {
             dom.addDisciplineForm.querySelector('#discipline-workload').value = data.workload || '';
             dom.addDisciplineForm.querySelector('#discipline-hours-per-class').value = data.hoursPerClass || '';
             if (data.schedules && Array.isArray(data.schedules)) data.schedules.forEach(schedule => addScheduleField(schedule));
+            
+            // Renderiza a paleta com a cor salva
+            renderColorPalette(data.color || '#6366f1');
         }
     });
   } else {
     dom.disciplineModalTitle.textContent = "Nova Disciplina";
     if (!isEAD) campusInput.value = '';
+    
+    // Renderiza a paleta com uma cor padrão
+    renderColorPalette('#6366f1');
     addScheduleField();
   }
   showModal(dom.addDisciplineModal);
@@ -190,19 +255,51 @@ export async function showPeriodOptionsModal() {
     
     showModal(dom.periodOptionsModal); 
 }
-export function showConfigGradesModal(disciplineId, disciplineName) { 
-    if (!dom.configGradesModal || !dom.configGradesTitle || !dom.configGradesForm) return; 
-    const { activeEnrollmentId, activePeriodId } = getState(); 
-    setState('currentDisciplineForGrades', { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId }); 
-    dom.configGradesTitle.textContent = `Avaliações de ${disciplineName}`; 
-    showModal(dom.configGradesModal); 
-    dom.configGradesForm.querySelector('#grade-calculation-rule').dispatchEvent(new Event('change')); 
+
+export async function showConfigGradesModal(disciplineId, disciplineName) {
+    if (!dom.configGradesModal || !dom.configGradesTitle || !dom.configGradesForm) return;
+
+    const { activeEnrollmentId, activePeriodId } = getState();
+    setState('currentDisciplineForGrades', { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId });
+    dom.configGradesTitle.textContent = `Avaliações de ${disciplineName}`;
+    dom.configGradesForm.reset();
+    dom.gradesContainer.innerHTML = ''; // Limpa o contêiner
+
+    const disciplineSnap = await api.getDiscipline(activeEnrollmentId, activePeriodId, disciplineId);
+    if (disciplineSnap.exists()) {
+        const discipline = disciplineSnap.data();
+        const config = discipline.gradeConfig;
+
+        if (config && config.evaluations) {
+            dom.configGradesForm.querySelector('#grade-calculation-rule').value = config.rule || 'weighted';
+            config.evaluations.forEach(ev => {
+                addGradeField(ev); // Passa a avaliação para ser preenchida
+            });
+        }
+    }
+    
+    // Se não houver avaliações, adiciona um campo vazio
+    if (dom.gradesContainer.children.length === 0) {
+        addGradeField();
+    }
+
+    updateWeightsSum();
+    showModal(dom.configGradesModal);
 }
 
 export function showPdfViewerModal(url) { 
     if (!dom.pdfViewerModal || !dom.pdfViewerIframe) return; 
     dom.pdfViewerIframe.src = url; 
     showModal(dom.pdfViewerModal); 
+}
+
+export function showEventModal(dateStr) {
+    if (!dom.addEventModal || !dom.addEventForm) return;
+    dom.addEventForm.reset(); // Limpa o formulário
+    // Armazena a data clicada em um campo oculto para uso posterior
+    dom.addEventForm.querySelector('#event-date').value = dateStr; 
+    dom.addEventForm.querySelector('#event-color').value = '#ef4444'; // Cor padrão
+    showModal(dom.addEventModal);
 }
 
 /**
@@ -239,6 +336,7 @@ export function hideAbsenceHistoryModal() { hideModal(dom.absenceHistoryModal); 
 export function hideConfigGradesModal() { hideModal(dom.configGradesModal); }
 export function hidePeriodOptionsModal() { hideModal(dom.periodOptionsModal); }
 export function hidePdfViewerModal() { if (dom.pdfViewerIframe) dom.pdfViewerIframe.src = ''; hideModal(dom.pdfViewerModal); }
+export function hideEventModal() { hideModal(dom.addEventModal); }
 
 export function hideConfirmModal() {
     setState('itemToDelete', null);

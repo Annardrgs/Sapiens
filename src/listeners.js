@@ -9,6 +9,7 @@ import * as firestoreApi from './api/firestore.js';
 import * as view from './ui/view.js';
 import * as modals from './ui/modals.js';
 import { toggleTheme } from './ui/theme.js';
+import { notify } from './ui/notifications.js';
 
 // --- INICIALIZAÇÃO DOS LISTENERS ---
 
@@ -66,6 +67,7 @@ export function initializeAppListeners() {
     if (dom.addPeriodForm) dom.addPeriodForm.addEventListener('submit', handlePeriodFormSubmit);
     if (dom.addAbsenceForm) dom.addAbsenceForm.addEventListener('submit', handleAbsenceFormSubmit);
     if (dom.configGradesForm) dom.configGradesForm.addEventListener('submit', handleConfigGradesSubmit);
+    if (dom.addEventForm) dom.addEventForm.addEventListener('submit', handleEventFormSubmit);
     if (dom.periodOptionsForm) dom.periodOptionsForm.addEventListener('submit', handlePeriodOptionsFormSubmit);
     
     // --- BOTÕES DO MODAL DE CONFIRMAÇÃO GENÉRICO ---
@@ -77,13 +79,68 @@ export function initializeAppListeners() {
     if (dom.reopenPeriodBtn) dom.reopenPeriodBtn.addEventListener('click', handleReopenPeriod);
     if (dom.deletePeriodBtn) dom.deletePeriodBtn.addEventListener('click', handleDeletePeriod);
 
+    if (dom.backToMainDashboardBtn) dom.backToMainDashboardBtn.addEventListener('click', () => {
+        // Lógica para voltar para a tela anterior
+        const { activeEnrollmentId } = getState();
+        if (activeEnrollmentId) {
+            dom.disciplineDashboardView.classList.add('hidden');
+            dom.dashboardView.classList.remove('hidden');
+        } else {
+            view.showEnrollmentsView();
+        }
+    });
+
+    if (dom.disciplineDashConfigGradesBtn) {
+        dom.disciplineDashConfigGradesBtn.addEventListener('click', (e) => {
+            const { id, name } = e.currentTarget.dataset;
+            modals.showConfigGradesModal(id, name);
+        });
+    }
+
     // Modais interativos
-    if (dom.addDisciplineModal) dom.addDisciplineModal.querySelector('#add-schedule-btn').addEventListener('click', modals.addScheduleField);
+    if (dom.addDisciplineModal) {
+        dom.addDisciplineModal.querySelector('#add-schedule-btn').addEventListener('click', modals.addScheduleField);
+        const palette = dom.addDisciplineModal.querySelector('#discipline-color-palette');
+        if (palette) {
+            palette.addEventListener('click', e => {
+                const swatch = e.target.closest('.color-swatch');
+                if (!swatch) return;
+                
+                // Atualiza a seleção visual
+                palette.querySelector('.selected')?.classList.remove('selected');
+                swatch.classList.add('selected');
+                
+                // Atualiza o valor do input escondido
+                dom.addDisciplineForm.querySelector('#discipline-color-input').value = swatch.dataset.color;
+            });
+        }
+    }
+
+    dom.addDisciplineModal.addEventListener('change', e => {
+        // Verifica se o alvo da mudança foi um input de tempo
+        if (e.target.matches('[name="schedule-start"], [name="schedule-end"]')) {
+            const scheduleField = e.target.closest('.schedule-field');
+            const firstScheduleField = dom.addDisciplineModal.querySelector('.schedule-field');
+
+            // Apenas calcula com base na primeira linha de horário para manter a simplicidade
+            if (scheduleField && scheduleField === firstScheduleField) {
+                const startTime = scheduleField.querySelector('[name="schedule-start"]').value;
+                const endTime = scheduleField.querySelector('[name="schedule-end"]').value;
+                
+                const hoursInput = dom.addDisciplineForm.querySelector('#discipline-hours-per-class');
+                if (hoursInput) {
+                    hoursInput.value = calculateHoursDifference(startTime, endTime);
+                }
+            }
+        }
+    });
+
     if (dom.configGradesForm) {
         dom.configGradesForm.querySelector('#grade-calculation-rule').addEventListener('change', modals.renderGradeFields);
         dom.addGradeFieldBtn.addEventListener('click', modals.addGradeField);
         dom.gradesContainer.addEventListener('input', modals.updateWeightsSum);
     }
+
     if (dom.disciplinesList) dom.disciplinesList.addEventListener('input', handleGradeInput);
     if (dom.absenceHistoryList) dom.absenceHistoryList.addEventListener('click', handleAbsenceHistoryListClick);
     
@@ -94,6 +151,7 @@ export function initializeAppListeners() {
     if (dom.cancelAbsenceBtn) dom.cancelAbsenceBtn.addEventListener('click', modals.hideAbsenceModal);
     if (dom.closeAbsenceHistoryBtn) dom.closeAbsenceHistoryBtn.addEventListener('click', modals.hideAbsenceHistoryModal);
     if (dom.cancelConfigGradesBtn) dom.cancelConfigGradesBtn.addEventListener('click', modals.hideConfigGradesModal);
+    if (dom.cancelEventBtn) dom.cancelEventBtn.addEventListener('click', modals.hideEventModal);
     if (dom.periodOptionsModal) dom.periodOptionsModal.querySelector('[data-action="cancel"]')?.addEventListener('click', modals.hidePeriodOptionsModal);
     if (dom.closePdfViewerBtn) dom.closePdfViewerBtn.addEventListener('click', modals.hidePdfViewerModal);
 
@@ -104,14 +162,77 @@ export function initializeAppListeners() {
     if (removeCalendarBtn) removeCalendarBtn.addEventListener('click', handleRemoveCalendarFile);
 }
 
+async function handleEventFormSubmit(e) {
+    e.preventDefault();
+    const { activeEnrollmentId, activePeriodId } = getState();
+    if (!activeEnrollmentId || !activePeriodId) return;
+
+    const form = dom.addEventForm;
+    const payload = {
+        title: form.querySelector('#event-title').value,
+        date: form.querySelector('#event-date').value,
+        color: form.querySelector('#event-color').value,
+        createdAt: new Date(),
+    };
+
+    try {
+        await firestoreApi.saveCalendarEvent(payload, { enrollmentId: activeEnrollmentId, periodId: activePeriodId });
+        modals.hideEventModal();
+        await view.refreshDashboard(); // Atualiza o dashboard para mostrar o novo evento no calendário
+    } catch (error) {
+        console.error("Erro ao salvar evento: ", error);
+        notify.error("Erro ao salvar evento: ", error);
+    }
+}
 
 // --- HANDLERS (LÓGICA DOS EVENTOS) ---
-
 async function handleAppContainerClick(e) {
     const target = e.target;
-    const button = target.closest('button');
     const actionTarget = target.closest('[data-action]');
-    
+
+    // --- LÓGICA PRINCIPAL BASEADA EM 'data-action' ---
+    if (actionTarget) {
+        const action = actionTarget.dataset.action;
+        let id;
+
+        // Determina o ID de contexto: da disciplina ativa ou do card clicado
+        if (!dom.disciplineDashboardView.classList.contains('hidden')) {
+            // Se o dashboard da disciplina está visível, o contexto é a disciplina ativa
+            id = getState().activeDisciplineId;
+        } else {
+            // Senão, o contexto é o card que foi clicado
+            id = target.closest('[data-id]')?.dataset.id;
+        }
+
+        // Lida com todas as ações
+        switch (action) {
+            // Ações do Dashboard Principal
+            case 'edit-enrollment': e.stopPropagation(); modals.showEnrollmentModal(id); break;
+            case 'delete-enrollment': e.stopPropagation(); handleDeleteEnrollment(id); break;
+            case 'view-discipline-details': view.showDisciplineDashboard(id); break;
+            case 'edit-discipline': e.stopPropagation(); modals.showDisciplineModal(id); break;
+            case 'delete-discipline': e.stopPropagation(); handleDeleteDiscipline(id); break;
+
+            // Ações do Dashboard da Disciplina
+            case 'add-absence': modals.showAbsenceModal(id, actionTarget.dataset.name); break;
+            case 'history-absence': {
+                const { activeEnrollmentId, activePeriodId } = getState();
+                modals.showAbsenceHistoryModal(id, actionTarget.dataset.name);
+                view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, id);
+                break;
+            }
+            case 'manage-evaluations': modals.showConfigGradesModal(id, actionTarget.dataset.name); break;
+            case 'back-to-main-dashboard': {
+                const { activeEnrollmentId } = getState();
+                view.showDashboardView(activeEnrollmentId);
+                break;
+            }
+        }
+        return;
+    }
+
+    // --- LÓGICA SECUNDÁRIA PARA BOTÕES SEM 'data-action' (BOTÕES GERAIS) ---
+    const button = target.closest('button');
     if (button && button.id) {
         switch (button.id) {
             case 'add-enrollment-btn': modals.showEnrollmentModal(); return;
@@ -124,28 +245,11 @@ async function handleAppContainerClick(e) {
         }
     }
 
-    if (actionTarget) {
-        const action = actionTarget.dataset.action;
-        const card = target.closest('[data-id]');
-        const id = card ? card.dataset.id : null;
-        switch (action) {
-            case 'edit-enrollment': modals.showEnrollmentModal(id); break;
-            case 'delete-enrollment': handleDeleteEnrollment(id); break;
-            case 'toggle-menu': e.stopPropagation(); document.getElementById(`menu-${id}`)?.classList.toggle('hidden'); break;
-            case 'edit-discipline': modals.showDisciplineModal(id); break;
-            case 'delete-discipline': handleDeleteDiscipline(id); break;
-            case 'add-absence': modals.showAbsenceModal(id, actionTarget.dataset.name); break;
-            case 'history-absence': { const { activeEnrollmentId, activePeriodId } = getState(); modals.showAbsenceHistoryModal(id, actionTarget.dataset.name); view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, id); break; }
-            case 'config-grades': modals.showConfigGradesModal(id, actionTarget.dataset.name); break;
-        }
-        return;
-    }
-
+    // --- LÓGICA PARA CLIQUE GERAL NO CARD DE MATRÍCULA ---
     const enrollmentCard = target.closest('#enrollments-list [data-id]');
-    if (enrollmentCard) { view.showDashboardView(enrollmentCard.dataset.id); return; }
-    
-    const disciplineCard = target.closest('#disciplines-list [data-id]');
-    if (disciplineCard && target.closest('.card-header')) { toggleCardExpansion(disciplineCard); return; }
+    if (enrollmentCard) {
+        view.showDashboardView(enrollmentCard.dataset.id);
+    }
 }
 
 async function handleConfirmAction() {
@@ -155,7 +259,7 @@ async function handleConfirmAction() {
             await onConfirm();
         } catch (error) {
             console.error("Erro ao executar ação de confirmação:", error);
-            // Poderia mostrar um alerta de erro para o usuário aqui
+            notify.error(error.message);
         }
     }
     modals.hideConfirmModal();
@@ -238,7 +342,7 @@ async function handleAuthFormSubmit(e) {
     try {
         if (getState().authMode === 'login') await authApi.signIn(dom.authEmailInput.value, dom.authPasswordInput.value);
         else await authApi.signUp(dom.authEmailInput.value, dom.authPasswordInput.value);
-    } catch (error) { console.error("Authentication Error:", error); alert(`Error: ${error.message}`); }
+    } catch (error) { console.error("Authentication Error:", error); notify.error(`Error: ${error.message}`); }
 }
 
 async function handleEnrollmentFormSubmit(e) {
@@ -270,7 +374,7 @@ async function handlePeriodFormSubmit(e) {
         startDate: dom.addPeriodForm.querySelector('#period-start-date-new').value,
         endDate: dom.addPeriodForm.querySelector('#period-end-date-new').value,
     };
-    if (!payload.name || !payload.startDate || !payload.endDate) return alert("Todos os campos são obrigatórios.");
+    if (!payload.name || !payload.startDate || !payload.endDate) return notify.error("Todos os campos são obrigatórios.");
     try {
         await firestoreApi.createPeriod(activeEnrollmentId, payload);
         modals.hidePeriodModal();
@@ -297,7 +401,7 @@ async function handleDisciplineFormSubmit(e) {
     });
 
     if (hasInvalidTime) {
-        return alert('Por favor, preencha a hora de início e fim para todos os horários.');
+        return notify.error('Por favor, preencha a hora de início e fim para todos os horários.');
     }
 
     const payload = {
@@ -308,12 +412,41 @@ async function handleDisciplineFormSubmit(e) {
         schedules: schedules, 
         workload: parseInt(dom.addDisciplineForm.querySelector('#discipline-workload').value),
         hoursPerClass: parseInt(dom.addDisciplineForm.querySelector('#discipline-hours-per-class').value),
+        color: dom.addDisciplineForm.querySelector('#discipline-color-input').value // MODIFIQUE ESTA LINHA
     };
     try {
         await firestoreApi.saveDiscipline(payload, { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId: editingDisciplineId });
         modals.hideDisciplineModal();
         await view.refreshDashboard();
     } catch (error) { console.error("Error saving discipline:", error); }
+}
+
+/**
+ * Calcula a diferença em horas entre um horário inicial e final.
+ * @param {string} startTime - Horário no formato "HH:mm".
+ * @param {string} endTime - Horário no formato "HH:mm".
+ * @returns {number|string} A diferença em horas, ou uma string vazia se inválido.
+ */
+function calculateHoursDifference(startTime, endTime) {
+    if (!startTime || !endTime) {
+        return '';
+    }
+    
+    // Cria objetos de data para cálculo, usando uma data base qualquer
+    const start = new Date(`1970-01-01T${startTime}:00`);
+    const end = new Date(`1970-01-01T${endTime}:00`);
+
+    // Se o horário final for antes do inicial, retorna vazio
+    if (end <= start) {
+        return '';
+    }
+
+    const diffMilliseconds = end - start;
+    // Converte a diferença de milissegundos para horas
+    const diffHours = diffMilliseconds / (1000 * 60 * 60);
+    
+    // Retorna o valor, permitindo casas decimais (ex: 1.5 para 1h30min)
+    return diffHours;
 }
 
 async function handleConfigGradesSubmit(e) {
@@ -330,7 +463,7 @@ async function handleConfigGradesSubmit(e) {
             if (name && weight > 0) { evaluations.push({ name, weight }); totalWeight += weight; }
         } else { if (name) evaluations.push({ name }); }
     });
-    if (rule === 'weighted' && totalWeight !== 100 && evaluations.length > 0) return alert("A soma dos pesos deve ser 100.");
+    if (rule === 'weighted' && totalWeight !== 100 && evaluations.length > 0) return notify.error("A soma dos pesos deve ser 100.");
     const payload = {
         gradeConfig: { rule, evaluations },
         grades: evaluations.map(ev => ({ name: ev.name, grade: null }))
@@ -381,13 +514,6 @@ function handleGradeInput(e) {
 function handleOutsideClick(e) {
     const openMenu = document.querySelector('.menu-options:not(.hidden)');
     if (openMenu && !openMenu.parentElement.contains(e.target)) openMenu.classList.add('hidden');
-}
-
-function toggleCardExpansion(card) {
-    const details = card.querySelector('.details-content');
-    if (!details) return;
-    if (details.style.maxHeight && details.style.maxHeight !== '0px') details.style.maxHeight = '0px';
-    else details.style.maxHeight = details.scrollHeight + "px";
 }
 
 async function switchPeriod(direction) {
