@@ -132,9 +132,33 @@ export async function showDashboardView(enrollmentId) {
         if (dom.dashboardTitle) dom.dashboardTitle.textContent = data.course;
         if (dom.dashboardSubtitle) dom.dashboardSubtitle.textContent = data.institution;
         
+        // A busca já está ordenada do mais antigo para o mais novo (asc)
         const periods = await api.getPeriods(enrollmentId);
         setState('periods', periods);
-        const activeIndex = periods.findIndex(p => p.id === data.activePeriodId);
+        
+        let activeIndex = -1;
+        const lastActivePeriod = periods.find(p => p.id === data.activePeriodId);
+
+        // Verifica se o último período ativo é válido e não está encerrado
+        if (lastActivePeriod && lastActivePeriod.status !== 'closed') {
+            activeIndex = periods.indexOf(lastActivePeriod);
+        } else {
+            // Se estiver encerrado (ou não existir), procura pelo período aberto mais recente
+            const openPeriods = periods.filter(p => p.status !== 'closed');
+            
+            if (openPeriods.length > 0) {
+                // Pega o último da lista de períodos abertos (que é o mais novo)
+                const newestOpenPeriod = openPeriods[openPeriods.length - 1];
+                activeIndex = periods.indexOf(newestOpenPeriod);
+                // Atualiza o período ativo no banco de dados para lembrar dessa escolha
+                await api.updateActivePeriod(enrollmentId, newestOpenPeriod.id);
+            } else {
+                // Se todos os períodos estiverem encerrados, exibe o mais recente (o último da lista)
+                activeIndex = periods.length > 0 ? periods.length - 1 : -1;
+            }
+        }
+        
+        // Define o índice ativo (ou 0 como padrão se algo der errado)
         setState('activePeriodIndex', activeIndex > -1 ? activeIndex : 0);
         
         await renderPeriodNavigator();
@@ -199,8 +223,8 @@ export async function renderPeriodNavigator() {
     } else {
         dom.currentPeriodName.classList.remove('line-through', 'text-subtle');
     }
-    dom.prevPeriodBtn.disabled = activePeriodIndex >= periods.length - 1;
-    dom.nextPeriodBtn.disabled = activePeriodIndex <= 0;
+    dom.prevPeriodBtn.disabled = activePeriodIndex <= 0;
+    dom.nextPeriodBtn.disabled = activePeriodIndex >= periods.length - 1;
 }
 
 export function updateAuthView() {
