@@ -374,18 +374,43 @@ export async function getCalendarEvents(enrollmentId, periodId) {
   if (!userId || !periodId) return [];
   const q = query(collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId, 'events'));
   const snapshot = await getDocs(q);
-  // Formata para o padrão que o FullCalendar espera
+  
+  // Formata para o padrão que o FullCalendar espera, mas inclui todos os outros dados
   return snapshot.docs.map(doc => {
       const data = doc.data();
       return {
+          ...data, // <<< ADICIONE ESTA LINHA para incluir todos os campos (reminder, category, etc.)
           id: doc.id,
-          title: data.title,
-          start: data.date,
-          allDay: true, // Define que são eventos de dia inteiro
+          start: data.date, // Garante que o FullCalendar use o campo 'date' como 'start'
+          allDay: true,
           backgroundColor: data.color || '#ef4444',
           borderColor: data.color || '#ef4444'
       }
   });
+}
+
+/**
+ * Obtém o documento de um usuário.
+ * @returns {Promise<DocumentSnapshot>}
+ */
+export function getUserDoc() {
+    const userId = getCurrentUserId();
+    if (!userId) return null;
+    return getDoc(doc(db, 'users', userId));
+}
+
+/**
+ * Adiciona IDs de lembretes à lista de dispensados do usuário.
+ * @param {string[]} reminderIds - Array com os IDs dos eventos a serem marcados como lidos.
+ * @returns {Promise<void>}
+ */
+export function dismissReminders(reminderIds) {
+    const userId = getCurrentUserId();
+    if (!userId || reminderIds.length === 0) return;
+    const userRef = doc(db, 'users', userId);
+    return updateDoc(userRef, {
+        dismissedReminderIds: arrayUnion(...reminderIds)
+    });
 }
 
 export function getCalendarEvent(eventId, { enrollmentId, periodId }) {
@@ -406,4 +431,17 @@ export function deleteCalendarEvent(eventId, { enrollmentId, periodId }) {
     if (!userId) throw new Error("Usuário não autenticado.");
     const eventRef = doc(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId, 'events', eventId);
     return deleteDoc(eventRef);
+}
+
+/**
+ * Salva o token do Firebase Cloud Messaging (FCM) de um dispositivo para o usuário.
+ * @param {string} token - O token do dispositivo a ser salvo.
+ */
+export async function saveFcmToken(token) {
+    const userId = getCurrentUserId();
+    if (!userId) return;
+
+    // Salva o token em uma subcoleção para evitar conflitos e permitir múltiplos dispositivos
+    const tokenRef = doc(db, `users/${userId}/fcmTokens`, token);
+    await setDoc(tokenRef, { createdAt: serverTimestamp() });
 }

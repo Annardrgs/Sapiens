@@ -468,76 +468,54 @@ async function renderInteractiveCalendar(disciplines, period) {
     calendar.render();
 }
 
-export function renderWeeklyClasses(startDate, disciplines) {
+export function renderWeeklyClasses(disciplines) {
     const container = dom.agendaContentContainer;
     if (!container) return;
 
-    // A função getState().disciplines pode não estar populada aqui.
-    // É mais seguro pegar as disciplinas do período ativo atual.
-    const { activeEnrollmentId, activePeriodId } = getState();
-    if (!activeEnrollmentId || !activePeriodId) {
-        container.innerHTML = '';
-        return;
-    }
-    
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    let weekItems = [];
-    const dayMap = { 'dom': 0, 'seg': 1, 'ter': 2, 'qua': 3, 'qui': 4, 'sex': 5, 'sab': 6 };
+    const dayOrder = { 'Seg': 1, 'Ter': 2, 'Qua': 3, 'Qui': 4, 'Sex': 5, 'Sab': 6, 'Dom': 7 };
 
-    for (let i = 0; i < 7; i++) {
-        const date = new Date(startDate);
-        date.setDate(startDate.getDate() + i);
-        const dayOfWeek = date.getDay();
-        
-        const classesForDay = disciplines.flatMap(d => {
-            const schedules = Array.isArray(d.schedules) ? d.schedules : [];
-            return schedules.filter(s => dayMap[s.day.toLowerCase().substring(0,3)] === dayOfWeek)
-                .map(s => ({
-                    time: s.startTime, // Usar apenas a hora de início para ordenar
-                    fullTime: `${s.startTime}-${s.endTime}`,
-                    disciplineName: d.name,
-                    disciplineColor: d.color || '#71717a',
-                    location: `${d.campus || ''} - ${d.location || ''}`.replace(/^- | -$/g, '')
-                }));
-        }).sort((a, b) => a.time.localeCompare(b.time));
-        
-        if (classesForDay.length > 0) weekItems.push({ date, events: classesForDay });
-    }
+    // 1. Cria uma lista plana de todas as aulas agendadas
+    const allSchedules = disciplines.flatMap(discipline => 
+        (discipline.schedules || []).map(schedule => ({
+            disciplineName: discipline.name,
+            disciplineColor: discipline.color || '#71717a',
+            day: schedule.day,
+            time: `${schedule.startTime}-${schedule.endTime}`,
+            campus: discipline.campus,
+            location: discipline.location,
+        }))
+    );
 
-    if (weekItems.length === 0) {
-        container.innerHTML = `<div class="bg-surface border border-border p-4 rounded-lg text-center text-subtle">Nenhuma aula agendada para esta semana.</div>`;
+    // 2. Ordena a lista por dia da semana e depois por horário
+    allSchedules.sort((a, b) => {
+        const dayDiff = (dayOrder[a.day] || 99) - (dayOrder[b.day] || 99);
+        if (dayDiff !== 0) return dayDiff;
+        return a.time.localeCompare(b.time);
+    });
+
+    if (allSchedules.length === 0) {
+        container.innerHTML = `<div class="bg-surface border border-border p-4 rounded-lg text-center text-subtle">Nenhuma aula cadastrada neste período.</div>`;
         return;
     }
 
-    // LÓGICA DE RENDERIZAÇÃO QUE FALTAVA
-    container.innerHTML = weekItems.map(({ date, events }) => {
-        const diffDays = Math.round((date - today) / (1000 * 60 * 60 * 24));
-        let dayLabel;
-        if (diffDays === 0) dayLabel = 'Hoje';
-        else if (diffDays === 1) dayLabel = 'Amanhã';
-        else dayLabel = new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(date);
-        
-        dayLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
-
-        return `
-            <div class="agenda-day">
-                <h4 class="font-bold text-lg text-secondary mb-2">${dayLabel} <span class="text-sm font-normal text-subtle">${date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span></h4>
-                <div class="space-y-2">
-                    ${events.map(event => `
-                        <div class="flex items-center bg-surface border border-border p-3 rounded-lg shadow-sm">
-                            <span class="w-2 h-10 rounded-full mr-4 flex-shrink-0" style="background-color: ${event.disciplineColor};"></span>
-                            <div class="flex-grow">
-                                <p class="font-semibold text-secondary">${event.disciplineName}</p>
-                                <p class="text-sm text-subtle">${event.location || 'Local não definido'}</p>
-                            </div>
-                            <span class="text-sm font-medium text-primary">${event.fullTime}</span>
-                        </div>
-                    `).join('')}
+    // 3. Renderiza a nova lista simplificada
+    container.innerHTML = `
+        <div class="space-y-3">
+            ${allSchedules.map(item => `
+                <div class="flex items-center bg-surface border border-border p-3 rounded-lg shadow-sm">
+                    <span class="w-2 h-10 rounded-full mr-4 flex-shrink-0" style="background-color: ${item.disciplineColor};"></span>
+                    <div class="flex-grow">
+                        <p class="font-semibold text-secondary">${item.disciplineName}</p>
+                        <p class="text-sm text-subtle">${item.campus || ''}${item.campus && item.location ? ' - ' : ''}${item.location || ''}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-semibold text-sm text-secondary">${item.day}</p>
+                        <p class="text-sm text-primary">${item.time}</p>
+                    </div>
                 </div>
-            </div>
-        `;
-    }).join('');
+            `).join('')}
+        </div>
+    `;
 }
 
 export async function renderAllEvents() {
@@ -600,6 +578,10 @@ export async function renderAllEvents() {
 export async function checkAndRenderNotifications() {
     if (!dom.notificationList || !dom.notificationBadge) return;
 
+    // 1. Pega os dados do usuário, incluindo os lembretes já dispensados
+    const userSnap = await api.getUserDoc();
+    const dismissedIds = userSnap.exists() ? userSnap.data().dismissedReminderIds || [] : [];
+
     const allEnrollments = await api.getEnrollments();
     if (allEnrollments.length === 0) return;
 
@@ -607,41 +589,38 @@ export async function checkAndRenderNotifications() {
     for (const enrollment of allEnrollments) {
         if (enrollment.activePeriodId) {
             const events = await api.getCalendarEvents(enrollment.id, enrollment.activePeriodId);
-            allEvents.push(...events.map(e => ({ ...e, courseName: enrollment.course })));
+            // Incluindo o ID do evento para rastreamento
+            allEvents.push(...events.map(e => ({ ...e, courseName: enrollment.course, eventId: e.id })));
         }
     }
 
-    // CORREÇÃO: Cria a data de hoje sem horas, minutos ou segundos para uma comparação precisa
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
-    let activeReminders = [];
 
+    let activeReminders = [];
     allEvents.forEach(event => {
         if (!event.reminder || event.reminder === 'none') return;
-
-        // Converte a data do evento (ex: "2025-08-07") para um objeto Date, considerando o fuso horário local
         const eventDate = new Date(event.start.replace(/-/g, '/') + ' 00:00:00');
-        if (isNaN(eventDate.getTime())) return; // Pula se a data for inválida
-
+        if (isNaN(eventDate.getTime())) return;
+        
         let reminderDate = new Date(eventDate);
         if (event.reminder === '1d') reminderDate.setDate(reminderDate.getDate() - 1);
         if (event.reminder === '2d') reminderDate.setDate(reminderDate.getDate() - 2);
         if (event.reminder === '1w') reminderDate.setDate(reminderDate.getDate() - 7);
-        
-        // Compara se a data do lembrete é hoje ou já passou, e se o evento ainda não aconteceu
-        if (reminderDate <= today && eventDate >= today) {
+
+        // 2. Verifica se o lembrete está ativo E se NÃO FOI dispensado
+        if (reminderDate <= today && eventDate >= today && !dismissedIds.includes(event.eventId)) {
             activeReminders.push(event);
         }
     });
 
-    // Renderiza o painel (código existente)
     if (activeReminders.length > 0) {
         dom.notificationBadge.classList.remove('hidden');
         dom.notificationList.innerHTML = activeReminders.map(event => {
             const eventDate = new Date(event.start.replace(/-/g, '/') + ' 00:00:00');
+            // 3. Adiciona o data-event-id ao item da lista
             return `
-                <div class="p-3 border-b border-border hover:bg-bkg/50">
+                <div class="p-3 border-b border-border hover:bg-bkg/50" data-event-id="${event.eventId}">
                     <p class="font-semibold text-secondary">${event.title}</p>
                     <p class="text-sm text-subtle">${event.courseName}</p>
                     <p class="text-xs font-bold text-primary mt-1">${eventDate.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
