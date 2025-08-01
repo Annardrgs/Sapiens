@@ -219,19 +219,24 @@ function renderPerformanceChartWithChartJS(discipline) {
 
 function renderEvaluationsList(discipline) {
     if (!dom.evaluationsList) return;
-    dom.evaluationsList.innerHTML = ''; // Limpa a lista
+    dom.evaluationsList.innerHTML = '';
 
     if (!discipline.grades || discipline.grades.length === 0) {
         dom.evaluationsList.innerHTML = `<p class="text-sm text-subtle">Nenhuma avaliação configurada.</p>`;
         return;
     }
 
-    discipline.grades.forEach(grade => {
+    discipline.grades.forEach((grade, index) => {
+        const gradeValue = grade.grade ?? '-';
         const evaluationEl = document.createElement('div');
-        evaluationEl.className = 'bg-bkg p-3 rounded-lg flex justify-between items-center border border-border';
+        evaluationEl.className = 'bg-bkg p-3 rounded-lg flex justify-between items-center border border-transparent';
+        
+        // Adicionamos data-action e data-index para identificar o clique
         evaluationEl.innerHTML = `
             <span class="font-semibold text-secondary">${grade.name}</span>
-            <span class="font-bold text-lg text-primary">${grade.grade ?? '-'}</span>
+            <span data-action="edit-grade" data-grade-index="${index}" class="font-bold text-lg text-primary cursor-pointer hover:opacity-75 p-1 -m-1">
+                ${gradeValue}
+            </span>
         `;
         dom.evaluationsList.appendChild(evaluationEl);
     });

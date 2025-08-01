@@ -227,6 +227,51 @@ async function handleAppContainerClick(e) {
                 view.showDashboardView(activeEnrollmentId);
                 break;
             }
+            case 'edit-grade': {
+                const span = actionTarget;
+                const gradeIndex = parseInt(span.dataset.gradeIndex, 10);
+                const currentGrade = span.textContent.trim();
+
+                // Cria um campo de input
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.step = '0.1';
+                input.min = '0';
+                input.max = '10';
+                input.className = 'w-16 text-right bg-transparent font-bold text-lg text-primary outline-none ring-2 ring-primary rounded-md px-1';
+                input.value = currentGrade === '-' ? '' : currentGrade;
+                
+                // Substitui o texto pelo input e foca nele
+                span.replaceWith(input);
+                input.focus();
+
+                // Função para salvar a nota
+                const saveGrade = async () => {
+                    const newGrade = input.value === '' ? null : parseFloat(input.value);
+                    const { activeDisciplineId } = getState();
+
+                    try {
+                        await firestoreApi.saveGrade(newGrade, gradeIndex, { 
+                            enrollmentId: getState().activeEnrollmentId, 
+                            periodId: getState().activePeriodId, 
+                            disciplineId: activeDisciplineId 
+                        });
+                    } catch (error) {
+                        console.error("Erro ao salvar a nota:", error);
+                    } finally {
+                        // Recarrega o dashboard para refletir todas as mudanças (média, status, etc.)
+                        view.showDisciplineDashboard(activeDisciplineId);
+                    }
+                };
+
+                // Adiciona listeners para salvar
+                input.addEventListener('blur', saveGrade);
+                input.addEventListener('keydown', e => {
+                    if (e.key === 'Enter') input.blur(); // Salva ao pressionar Enter
+                    if (e.key === 'Escape') view.showDisciplineDashboard(getState().activeDisciplineId); // Cancela com Esc
+                });
+                break;
+            }
         }
         return;
     }
@@ -473,6 +518,7 @@ async function handleConfigGradesSubmit(e) {
         modals.hideConfigGradesModal();
         const updatedDiscipline = await firestoreApi.getDiscipline(currentDisciplineForGrades.enrollmentId, currentDisciplineForGrades.periodId, currentDisciplineForGrades.disciplineId);
         view.updateDisciplineCard({ id: currentDisciplineForGrades.disciplineId, ...updatedDiscipline.data() });
+        await view.showDisciplineDashboard(currentDisciplineForGrades.disciplineId);
     } catch (error) { console.error("Error saving grade config:", error); }
 }
 

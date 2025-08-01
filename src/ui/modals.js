@@ -256,35 +256,37 @@ export async function showPeriodOptionsModal() {
     showModal(dom.periodOptionsModal); 
 }
 
-export async function showConfigGradesModal(disciplineId, disciplineName) {
-    if (!dom.configGradesModal || !dom.configGradesTitle || !dom.configGradesForm) return;
+export async function showConfigGradesModal(disciplineId) { // Agora recebe apenas o ID
+    if (!dom.configGradesModal || !dom.configGradesForm) return;
 
     const { activeEnrollmentId, activePeriodId } = getState();
     setState('currentDisciplineForGrades', { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId });
-    dom.configGradesTitle.textContent = `Avaliações de ${disciplineName}`;
+    
     dom.configGradesForm.reset();
-    dom.gradesContainer.innerHTML = ''; // Limpa o contêiner
+    dom.gradesContainer.innerHTML = 'Carregando...';
+    showModal(dom.configGradesModal); // Mostra o modal enquanto carrega
 
     const disciplineSnap = await api.getDiscipline(activeEnrollmentId, activePeriodId, disciplineId);
     if (disciplineSnap.exists()) {
         const discipline = disciplineSnap.data();
         const config = discipline.gradeConfig;
+        
+        // Define o título com o nome correto
+        dom.configGradesTitle.textContent = `Avaliações de ${discipline.name}`;
+        dom.gradesContainer.innerHTML = ''; // Limpa o "Carregando..."
 
         if (config && config.evaluations) {
             dom.configGradesForm.querySelector('#grade-calculation-rule').value = config.rule || 'weighted';
             config.evaluations.forEach(ev => {
-                addGradeField(ev); // Passa a avaliação para ser preenchida
+                addGradeField(ev);
             });
         }
     }
     
-    // Se não houver avaliações, adiciona um campo vazio
     if (dom.gradesContainer.children.length === 0) {
         addGradeField();
     }
-
     updateWeightsSum();
-    showModal(dom.configGradesModal);
 }
 
 export function showPdfViewerModal(url) { 
