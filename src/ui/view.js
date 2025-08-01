@@ -447,7 +447,7 @@ function renderSummaryCards(disciplines, period) {
     `;
 }
 
-async function renderInteractiveCalendar(disciplines, period) { // A função agora é async
+async function renderInteractiveCalendar(disciplines, period) {
     const calendarEl = dom.calendarContainer;
     if (!calendarEl) return;
     calendarEl.innerHTML = '';
@@ -457,64 +457,69 @@ async function renderInteractiveCalendar(disciplines, period) { // A função ag
 
     const calendar = new Calendar(calendarEl, {
         plugins: [dayGridPlugin, interactionPlugin],
-        initialView: 'dayGridMonth',
         locale: 'pt-br',
-        headerToolbar: { left: 'prev', center: 'title', right: 'next today' },
         height: 'auto',
-        events: events, // Carrega os eventos do Firestore
-        dateClick: function(info) {
-            // Abre o modal ao clicar em um dia
-            modals.showEventModal(info.dateStr);
-        },
-        validRange: {
-            start: period.startDate,
-            end: period.endDate ? new Date(new Date(period.endDate).setDate(new Date(period.endDate).getDate() + 2)).toISOString().split('T')[0] : undefined
-        },
-        initialDate: period.startDate || new Date(),
+        events: events,
+        headerToolbar: { left: 'prev', center: 'title', right: 'next today' },
+        dateClick: (info) => modals.showEventModal(null, info.dateStr), // Cria novo evento
+        eventClick: (info) => modals.showEventModal(info.event.id), // Edita evento existente
+        // ... (resto das opções)
     });
     calendar.render();
 }
 
-function renderWeeklyAgenda(disciplines) {
-    const container = dom.weeklyAgendaContainer;
+export function renderWeeklyClasses(startDate, disciplines) {
+    const container = dom.agendaContentContainer;
     if (!container) return;
-    const weekDays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+    // A função getState().disciplines pode não estar populada aqui.
+    // É mais seguro pegar as disciplinas do período ativo atual.
+    const { activeEnrollmentId, activePeriodId } = getState();
+    if (!activeEnrollmentId || !activePeriodId) {
+        container.innerHTML = '';
+        return;
+    }
+    
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    let agendaItems = [];
+    let weekItems = [];
     const dayMap = { 'dom': 0, 'seg': 1, 'ter': 2, 'qua': 3, 'qui': 4, 'sex': 5, 'sab': 6 };
 
     for (let i = 0; i < 7; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() + i);
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + i);
         const dayOfWeek = date.getDay();
-        const eventsForDay = disciplines.flatMap(discipline => {
-            const schedules = (discipline.schedule || '').split(',').map(s => s.trim().toLowerCase());
-            return schedules.filter(schedule => schedule.startsWith(Object.keys(dayMap).find(key => dayMap[key] === dayOfWeek)))
-                .map(schedule => {
-                    const timeMatch = schedule.match(/(\d{1,2}h?-\d{1,2}h?|\d{1,2}h?)/);
-                    return {
-                        time: timeMatch ? timeMatch[0].replace(/h/g, ':00') : 'Indefinido',
-                        disciplineName: discipline.name,
-                        disciplineColor: discipline.color || '#71717a',
-                        location: discipline.location
-                    };
-                });
-        });
-        if (eventsForDay.length > 0) agendaItems.push({ date, events: eventsForDay });
+        
+        const classesForDay = disciplines.flatMap(d => {
+            const schedules = Array.isArray(d.schedules) ? d.schedules : [];
+            return schedules.filter(s => dayMap[s.day.toLowerCase().substring(0,3)] === dayOfWeek)
+                .map(s => ({
+                    time: s.startTime, // Usar apenas a hora de início para ordenar
+                    fullTime: `${s.startTime}-${s.endTime}`,
+                    disciplineName: d.name,
+                    disciplineColor: d.color || '#71717a',
+                    location: `${d.campus || ''} - ${d.location || ''}`.replace(/^- | -$/g, '')
+                }));
+        }).sort((a, b) => a.time.localeCompare(b.time));
+        
+        if (classesForDay.length > 0) weekItems.push({ date, events: classesForDay });
     }
 
-    if (agendaItems.length === 0) {
-        container.innerHTML = `<div class="bg-surface border border-border p-4 rounded-lg text-center text-subtle">Nenhum compromisso para os próximos 7 dias.</div>`;
+    if (weekItems.length === 0) {
+        container.innerHTML = `<div class="bg-surface border border-border p-4 rounded-lg text-center text-subtle">Nenhuma aula agendada para esta semana.</div>`;
         return;
     }
 
-    container.innerHTML = agendaItems.map(({ date, events }) => {
+    // LÓGICA DE RENDERIZAÇÃO QUE FALTAVA
+    container.innerHTML = weekItems.map(({ date, events }) => {
+        const diffDays = Math.round((date - today) / (1000 * 60 * 60 * 24));
         let dayLabel;
-        const diffDays = Math.round((date - today) / 86400000);
         if (diffDays === 0) dayLabel = 'Hoje';
         else if (diffDays === 1) dayLabel = 'Amanhã';
-        else dayLabel = weekDays[date.getDay()];
+        else dayLabel = new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(date);
+        
+        dayLabel = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
+
         return `
             <div class="agenda-day">
                 <h4 class="font-bold text-lg text-secondary mb-2">${dayLabel} <span class="text-sm font-normal text-subtle">${date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span></h4>
@@ -522,14 +527,131 @@ function renderWeeklyAgenda(disciplines) {
                     ${events.map(event => `
                         <div class="flex items-center bg-surface border border-border p-3 rounded-lg shadow-sm">
                             <span class="w-2 h-10 rounded-full mr-4 flex-shrink-0" style="background-color: ${event.disciplineColor};"></span>
-                            <div class="flex-grow"><p class="font-semibold text-secondary">${event.disciplineName}</p><p class="text-sm text-subtle">${event.location || 'Local não definido'}</p></div>
-                            <span class="text-sm font-medium text-primary">${event.time}</span>
+                            <div class="flex-grow">
+                                <p class="font-semibold text-secondary">${event.disciplineName}</p>
+                                <p class="text-sm text-subtle">${event.location || 'Local não definido'}</p>
+                            </div>
+                            <span class="text-sm font-medium text-primary">${event.fullTime}</span>
                         </div>
                     `).join('')}
                 </div>
             </div>
         `;
     }).join('');
+}
+
+export async function renderAllEvents() {
+    const container = dom.agendaContentContainer;
+    if (!container) return;
+
+    const { activeEnrollmentId, activePeriodId } = getState();
+    if (!activeEnrollmentId || !activePeriodId) {
+        container.innerHTML = '';
+        return;
+    }
+    const allEvents = await api.getCalendarEvents(activeEnrollmentId, activePeriodId);
+    
+    // --- LÓGICA DE FILTRO ADICIONADA ---
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // Mês atual (0-11)
+
+    const eventsThisMonth = allEvents.filter(event => {
+        const eventDate = new Date(event.start.replace(/-/g, '/') + ' 00:00:00');
+        return eventDate.getFullYear() === currentYear && eventDate.getMonth() === currentMonth;
+    });
+    // --- FIM DA LÓGICA DE FILTRO ---
+
+    if (eventsThisMonth.length === 0) {
+        container.innerHTML = `<div class="bg-surface border border-border p-4 rounded-lg text-center text-subtle">Nenhum evento para o mês atual.</div>`;
+        return;
+    }
+
+    const eventsByDate = eventsThisMonth.reduce((acc, event) => {
+        (acc[event.start] = acc[event.start] || []).push(event);
+        return acc;
+    }, {});
+
+    const sortedDates = Object.keys(eventsByDate).sort();
+
+    container.innerHTML = sortedDates.map(dateStr => {
+        const date = new Date(dateStr.replace(/-/g, '/') + ' 00:00:00');
+        const dayLabel = date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+        
+        return `
+            <div class="agenda-day">
+                <h4 class="font-bold text-lg text-secondary mb-2">${dayLabel}</h4>
+                <div class="space-y-2">
+                    ${eventsByDate[dateStr].map(event => `
+                        <div class="flex items-center bg-surface border border-border p-3 rounded-lg shadow-sm">
+                            <span class="w-2 h-10 rounded-full mr-4 flex-shrink-0" style="background-color: ${event.backgroundColor};"></span>
+                            <div class="flex-grow">
+                                <p class="font-semibold text-secondary">${event.title}</p>
+                            </div>
+                            <span class="text-sm font-medium text-primary">${event.category || 'Evento'}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+export async function checkAndRenderNotifications() {
+    if (!dom.notificationList || !dom.notificationBadge) return;
+
+    const allEnrollments = await api.getEnrollments();
+    if (allEnrollments.length === 0) return;
+
+    let allEvents = [];
+    for (const enrollment of allEnrollments) {
+        if (enrollment.activePeriodId) {
+            const events = await api.getCalendarEvents(enrollment.id, enrollment.activePeriodId);
+            allEvents.push(...events.map(e => ({ ...e, courseName: enrollment.course })));
+        }
+    }
+
+    // CORREÇÃO: Cria a data de hoje sem horas, minutos ou segundos para uma comparação precisa
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let activeReminders = [];
+
+    allEvents.forEach(event => {
+        if (!event.reminder || event.reminder === 'none') return;
+
+        // Converte a data do evento (ex: "2025-08-07") para um objeto Date, considerando o fuso horário local
+        const eventDate = new Date(event.start.replace(/-/g, '/') + ' 00:00:00');
+        if (isNaN(eventDate.getTime())) return; // Pula se a data for inválida
+
+        let reminderDate = new Date(eventDate);
+        if (event.reminder === '1d') reminderDate.setDate(reminderDate.getDate() - 1);
+        if (event.reminder === '2d') reminderDate.setDate(reminderDate.getDate() - 2);
+        if (event.reminder === '1w') reminderDate.setDate(reminderDate.getDate() - 7);
+        
+        // Compara se a data do lembrete é hoje ou já passou, e se o evento ainda não aconteceu
+        if (reminderDate <= today && eventDate >= today) {
+            activeReminders.push(event);
+        }
+    });
+
+    // Renderiza o painel (código existente)
+    if (activeReminders.length > 0) {
+        dom.notificationBadge.classList.remove('hidden');
+        dom.notificationList.innerHTML = activeReminders.map(event => {
+            const eventDate = new Date(event.start.replace(/-/g, '/') + ' 00:00:00');
+            return `
+                <div class="p-3 border-b border-border hover:bg-bkg/50">
+                    <p class="font-semibold text-secondary">${event.title}</p>
+                    <p class="text-sm text-subtle">${event.courseName}</p>
+                    <p class="text-xs font-bold text-primary mt-1">${eventDate.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                </div>
+            `;
+        }).join('');
+    } else {
+        dom.notificationBadge.classList.add('hidden');
+        dom.notificationList.innerHTML = `<p class="p-4 text-sm text-subtle text-center">Nenhum lembrete ativo.</p>`;
+    }
 }
 
 export async function refreshDashboard() {
@@ -546,8 +668,15 @@ export async function refreshDashboard() {
     const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
     const isPeriodClosed = currentPeriod.status === 'closed';
 
+    // ---- CORREÇÃO CRÍTICA ABAIXO ----
+    // Armazena as disciplinas no estado global para que outras funções possam acessá-las
+    setState('disciplines', disciplines); 
+    
     renderSummaryCards(disciplines, currentPeriod);
     renderDisciplines(activeEnrollmentId, activePeriodId, enrollmentData, isPeriodClosed);
-    renderWeeklyAgenda(disciplines);
+    
+    // Agora que o estado está correto, a agenda será renderizada
+    renderWeeklyClasses(new Date(), disciplines); 
+    
     renderInteractiveCalendar(disciplines, currentPeriod);
 }

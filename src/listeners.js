@@ -30,6 +30,30 @@ function handleCalendarFileChange(e) {
     uploadedView.classList.remove('hidden');
 }
 
+async function handleDeleteEvent() {
+    const eventId = dom.addEventForm.querySelector('#event-id').value;
+    if (!eventId) return;
+
+    modals.showConfirmModal({
+        title: 'Excluir Evento',
+        message: 'Tem certeza que deseja excluir este evento? Esta ação não pode ser desfeita.',
+        confirmText: 'Excluir',
+        onConfirm: async () => {
+            const { activeEnrollmentId, activePeriodId } = getState();
+            try {
+                await firestoreApi.deleteCalendarEvent(eventId, { enrollmentId: activeEnrollmentId, periodId: activePeriodId });
+                modals.hideEventModal();
+                await view.refreshDashboard();
+                notify.success('Evento excluído!');
+                view.checkAndRenderNotifications();
+            } catch (error) {
+                console.error("Erro ao excluir evento:", error);
+                notify.error('Falha ao excluir o evento.');
+            }
+        }
+    });
+}
+
 // Adicione esta nova função também
 function handleRemoveCalendarFile() {
     const fileInput = document.getElementById('period-calendar-file');
@@ -67,7 +91,45 @@ export function initializeAppListeners() {
     if (dom.addPeriodForm) dom.addPeriodForm.addEventListener('submit', handlePeriodFormSubmit);
     if (dom.addAbsenceForm) dom.addAbsenceForm.addEventListener('submit', handleAbsenceFormSubmit);
     if (dom.configGradesForm) dom.configGradesForm.addEventListener('submit', handleConfigGradesSubmit);
-    if (dom.addEventForm) dom.addEventForm.addEventListener('submit', handleEventFormSubmit);
+    const deleteBtn = dom.addEventModal.querySelector('#delete-event-btn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', handleDeleteEvent);
+    }
+    if (dom.addEventForm) {
+        dom.addEventForm.addEventListener('submit', handleEventFormSubmit);
+        const disciplineSelect = dom.addEventForm.querySelector('#event-discipline');
+    if (disciplineSelect) {
+        disciplineSelect.addEventListener('change', e => {
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            const color = selectedOption.dataset.color;
+            
+            // Aplica ou remove a borda colorida
+            if (e.target.value !== 'none' && color) {
+                e.target.style.borderLeft = `5px solid ${color}`;
+            } else {
+                e.target.style.borderLeft = 'none';
+            }
+        });
+    }
+    }
+    const palette = dom.addEventForm.querySelector('#event-color-palette');
+    if (palette) {
+        palette.addEventListener('click', e => {
+            const swatch = e.target.closest('.color-swatch');
+            if (!swatch) return;
+            palette.querySelector('.selected')?.classList.remove('selected');
+            swatch.classList.add('selected');
+            dom.addEventForm.querySelector('#event-color-input').value = swatch.dataset.color;
+        });
+    }
+
+    if (dom.notificationBellBtn) {
+        dom.notificationBellBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Impede que o clique feche o painel imediatamente
+            dom.notificationPanel.classList.toggle('hidden');
+        });
+    }
+    
     if (dom.periodOptionsForm) dom.periodOptionsForm.addEventListener('submit', handlePeriodOptionsFormSubmit);
     
     // --- BOTÕES DO MODAL DE CONFIRMAÇÃO GENÉRICO ---
@@ -94,6 +156,28 @@ export function initializeAppListeners() {
         dom.disciplineDashConfigGradesBtn.addEventListener('click', (e) => {
             const { id, name } = e.currentTarget.dataset;
             modals.showConfigGradesModal(id, name);
+        });
+    }
+
+    const agendaToggle = document.getElementById('agenda-view-toggle');
+    if (agendaToggle) {
+        agendaToggle.addEventListener('click', e => {
+            const button = e.target.closest('.agenda-view-btn');
+            if (!button) return;
+
+            agendaToggle.querySelector('.active').classList.remove('active');
+            button.classList.add('active');
+
+            const viewType = button.dataset.view;
+            document.getElementById('agenda-nav-controls').style.display = viewType === 'classes' ? 'flex' : 'none';
+
+            if (viewType === 'classes') {
+                // CORREÇÃO: Pega as disciplinas do estado e passa como parâmetro
+                const { disciplines } = getState();
+                view.renderWeeklyClasses(new Date(), disciplines);
+            } else {
+                view.renderAllEvents();
+            }
         });
     }
 
@@ -165,23 +249,31 @@ export function initializeAppListeners() {
 async function handleEventFormSubmit(e) {
     e.preventDefault();
     const { activeEnrollmentId, activePeriodId } = getState();
-    if (!activeEnrollmentId || !activePeriodId) return;
-
     const form = dom.addEventForm;
+    const eventId = form.querySelector('#event-id').value;
+
     const payload = {
         title: form.querySelector('#event-title').value,
         date: form.querySelector('#event-date').value,
-        color: form.querySelector('#event-color').value,
-        createdAt: new Date(),
+        category: form.querySelector('#event-category').value,
+        relatedDisciplineId: form.querySelector('#event-discipline').value,
+        reminder: form.querySelector('#event-reminder').value,
+        color: form.querySelector('#event-color-input').value,
     };
 
     try {
-        await firestoreApi.saveCalendarEvent(payload, { enrollmentId: activeEnrollmentId, periodId: activePeriodId });
+        if (eventId) {
+            await firestoreApi.updateCalendarEvent(eventId, payload, { enrollmentId: activeEnrollmentId, periodId: activePeriodId });
+        } else {
+            await firestoreApi.saveCalendarEvent(payload, { enrollmentId: activeEnrollmentId, periodId: activePeriodId });
+        }
         modals.hideEventModal();
-        await view.refreshDashboard(); // Atualiza o dashboard para mostrar o novo evento no calendário
+        view.refreshDashboard();
+        notify.success("Evento salvo com sucesso!")
+        view.checkAndRenderNotifications();
     } catch (error) {
-        console.error("Erro ao salvar evento: ", error);
-        notify.error("Erro ao salvar evento: ", error);
+        console.error("Erro ao salvar evento:", error);
+        notify.error("Erro ao salvar evento!");
     }
 }
 
@@ -212,6 +304,7 @@ async function handleAppContainerClick(e) {
             case 'view-discipline-details': view.showDisciplineDashboard(id); break;
             case 'edit-discipline': e.stopPropagation(); modals.showDisciplineModal(id); break;
             case 'delete-discipline': e.stopPropagation(); handleDeleteDiscipline(id); break;
+            case 'add-new-event': modals.showEventModal(); break;
 
             // Ações do Dashboard da Disciplina
             case 'add-absence': modals.showAbsenceModal(id, actionTarget.dataset.name); break;
@@ -304,7 +397,7 @@ async function handleConfirmAction() {
             await onConfirm();
         } catch (error) {
             console.error("Erro ao executar ação de confirmação:", error);
-            notify.error(error.message);
+            notify.error("Erro ao executar ação de confirmação:", error.message);
         }
     }
     modals.hideConfirmModal();
@@ -560,6 +653,11 @@ function handleGradeInput(e) {
 function handleOutsideClick(e) {
     const openMenu = document.querySelector('.menu-options:not(.hidden)');
     if (openMenu && !openMenu.parentElement.contains(e.target)) openMenu.classList.add('hidden');
+    if (dom.notificationPanel && !dom.notificationPanel.classList.contains('hidden')) {
+        if (!dom.notificationPanel.parentElement.contains(e.target)) {
+            dom.notificationPanel.classList.add('hidden');
+        }
+    }
 }
 
 async function switchPeriod(direction) {

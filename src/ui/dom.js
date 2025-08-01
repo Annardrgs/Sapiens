@@ -43,6 +43,7 @@ export function initializeDOMElements() {
     dashboardSubtitle: document.getElementById('dashboard-subtitle'),
     summaryCardsContainer: document.getElementById('summary-cards-container'),
     weeklyAgendaContainer: document.getElementById('weekly-agenda-container'),
+    agendaContentContainer: document.getElementById('agenda-content-container'),
     calendarContainer: document.getElementById('calendar-container'),
     addDisciplineBtn: document.getElementById('add-discipline-btn'),
     disciplinesList: document.getElementById('disciplines-list'),
@@ -111,5 +112,12 @@ export function initializeDOMElements() {
     evaluationsList: document.getElementById('evaluations-list'),
     disciplineDashConfigGradesBtn: document.getElementById('discipline-dash-config-grades-btn'),
     disciplinePerformanceChart: document.getElementById('discipline-performance-chart'),
+    notificationContainer: document.getElementById('notification-container'),
+
+    // --- Painel de Notificações ---
+    notificationBellBtn: document.getElementById('notification-bell-btn'),
+    notificationBadge: document.getElementById('notification-badge'),
+    notificationPanel: document.getElementById('notification-panel'),
+    notificationList: document.getElementById('notification-list'),
   });
 }

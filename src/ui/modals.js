@@ -295,12 +295,68 @@ export function showPdfViewerModal(url) {
     showModal(dom.pdfViewerModal); 
 }
 
-export function showEventModal(dateStr) {
+function renderEventColorPalette(selectedColor) {
+    const paletteContainer = dom.addEventForm.querySelector('#event-color-palette');
+    const colorInput = dom.addEventForm.querySelector('#event-color-input');
+    if (!paletteContainer || !colorInput) return;
+
+    const colors = ['#d946ef', '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#0ea5e9', '#6366f1'];
+    paletteContainer.innerHTML = '';
+    colors.forEach(color => {
+        const swatch = document.createElement('div');
+        swatch.className = 'color-swatch';
+        swatch.style.backgroundColor = color;
+        swatch.dataset.color = color;
+        if (color === selectedColor) swatch.classList.add('selected');
+        paletteContainer.appendChild(swatch);
+    });
+    colorInput.value = selectedColor;
+}
+
+export async function showEventModal(eventId = null, dateStr = null) {
     if (!dom.addEventModal || !dom.addEventForm) return;
-    dom.addEventForm.reset(); // Limpa o formulário
-    // Armazena a data clicada em um campo oculto para uso posterior
-    dom.addEventForm.querySelector('#event-date').value = dateStr; 
-    dom.addEventForm.querySelector('#event-color').value = '#ef4444'; // Cor padrão
+    
+    dom.addEventForm.reset();
+    const { activeEnrollmentId, activePeriodId } = getState();
+
+    // Popula o dropdown de disciplinas
+    const disciplineSelect = dom.addEventForm.querySelector('#event-discipline');
+    const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
+    disciplineSelect.innerHTML = `<option value="none">Nenhuma matéria relacionada</option>`;
+    disciplines.forEach(d => {
+        const option = document.createElement('option');
+        option.value = d.id;
+        option.textContent = d.name;
+        option.dataset.color = d.color || '#6b7280';
+        disciplineSelect.appendChild(option);
+    });
+
+    // CORREÇÃO: Busca os elementos a partir do MODAL, não do FORMULÁRIO
+    const titleEl = dom.addEventModal.querySelector('#event-modal-title');
+    const deleteBtn = dom.addEventModal.querySelector('#delete-event-btn');
+    
+    if (eventId) { // MODO EDIÇÃO
+        if (titleEl) titleEl.textContent = 'Editar Evento';
+        if (deleteBtn) deleteBtn.classList.remove('hidden');
+        
+        const eventSnap = await api.getCalendarEvent(eventId, { enrollmentId: activeEnrollmentId, periodId: activePeriodId });
+        if (eventSnap.exists()) {
+            const data = eventSnap.data();
+            dom.addEventForm.querySelector('#event-id').value = eventId;
+            dom.addEventForm.querySelector('#event-title').value = data.title || '';
+            dom.addEventForm.querySelector('#event-date').value = data.date || '';
+            dom.addEventForm.querySelector('#event-category').value = data.category || 'Prova';
+            dom.addEventForm.querySelector('#event-discipline').value = data.relatedDisciplineId || 'none';
+            dom.addEventForm.querySelector('#event-reminder').value = data.reminder || 'none';
+            renderEventColorPalette(data.color || '#d946ef');
+        }
+    } else { // MODO CRIAÇÃO
+        if (titleEl) titleEl.textContent = 'Novo Evento';
+        if (deleteBtn) deleteBtn.classList.add('hidden');
+        dom.addEventForm.querySelector('#event-date').value = dateStr || new Date().toISOString().split('T')[0];
+        renderEventColorPalette('#d946ef');
+    }
+
     showModal(dom.addEventModal);
 }
 

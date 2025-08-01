@@ -13,14 +13,13 @@ import {
   showAuthScreen, 
   showAppScreen, 
   renderUserEmail, 
-  showDashboardView, 
   showEnrollmentsView, 
   renderEnrollments 
 } from './ui/view.js';
 import { initializeTheme } from './ui/theme.js';
 import { initializeDOMElements } from './ui/dom.js';
 import { setState } from './store/state.js';
-import * as api from './api/firestore.js';
+import * as view from './ui/view.js';
 
 // --- FLUXO DE INICIALIZAÇÃO ---
 
@@ -46,6 +45,7 @@ onAuthStateChanged(auth, (user) => {
   if (user) {
     setState('user', user);
     showAppScreen();
+    view.checkAndRenderNotifications();
 
     if (!window.appListenersInitialized) {
       initializeAppListeners();

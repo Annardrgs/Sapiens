@@ -387,3 +387,23 @@ export async function getCalendarEvents(enrollmentId, periodId) {
       }
   });
 }
+
+export function getCalendarEvent(eventId, { enrollmentId, periodId }) {
+    const userId = getCurrentUserId();
+    if (!userId) return null;
+    return getDoc(doc(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId, 'events', eventId));
+}
+
+export function updateCalendarEvent(eventId, payload, { enrollmentId, periodId }) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const eventRef = doc(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId, 'events', eventId);
+    return updateDoc(eventRef, payload);
+}
+
+export function deleteCalendarEvent(eventId, { enrollmentId, periodId }) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const eventRef = doc(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId, 'events', eventId);
+    return deleteDoc(eventRef);
+}
