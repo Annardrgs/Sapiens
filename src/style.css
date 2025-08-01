@@ -130,3 +130,7 @@
 .color-swatch.selected {
     @apply ring-offset-2 ring-offset-surface ring-primary scale-110;
 }
+
+.agenda-view-btn.active {
+  @apply bg-surface text-secondary shadow-sm;
+}

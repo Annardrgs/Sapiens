@@ -23,6 +23,7 @@ const state = {
 
   // Lista de períodos para navegação
   periods: [],
+  disciplines: [],
   activePeriodIndex: -1,
 };
 

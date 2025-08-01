@@ -8,7 +8,8 @@ const mainHTML = `
   </div>
 
   <div id="app-container" class="hidden">
-    <header class="bg-surface shadow-md border-b border-border sticky top-0 z-40"><div class="container mx-auto px-4 sm:px-6 lg:px-8"><div class="flex items-center justify-between h-16"><h1 class="text-2xl font-bold text-secondary">Meu Planner</h1><div class="flex items-center"><button id="theme-toggle-btn" class="mr-4 p-2 rounded-full text-subtle hover:text-secondary hover:bg-surface"><svg id="theme-sun-icon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg><svg id="theme-moon-icon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg></button><span id="user-email" class="text-sm text-subtle mr-4"></span><button id="logout-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90">Sair</button></div></div></div></header>
+    <div id="notification-container" class="fixed top-5 right-5 z-[100] w-full max-w-sm space-y-2"></div>
+    <header class="bg-surface shadow-md border-b border-border sticky top-0 z-40"><div class="container mx-auto px-4 sm:px-6 lg:px-8"><div class="flex items-center justify-between h-16"><h1 class="text-2xl font-bold text-secondary">Meu Planner</h1><div class="flex items-center"><button id="theme-toggle-btn" class="p-2 rounded-full text-subtle hover:text-secondary hover:bg-surface mr-4"><svg id="theme-sun-icon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg><svg id="theme-moon-icon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg></button><div class="relative"><button id="notification-bell-btn" class="p-2 rounded-full text-subtle hover:text-secondary hover:bg-surface mr-4"><span id="notification-badge" class="hidden absolute top-1 right-1 block h-2 w-2 rounded-full bg-danger ring-2 ring-surface"></span><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg></button><div id="notification-panel" class="hidden absolute right-0 mt-2 w-72 md:w-80 bg-surface rounded-md shadow-lg z-50 border border-border"><div class="p-3 border-b border-border"><h4 class="font-semibold text-secondary">Notificações</h4></div><div id="notification-list" class="max-h-80 overflow-y-auto"></div></div></div><span id="user-email" class="text-sm text-subtle mx-4"></span><button id="logout-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90">Sair</button></div></div></div></header>
     
     <main class="container mx-auto py-6 sm:px-6 lg:px-8">
       
@@ -21,7 +22,37 @@ const mainHTML = `
         <div class="dashboard-header"><button id="back-to-enrollments-btn" class="back-button"><svg class="w-6 h-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg></button><div><h2 id="dashboard-title" class="text-3xl font-bold text-secondary"></h2><p id="dashboard-subtitle" class="text-subtle"></p></div></div>
         <div class="flex items-center justify-end mb-6 space-x-2"><div class="flex items-center bg-surface rounded-lg shadow-sm border border-border"><button id="prev-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-25 disabled:cursor-not-allowed"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M15 19l-7-7 7-7"></path></svg></button><span id="current-period-name" class="font-bold text-secondary px-4 text-center w-28"></span><button id="next-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-25 disabled:cursor-not-allowed"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 5l7 7-7 7"></path></svg></button></div><button id="new-period-btn" class="bg-primary text-bkg font-bold py-2 px-4 rounded-lg shadow-md hover:opacity-90">Novo Período</button><div class="relative"><button id="manage-period-btn" class="p-2 rounded-lg hover:bg-surface" title="Opções"><svg class="w-6 h-6 text-subtle pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg></button></div></div>
         <div id="summary-cards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"></div>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8"><div class="lg:col-span-1 flex flex-col gap-8"><div><h3 class="text-2xl font-bold text-secondary mb-4">Agenda</h3><div id="weekly-agenda-container" class="space-y-4"></div></div><div><h3 class="text-2xl font-bold text-secondary mb-4">Calendário</h3><div id="calendar-container" class="bg-surface p-4 rounded-xl shadow-lg border border-border"></div></div></div><div class="lg:col-span-2"><div class="flex justify-between items-center mb-4"><h3 class="text-2xl font-bold text-secondary">Disciplinas</h3><button id="add-discipline-btn" class="bg-primary text-bkg font-bold py-2 px-4 rounded-lg shadow-md hover:opacity-90">Adicionar</button></div><div id="disciplines-list" class="space-y-4"></div></div></div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div class="lg:col-span-1 flex flex-col gap-8">
+            <div>
+              <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                <div class="flex items-center gap-2">
+                  <h3 class="text-2xl font-bold text-secondary">Agenda</h3>
+                  <div id="agenda-view-toggle" class="flex items-center bg-bkg p-1 rounded-lg border border-border">
+                    <button data-view="classes" class="agenda-view-btn active px-3 py-1 text-sm font-semibold rounded-md">Aulas</button>
+                    <button data-view="events" class="agenda-view-btn px-3 py-1 text-sm font-semibold rounded-md">Eventos</button>
+                  </div>
+                </div>
+              </div>
+              <div id="agenda-content-container" class="space-y-4"></div>
+            </div>
+            <div>
+              <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-secondary">Calendário</h3>
+                <button data-action="add-new-event" class="text-sm font-semibold bg-primary/10 text-primary px-3 py-1 rounded-md hover:bg-primary/20">+ Novo Evento</button>
+              </div>
+              <div id="calendar-container" class="bg-surface p-4 rounded-xl shadow-lg border border-border"></div>
+            </div>
+          </div>
+          <div class="lg:col-span-2">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-2xl font-bold text-secondary">Disciplinas</h3>
+              <button id="add-discipline-btn" class="bg-primary text-bkg font-bold py-2 px-4 rounded-lg shadow-md hover:opacity-90">Adicionar</button>
+            </div>
+            <div id="disciplines-list" class="space-y-4"></div>
+          </div>
+        </div>
       </div>
 
       <div id="discipline-dashboard-view" class="hidden">
@@ -82,7 +113,7 @@ const modalHTML = `
     </div>
   </div>
 
-   <div id="period-options-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+  <div id="period-options-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
     <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border">
       <div>
         <h3 class="text-2xl font-bold text-secondary">Gerenciar Período</h3>
@@ -151,22 +182,64 @@ const modalHTML = `
 
   <div id="pdf-viewer-modal" class="hidden fixed inset-0 bg-black bg-opacity-85 flex items-center justify-center z-50 p-4"><div class="bg-surface w-full h-full max-w-4xl max-h-[90vh] rounded-lg shadow-xl flex flex-col border border-border"><div class="flex justify-between items-center p-4 border-b border-border"><h3 class="text-xl font-bold text-secondary">Calendário</h3><button id="close-pdf-viewer-btn" class="p-2 rounded-full hover:bg-bkg"><svg class="w-6 h-6 text-subtle" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M6 18L18 6M6 6l12 12" /></svg></button></div><div class="flex-grow p-2"><iframe id="pdf-viewer-iframe" class="w-full h-full border-0" src=""></iframe></div></div></div>
   
-  <div id="add-event-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-md border border-border">
-      <h3 class="text-2xl font-bold mb-6 text-secondary">Adicionar Evento</h3>
+  <div id="add-event-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border">
+      <h3 id="event-modal-title" class="text-2xl font-bold mb-6 text-secondary">Novo Evento</h3>
       <form id="add-event-form" class="space-y-4">
-        <input type="hidden" id="event-date">
+        <input type="hidden" id="event-id">
+        
         <div>
-          <label for="event-title" class="block text-sm font-medium text-subtle mb-1">Título do Evento</label>
-          <input type="text" id="event-title" placeholder="Ex: Prova de Cálculo" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+          <label for="event-title" class="block text-sm font-medium text-subtle mb-1">Título do Evento*</label>
+          <input type="text" id="event-title" placeholder="Ex: Entrega de TCC" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
         </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label for="event-date" class="block text-sm font-medium text-subtle mb-1">Data*</label>
+            <input type="date" id="event-date" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+          </div>
+          <div>
+            <label for="event-category" class="block text-sm font-medium text-subtle mb-1">Categoria</label>
+            <select id="event-category" class="custom-select w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+              <option value="Prova">Prova</option>
+              <option value="Trabalho">Trabalho</option>
+              <option value="Apresentação">Apresentação</option>
+              <option value="Feriado">Feriado</option>
+              <option value="Vista de Prova">Vista de Prova</option>
+              <option value="Semana Acadêmica">Semana Acadêmica</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
+        </div>
+        
         <div>
-            <label for="event-color" class="block text-sm font-medium text-subtle mb-1">Cor</label>
-            <input type="color" id="event-color" value="#ef4444" class="w-full h-10 px-1 py-1 bg-bkg border border-border rounded-md">
+          <label for="event-discipline" class="block text-sm font-medium text-subtle mb-1">Matéria Relacionada</label>
+          <select id="event-discipline" class="custom-select w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+            </select>
         </div>
-        <div class="mt-8 flex justify-end space-x-4">
-          <button type="button" id="cancel-event-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg">Cancelar</button>
-          <button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg">Salvar</button>
+        
+        <div>
+          <label for="event-reminder" class="block text-sm font-medium text-subtle mb-1">Lembrete</label>
+          <select id="event-reminder" class="custom-select w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+            <option value="none">Nenhum</option>
+            <option value="1d">1 dia antes</option>
+            <option value="2d">2 dias antes</option>
+            <option value="1w">1 semana antes</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-subtle mb-1">Cor</label>
+          <div id="event-color-palette" class="flex flex-wrap justify-center gap-3 p-2 bg-bkg rounded-md border border-border w-full"></div>
+          <input type="hidden" id="event-color-input">
+        </div>
+
+        <div class="mt-8 flex justify-between items-center">
+          <button type="button" id="delete-event-btn" class="text-sm font-semibold text-danger hover:opacity-80">Excluir Evento</button>
+          <div class="space-x-4">
+            <button type="button" id="cancel-event-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg">Cancelar</button>
+            <button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg">Salvar</button>
+          </div>
         </div>
       </form>
     </div>
