@@ -34,13 +34,6 @@ const mainHTML = `
                     <button data-view="events" class="agenda-view-btn px-3 py-1 text-sm font-semibold rounded-md">Eventos</button>
                   </div>
                 </div>
-                  <button id="prev-week-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-25 disabled:cursor-not-allowed">
-                    <svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M15 19l-7-7 7-7"></path></svg>
-                  </button>
-                  <span id="current-week-label" class="font-bold text-secondary px-4 text-center w-32">Esta Semana</span>
-                  <button id="next-week-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-25 disabled:cursor-not-allowed">
-                    <svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 5l7 7-7 7"></path></svg>
-                  </button>
               </div>
               <div id="agenda-content-container" class="space-y-4"></div>
             </div>

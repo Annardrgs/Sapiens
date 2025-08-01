@@ -165,16 +165,17 @@ export function initializeAppListeners() {
             const button = e.target.closest('.agenda-view-btn');
             if (!button) return;
 
-            agendaToggle.querySelector('.active').classList.remove('active');
+            const currentActive = agendaToggle.querySelector('.active');
+            if (currentActive) {
+                currentActive.classList.remove('active');
+            }
             button.classList.add('active');
 
             const viewType = button.dataset.view;
-            document.getElementById('agenda-nav-controls').style.display = viewType === 'classes' ? 'flex' : 'none';
 
             if (viewType === 'classes') {
-                // CORREÇÃO: Pega as disciplinas do estado e passa como parâmetro
                 const { disciplines } = getState();
-                view.renderWeeklyClasses(new Date(), disciplines);
+                view.renderWeeklyClasses(disciplines);
             } else {
                 view.renderAllEvents();
             }

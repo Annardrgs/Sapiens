@@ -655,7 +655,7 @@ export async function refreshDashboard() {
     renderDisciplines(activeEnrollmentId, activePeriodId, enrollmentData, isPeriodClosed);
     
     // Agora que o estado está correto, a agenda será renderizada
-    renderWeeklyClasses(new Date(), disciplines); 
+    renderWeeklyClasses(disciplines); 
     
     renderInteractiveCalendar(disciplines, currentPeriod);
 }
