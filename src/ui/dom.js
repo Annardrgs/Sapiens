@@ -112,6 +112,7 @@ export function initializeDOMElements() {
     evaluationsList: document.getElementById('evaluations-list'),
     disciplineDashConfigGradesBtn: document.getElementById('discipline-dash-config-grades-btn'),
     disciplinePerformanceChart: document.getElementById('discipline-performance-chart'),
+    disciplineEventsList: document.getElementById('discipline-events-list'),
     notificationContainer: document.getElementById('notification-container'),
 
     // --- Painel de Notificações ---

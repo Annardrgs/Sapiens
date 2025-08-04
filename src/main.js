@@ -36,7 +36,6 @@ initializeAuthListeners();
 initializeTheme();
 
 async function renderInitialView() {
-  showEnrollmentsView();
   await renderEnrollments();
 }
 

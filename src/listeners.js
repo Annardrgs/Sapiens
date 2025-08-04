@@ -488,10 +488,17 @@ async function handleEnrollmentFormSubmit(e) {
     e.preventDefault();
     const selectedModality = dom.addEnrollmentForm.querySelector('input[name="enrollment-modality"]:checked').value;
 
+    // Gera um nome de período padrão com base na data atual
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth() + 1; // Meses são de 0 a 11
+    const semester = month <= 6 ? 1 : 2; // Primeiro semestre até junho, segundo a partir de julho
+    const defaultPeriodName = `${year}.${semester}`;
+
     const payload = {
         course: dom.addEnrollmentForm.querySelector('#enrollment-course').value,
         institution: dom.addEnrollmentForm.querySelector('#enrollment-institution').value,
-        currentPeriod: dom.addEnrollmentForm.querySelector('#enrollment-period').value,
+        currentPeriod: defaultPeriodName, // Usa o período gerado automaticamente
         passingGrade: parseFloat(dom.addEnrollmentForm.querySelector('#enrollment-passing-grade').value) || 7.0,
         modality: selectedModality,
     };
@@ -524,40 +531,75 @@ async function handlePeriodFormSubmit(e) {
 async function handleDisciplineFormSubmit(e) {
     e.preventDefault();
     const { activeEnrollmentId, activePeriodId, editingDisciplineId } = getState();
-    
-    const schedules = [];
-    const scheduleElements = dom.addDisciplineForm.querySelectorAll('#schedules-container .schedule-field');
-    let hasInvalidTime = false;
-    scheduleElements.forEach(field => {
-        const startTime = field.querySelector('[name="schedule-start"]').value;
-        const endTime = field.querySelector('[name="schedule-end"]').value;
+    const form = dom.addDisciplineForm;
 
-        if (!startTime || !endTime) {
-            hasInvalidTime = true;
+    // Garante que o período ativo está carregado antes de prosseguir
+    if (!activePeriodId) {
+        console.error("ID do período ativo não encontrado. Ação cancelada.");
+        return notify.error("Período ativo não identificado. Por favor, recarregue a página e tente novamente.");
+    }
+
+    // Validação do Código da Disciplina
+    const code = form.querySelector('#discipline-code').value.trim();
+    if (code) { // Apenas valida se um código foi inserido
+        const isUnique = await firestoreApi.isDisciplineCodeUnique(activeEnrollmentId, code, editingDisciplineId);
+        if (!isUnique) {
+            return notify.error('O código da disciplina já está em uso nesta matrícula.');
         }
+    }
+    
+    // Verifica se a matrícula é EAD
+    const enrollmentSnap = await firestoreApi.getEnrollment(activeEnrollmentId);
+    const isEAD = enrollmentSnap.exists() && enrollmentSnap.data().modality === 'EAD';
 
-        schedules.push({ day: field.querySelector('[name="schedule-day"]').value, startTime, endTime });
-    });
-
-    if (hasInvalidTime) {
-        return notify.error('Por favor, preencha a hora de início e fim para todos os horários.');
+    // Validação de horários apenas para matrículas não-EAD
+    const schedules = [];
+    if (!isEAD) {
+        const scheduleElements = form.querySelectorAll('#schedules-container .schedule-field');
+        if (scheduleElements.length === 0) {
+            return notify.error('Adicione pelo menos um horário para a disciplina.');
+        }
+        let hasInvalidTime = false;
+        scheduleElements.forEach(field => {
+            const startTime = field.querySelector('[name="schedule-start"]').value;
+            const endTime = field.querySelector('[name="schedule-end"]').value;
+            if (!startTime || !endTime) {
+                hasInvalidTime = true;
+            }
+            schedules.push({ day: field.querySelector('[name="schedule-day"]').value, startTime, endTime });
+        });
+        if (hasInvalidTime) {
+            return notify.error('Preencha a hora de início e fim para todos os horários.');
+        }
     }
 
     const payload = {
-        name: dom.addDisciplineForm.querySelector('#discipline-name').value,
-        teacher: dom.addDisciplineForm.querySelector('#discipline-teacher').value,
-        campus: dom.addDisciplineForm.querySelector('#discipline-campus').value,
-        location: dom.addDisciplineForm.querySelector('#discipline-location').value,
-        schedules: schedules, 
-        workload: parseInt(dom.addDisciplineForm.querySelector('#discipline-workload').value),
-        hoursPerClass: parseInt(dom.addDisciplineForm.querySelector('#discipline-hours-per-class').value),
-        color: dom.addDisciplineForm.querySelector('#discipline-color-input').value // MODIFIQUE ESTA LINHA
+        name: form.querySelector('#discipline-name').value,
+        code: code,
+        teacher: form.querySelector('#discipline-teacher').value,
+        campus: form.querySelector('#discipline-campus').value,
+        location: form.querySelector('#discipline-location').value,
+        schedules: schedules,
+        // Carga horária e horas/aula são opcionais para EAD
+        workload: isEAD ? (parseInt(form.querySelector('#discipline-workload').value) || null) : parseInt(form.querySelector('#discipline-workload').value),
+        hoursPerClass: isEAD ? (parseInt(form.querySelector('#discipline-hours-per-class').value) || null) : parseInt(form.querySelector('#discipline-hours-per-class').value),
+        color: form.querySelector('#discipline-color-input').value
     };
+
+    // Validação de campos obrigatórios para modo presencial
+    if (!isEAD && (!payload.workload || !payload.hoursPerClass)) {
+        return notify.error('Carga Horária e Horas por Aula são obrigatórios para disciplinas presenciais.');
+    }
+
     try {
         await firestoreApi.saveDiscipline(payload, { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId: editingDisciplineId });
+        notify.success(`Disciplina "${payload.name}" salva com sucesso!`);
         modals.hideDisciplineModal();
         await view.refreshDashboard();
-    } catch (error) { console.error("Error saving discipline:", error); }
+    } catch (error) { 
+        console.error("Erro ao salvar disciplina:", error);
+        notify.error('Falha ao salvar a disciplina. Verifique os dados e tente novamente.');
+    }
 }
 
 /**

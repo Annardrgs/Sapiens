@@ -1,7 +1,6 @@
 /**
  * @file Módulo para criar componentes de UI reutilizáveis, como cards.
  */
-
 export function createEnrollmentCard(data) {
     const card = document.createElement('div');
     card.dataset.id = data.id;
@@ -10,7 +9,7 @@ export function createEnrollmentCard(data) {
         <div class="pr-10">
             <h4 class="text-xl font-bold text-secondary">${data.course}</h4>
             <p class="text-subtle">${data.institution}</p>
-            <p class="text-sm text-subtle mt-4">Período: ${data.currentPeriod || 'N/A'}</p>
+            <p class="text-sm text-subtle mt-4">Período: ${data.displayPeriod || 'N/A'}</p>
         </div>
         <div class="absolute top-4 right-4 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <button data-action="edit-enrollment" title="Editar" class="p-2 rounded-full hover:bg-bkg"><svg class="w-5 h-5 text-subtle pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
@@ -50,7 +49,10 @@ export function createDisciplineCard(discipline, enrollmentData, isPeriodClosed 
                 <div class="flex items-center gap-4 pr-16">
                     <span class="w-2 h-10 rounded-full flex-shrink-0" style="background-color: ${discipline.color || '#4f46e5'}"></span>
                     <div>
-                        <h4 class="text-xl font-bold text-secondary">${discipline.name}</h4>
+                        <h4 class="text-xl font-bold text-secondary flex items-baseline">
+                            ${discipline.name}
+                            ${discipline.code ? `<span class="ml-2 text-xs font-mono text-subtle">(${discipline.code})</span>` : ''}
+                        </h4>
                         <p class="text-sm text-subtle">${discipline.schedules?.map(s => `${s.day} ${s.startTime}-${s.endTime}`).join(', ') || 'Horário indefinido'}</p>
                     </div>
                 </div>

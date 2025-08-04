@@ -153,9 +153,29 @@ export async function showDisciplineModal(disciplineId = null) {
   
   const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
   const isEAD = enrollmentSnap.exists() && enrollmentSnap.data().modality === 'EAD';
+
+  // Referências aos elementos do formulário
   const campusInput = dom.addDisciplineForm.querySelector('#discipline-campus');
-  if (isEAD) { campusInput.value = 'Remoto'; campusInput.disabled = true; } 
-  else { campusInput.disabled = false; }
+  const locationInput = dom.addDisciplineForm.querySelector('#discipline-location');
+  const workloadInput = dom.addDisciplineForm.querySelector('#discipline-workload');
+  const hoursPerClassInput = dom.addDisciplineForm.querySelector('#discipline-hours-per-class');
+  const schedulesSection = dom.addDisciplineForm.querySelector('#schedules-container').parentElement; // Pega a div que contém os horários
+
+  // Lógica para ajustar o formulário para EAD
+  if (isEAD) {
+    campusInput.value = 'Remoto';
+    campusInput.disabled = true;
+    locationInput.disabled = true;
+    schedulesSection.classList.add('hidden'); // Esconde a seção de horários
+    workloadInput.required = false; // Torna campos opcionais
+    hoursPerClassInput.required = false;
+  } else {
+    campusInput.disabled = false;
+    locationInput.disabled = false;
+    schedulesSection.classList.remove('hidden'); // Mostra a seção de horários
+    workloadInput.required = true; // Torna campos obrigatórios
+    hoursPerClassInput.required = true;
+  }
 
   if (disciplineId) {
     dom.disciplineModalTitle.textContent = "Editar Disciplina";
@@ -164,24 +184,26 @@ export async function showDisciplineModal(disciplineId = null) {
         if(docSnap.exists()) {
             const data = docSnap.data();
             dom.addDisciplineForm.querySelector('#discipline-name').value = data.name || '';
+            dom.addDisciplineForm.querySelector('#discipline-code').value = data.code || '';
             dom.addDisciplineForm.querySelector('#discipline-teacher').value = data.teacher || '';
             if (!isEAD) campusInput.value = data.campus || '';
-            dom.addDisciplineForm.querySelector('#discipline-location').value = data.location || '';
-            dom.addDisciplineForm.querySelector('#discipline-workload').value = data.workload || '';
-            dom.addDisciplineForm.querySelector('#discipline-hours-per-class').value = data.hoursPerClass || '';
-            if (data.schedules && Array.isArray(data.schedules)) data.schedules.forEach(schedule => addScheduleField(schedule));
-            
-            // Renderiza a paleta com a cor salva
+            locationInput.value = data.location || '';
+            workloadInput.value = data.workload || '';
+            hoursPerClassInput.value = data.hoursPerClass || '';
+            if (!isEAD && data.schedules && Array.isArray(data.schedules)) {
+                data.schedules.forEach(schedule => addScheduleField(schedule));
+            }
             renderColorPalette(data.color || '#6366f1');
         }
     });
   } else {
     dom.disciplineModalTitle.textContent = "Nova Disciplina";
-    if (!isEAD) campusInput.value = '';
-    
-    // Renderiza a paleta com uma cor padrão
+    if (!isEAD) {
+        campusInput.value = '';
+        addScheduleField(); // Adiciona um campo de horário por padrão para presencial
+    }
+    locationInput.value = '';
     renderColorPalette('#6366f1');
-    addScheduleField();
   }
   showModal(dom.addDisciplineModal);
 }

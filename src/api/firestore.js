@@ -233,6 +233,31 @@ export async function getDisciplines(enrollmentId, periodId) {
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
+export async function isDisciplineCodeUnique(enrollmentId, code, currentDisciplineId = null) {
+    console.log('%c[API] Verificando unicidade do código...', 'color: blue', { enrollmentId, code, currentDisciplineId });
+    const userId = getCurrentUserId();
+    if (!userId || !code) return true;
+
+    const periods = await getPeriods(enrollmentId);
+    
+    const disciplinePromises = periods.map(period => getDisciplines(enrollmentId, period.id));
+
+    const disciplinesByPeriod = await Promise.all(disciplinePromises);
+
+    const allDisciplines = disciplinesByPeriod.flat();
+    console.log('[API] Todas as disciplinas encontradas na matrícula:', allDisciplines);
+
+    const duplicate = allDisciplines.find(discipline => 
+        String(discipline.code) === code && discipline.id !== currentDisciplineId
+    );
+    console.log('[API] Disciplina duplicada encontrada:', duplicate);
+
+    const isUnique = !duplicate;
+    console.log(`%c[API] O código "${code}" é único? -> ${isUnique}`, isUnique ? 'color: green' : 'color: red');
+
+    return isUnique;
+}
+
 export function getDiscipline(enrollmentId, periodId, disciplineId) {
     const userId = getCurrentUserId();
     if (!userId) return null;
