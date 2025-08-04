@@ -203,6 +203,7 @@ async function renderGeneralDashboard() {
 }
 
 export async function showDashboardView(enrollmentId) {
+    if (dom.gradesReportView) dom.gradesReportView.classList.add('hidden');
     if (!dom.dashboardView || !dom.enrollmentsView) return;
 
     if (dom.enrollmentsView) dom.enrollmentsView.classList.add('hidden');
@@ -367,6 +368,7 @@ function renderEvaluationsList(discipline) {
 
 export async function showDisciplineDashboard(disciplineId) {
     if (!dom.dashboardView || !dom.disciplineDashboardView) return;
+    if (dom.gradesReportView) dom.gradesReportView.classList.add('hidden');
 
     // Garante que outras telas estejam escondidas
     dom.dashboardView.classList.add('hidden');
@@ -764,4 +766,138 @@ export async function refreshDashboard() {
     renderWeeklyClasses(disciplines); 
     
     renderInteractiveCalendar(disciplines, currentPeriod);
+}
+
+export async function showGradesReportView() {
+    if (!dom.gradesReportView) return;
+
+    // Esconde as outras telas principais
+    dom.dashboardView.classList.add('hidden');
+    dom.enrollmentsView.classList.add('hidden');
+    dom.disciplineDashboardView.classList.add('hidden');
+
+    // Mostra a tela do boletim
+    dom.gradesReportView.classList.remove('hidden');
+
+    const { activeEnrollmentId } = getState();
+    const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
+    if (enrollmentSnap.exists()) {
+        const enrollmentData = enrollmentSnap.data();
+        dom.gradesReportSubtitle.textContent = `${enrollmentData.course} - ${enrollmentData.institution}`;
+        // Chama a nova função para preencher o conteúdo do boletim
+        await renderGradesReportContent(enrollmentData); 
+    }
+}
+
+async function renderGradesReportContent(enrollmentData) {
+    const { activeEnrollmentId, periods } = getState();
+    const passingGrade = enrollmentData.passingGrade || 7.0;
+
+    const container = dom.gradesReportContent;
+    container.innerHTML = ''; // Limpa a mensagem "Carregando..."
+
+    const allPeriodsData = [];
+    // Busca as disciplinas para cada período
+    for (const period of periods) {
+        const disciplines = await api.getDisciplines(activeEnrollmentId, period.id);
+        allPeriodsData.push({ period, disciplines });
+    }
+
+    if (allPeriodsData.length === 0 || allPeriodsData.every(p => p.disciplines.length === 0)) {
+        container.innerHTML = `<p class="text-subtle text-center mt-8">Nenhuma disciplina encontrada para gerar o boletim.</p>`;
+        return;
+    }
+
+    let totalWeightedGradeSum = 0;
+    let totalWorkloadSum = 0;
+
+    const reportContainer = document.createElement('div');
+    reportContainer.className = 'space-y-8';
+
+    // Itera dos períodos mais recentes para os mais antigos
+    for (let i = allPeriodsData.length - 1; i >= 0; i--) {
+        const { period, disciplines } = allPeriodsData[i];
+        if (disciplines.length === 0) continue;
+
+        let periodWeightedGradeSum = 0;
+        let periodWorkloadSum = 0;
+
+        const periodSection = document.createElement('section');
+        periodSection.innerHTML = `<h3 class="text-2xl font-bold text-secondary mb-4">Período: ${period.name}</h3>`;
+        
+        // --- INÍCIO DA CORREÇÃO ---
+        // 1. Cria uma div para envolver a tabela
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'bg-surface rounded-xl shadow-md border border-border overflow-hidden';
+
+        // 2. A tabela em si não precisa mais das classes de estilo, apenas de layout
+        const table = document.createElement('table');
+        table.className = 'w-full text-left border-collapse'; 
+        table.innerHTML = `
+            <thead>
+                <tr class="border-b border-border">
+                    <th class="p-4">Disciplina</th>
+                    <th class="p-4 text-center">Média Final</th>
+                    <th class="p-4 text-center">Status</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        `;
+        const tbody = table.querySelector('tbody');
+
+        disciplines.forEach(discipline => {
+            const averageGradeString = calculateAverage(discipline);
+            const averageGrade = parseFloat(averageGradeString);
+            const workload = parseInt(discipline.workload);
+
+            let status = { text: 'Em Andamento', color: 'text-warning' };
+            const allGradesFilled = discipline.grades && discipline.grades.length > 0 && discipline.grades.every(g => g.grade !== null);
+
+            if (!isNaN(averageGrade) && allGradesFilled) {
+                status = averageGrade >= passingGrade 
+                    ? { text: 'Aprovado', color: 'text-success' } 
+                    : { text: 'Reprovado', color: 'text-danger' };
+
+                if (workload > 0) {
+                    periodWeightedGradeSum += averageGrade * workload;
+                    periodWorkloadSum += workload;
+                    totalWeightedGradeSum += averageGrade * workload;
+                    totalWorkloadSum += workload;
+                }
+            }
+            
+            const tr = document.createElement('tr');
+            tr.className = 'border-b border-border last:border-b-0';
+            tr.innerHTML = `
+                <td class="p-4 font-semibold">${discipline.name}</td>
+                <td class="p-4 text-center font-bold">${averageGradeString}</td>
+                <td class="p-4 text-center font-bold ${status.color}">${status.text}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        const periodCR = periodWorkloadSum > 0 ? (periodWeightedGradeSum / periodWorkloadSum).toFixed(2) : 'N/A';
+        const summaryDiv = document.createElement('div');
+        summaryDiv.className = 'mt-4 text-right';
+        summaryDiv.innerHTML = `<span class="font-bold text-lg">CR do Período:</span> <span class="text-primary font-extrabold text-xl">${periodCR}</span>`;
+        
+        // 3. Adiciona a tabela à div wrapper, e a div wrapper à seção
+        tableWrapper.appendChild(table);
+        periodSection.appendChild(tableWrapper);
+        periodSection.appendChild(summaryDiv);
+        reportContainer.appendChild(periodSection);
+        // --- FIM DA CORREÇÃO ---
+    }
+    
+    // Calcula e exibe o CR Geral no topo
+    const overallCR = totalWorkloadSum > 0 ? (totalWeightedGradeSum / totalWorkloadSum).toFixed(2) : 'N/A';
+    const overallCRDiv = document.createElement('div');
+    overallCRDiv.className = 'bg-surface p-6 rounded-xl shadow-lg border border-border mb-8';
+    overallCRDiv.innerHTML = `
+        <h3 class="text-xl font-bold text-subtle">Coeficiente de Rendimento (CR) Geral</h3>
+        <p class="text-5xl font-extrabold text-primary mt-2">${overallCR}</p>
+    `;
+
+    container.appendChild(overallCRDiv);
+    container.appendChild(reportContainer);
 }

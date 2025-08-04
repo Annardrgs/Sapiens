@@ -290,10 +290,8 @@ async function handleAppContainerClick(e) {
 
         // Determina o ID de contexto: da disciplina ativa ou do card clicado
         if (!dom.disciplineDashboardView.classList.contains('hidden')) {
-            // Se o dashboard da disciplina está visível, o contexto é a disciplina ativa
             id = getState().activeDisciplineId;
         } else {
-            // Senão, o contexto é o card que foi clicado
             id = target.closest('[data-id]')?.dataset.id;
         }
 
@@ -306,6 +304,7 @@ async function handleAppContainerClick(e) {
             case 'edit-discipline': e.stopPropagation(); modals.showDisciplineModal(id); break;
             case 'delete-discipline': e.stopPropagation(); handleDeleteDiscipline(id); break;
             case 'add-new-event': modals.showEventModal(); break;
+            case 'view-grades-report': view.showGradesReportView(); break; // <-- AÇÃO ADICIONADA AQUI
 
             // Ações do Dashboard da Disciplina
             case 'add-absence': modals.showAbsenceModal(id, actionTarget.dataset.name); break;
@@ -316,9 +315,14 @@ async function handleAppContainerClick(e) {
                 break;
             }
             case 'manage-evaluations': modals.showConfigGradesModal(id, actionTarget.dataset.name); break;
-            case 'back-to-main-dashboard': {
+            case 'back-to-main-dashboard': { // Botão de voltar do dash da disciplina
                 const { activeEnrollmentId } = getState();
-                view.showDashboardView(activeEnrollmentId);
+                if (activeEnrollmentId) view.showDashboardView(activeEnrollmentId);
+                break;
+            }
+            case 'back-to-main-dashboard-from-report': { // Botão de voltar do boletim
+                const { activeEnrollmentId } = getState();
+                if (activeEnrollmentId) view.showDashboardView(activeEnrollmentId);
                 break;
             }
             case 'edit-grade': {
@@ -326,7 +330,6 @@ async function handleAppContainerClick(e) {
                 const gradeIndex = parseInt(span.dataset.gradeIndex, 10);
                 const currentGrade = span.textContent.trim();
 
-                // Cria um campo de input
                 const input = document.createElement('input');
                 input.type = 'number';
                 input.step = '0.1';
@@ -335,11 +338,9 @@ async function handleAppContainerClick(e) {
                 input.className = 'w-16 text-right bg-transparent font-bold text-lg text-primary outline-none ring-2 ring-primary rounded-md px-1';
                 input.value = currentGrade === '-' ? '' : currentGrade;
                 
-                // Substitui o texto pelo input e foca nele
                 span.replaceWith(input);
                 input.focus();
 
-                // Função para salvar a nota
                 const saveGrade = async () => {
                     const newGrade = input.value === '' ? null : parseFloat(input.value);
                     const { activeDisciplineId } = getState();
@@ -353,16 +354,14 @@ async function handleAppContainerClick(e) {
                     } catch (error) {
                         console.error("Erro ao salvar a nota:", error);
                     } finally {
-                        // Recarrega o dashboard para refletir todas as mudanças (média, status, etc.)
                         view.showDisciplineDashboard(activeDisciplineId);
                     }
                 };
 
-                // Adiciona listeners para salvar
                 input.addEventListener('blur', saveGrade);
                 input.addEventListener('keydown', e => {
-                    if (e.key === 'Enter') input.blur(); // Salva ao pressionar Enter
-                    if (e.key === 'Escape') view.showDisciplineDashboard(getState().activeDisciplineId); // Cancela com Esc
+                    if (e.key === 'Enter') input.blur();
+                    if (e.key === 'Escape') view.showDisciplineDashboard(getState().activeDisciplineId);
                 });
                 break;
             }
@@ -378,7 +377,7 @@ async function handleAppContainerClick(e) {
             case 'add-discipline-btn': modals.showDisciplineModal(); return;
             case 'new-period-btn': modals.showPeriodModal(); return;
             case 'manage-period-btn': modals.showPeriodOptionsModal(); return;
-            case 'back-to-enrollments-btn': view.showEnrollmentsView(); return;
+            case 'back-to-enrollments-btn': await view.showEnrollmentsView(); return;
             case 'prev-period-btn': switchPeriod('prev'); return;
             case 'next-period-btn': switchPeriod('next'); return;
         }

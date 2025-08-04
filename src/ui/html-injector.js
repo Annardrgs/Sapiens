@@ -20,7 +20,7 @@ const mainHTML = `
       
       <div id="dashboard-view" class="hidden">
         <div class="dashboard-header"><button id="back-to-enrollments-btn" class="back-button"><svg class="w-6 h-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg></button><div><h2 id="dashboard-title" class="text-3xl font-bold text-secondary"></h2><p id="dashboard-subtitle" class="text-subtle"></p></div></div>
-        <div class="flex items-center justify-end mb-6 space-x-2"><div class="flex items-center bg-surface rounded-lg shadow-sm border border-border"><button id="prev-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-25 disabled:cursor-not-allowed"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M15 19l-7-7 7-7"></path></svg></button><span id="current-period-name" class="font-bold text-secondary px-4 text-center w-28"></span><button id="next-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-25 disabled:cursor-not-allowed"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 5l7 7-7 7"></path></svg></button></div><button id="new-period-btn" class="bg-primary text-bkg font-bold py-2 px-4 rounded-lg shadow-md hover:opacity-90">Novo Período</button><div class="relative"><button id="manage-period-btn" class="p-2 rounded-lg hover:bg-surface" title="Opções"><svg class="w-6 h-6 text-subtle pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg></button></div></div>
+        <div class="flex items-center justify-end mb-6 space-x-2"><button id="view-grades-report-btn" data-action="view-grades-report" class="bg-primary/10 text-primary font-bold py-2 px-4 rounded-lg shadow-md hover:bg-primary/20">Ver Boletim</button><div class="flex items-center bg-surface rounded-lg shadow-sm border border-border"><button id="prev-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-25 disabled:cursor-not-allowed"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M15 19l-7-7 7-7"></path></svg></button><span id="current-period-name" class="font-bold text-secondary px-4 text-center w-28"></span><button id="next-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-25 disabled:cursor-not-allowed"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 5l7 7-7 7"></path></svg></button></div><button id="new-period-btn" class="bg-primary text-bkg font-bold py-2 px-4 rounded-lg shadow-md hover:opacity-90">Novo Período</button><div class="relative"><button id="manage-period-btn" class="p-2 rounded-lg hover:bg-surface" title="Opções"><svg class="w-6 h-6 text-subtle pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg></button></div></div>
         <div id="summary-cards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"></div>
         
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -93,6 +93,21 @@ const mainHTML = `
               </div>
             </section>
           </div>
+        </div>
+      </div>
+
+      <div id="grades-report-view" class="hidden">
+        <div class="flex items-center gap-4 mb-6">
+          <button data-action="back-to-main-dashboard-from-report" class="p-2 rounded-full text-subtle hover:bg-surface">
+            <svg class="w-6 h-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+          </button>
+          <div>
+            <h2 id="grades-report-title" class="text-3xl font-bold text-secondary">Boletim Acadêmico</h2>
+            <p id="grades-report-subtitle" class="text-subtle"></p>
+          </div>
+        </div>
+        <div id="grades-report-content">
+          <p class="text-subtle">Carregando boletim...</p>
         </div>
       </div>
 

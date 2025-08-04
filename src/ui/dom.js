@@ -120,5 +120,12 @@ export function initializeDOMElements() {
     notificationBadge: document.getElementById('notification-badge'),
     notificationPanel: document.getElementById('notification-panel'),
     notificationList: document.getElementById('notification-list'),
+
+    // --- Tela de Boletim ---
+    gradesReportView: document.getElementById('grades-report-view'),
+    viewGradesReportBtn: document.getElementById('view-grades-report-btn'),
+    gradesReportTitle: document.getElementById('grades-report-title'),
+    gradesReportSubtitle: document.getElementById('grades-report-subtitle'),
+    gradesReportContent: document.getElementById('grades-report-content'),
   });
 }
