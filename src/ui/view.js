@@ -936,7 +936,7 @@ export function createTodoItemElement(todo) {
             ${todo.text}
         </label>
         <button data-action="delete-todo" data-id="${todo.id}" class="p-1 rounded-full text-subtle hover:bg-danger/20 hover:text-danger flex-shrink-0">
-            <svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            <svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
     `;
     return todoItem;

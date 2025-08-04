@@ -10,6 +10,7 @@ import * as view from './ui/view.js';
 import * as modals from './ui/modals.js';
 import { toggleTheme } from './ui/theme.js';
 import { notify } from './ui/notifications.js';
+import { calculateAverage } from './components/card.js';
 
 // --- INICIALIZAÇÃO DOS LISTENERS ---
 
@@ -85,12 +86,16 @@ export function initializeAppListeners() {
     if (dom.themeToggleBtn) dom.themeToggleBtn.addEventListener('click', toggleTheme);
     document.addEventListener('click', handleOutsideClick, true);
 
+    if (dom.exportPdfBtn) dom.exportPdfBtn.addEventListener('click', handleExportPdf);
+
     // Formulários
     if (dom.addEnrollmentForm) dom.addEnrollmentForm.addEventListener('submit', handleEnrollmentFormSubmit);
     if (dom.addDisciplineForm) dom.addDisciplineForm.addEventListener('submit', handleDisciplineFormSubmit);
     if (dom.addPeriodForm) dom.addPeriodForm.addEventListener('submit', handlePeriodFormSubmit);
     if (dom.addAbsenceForm) dom.addAbsenceForm.addEventListener('submit', handleAbsenceFormSubmit);
     if (dom.configGradesForm) dom.configGradesForm.addEventListener('submit', handleConfigGradesSubmit);
+    if (dom.addTodoForm) dom.addTodoForm.addEventListener('submit', handleTodoFormSubmit);
+    
     const deleteBtn = dom.addEventModal.querySelector('#delete-event-btn');
     if (deleteBtn) {
         deleteBtn.addEventListener('click', handleDeleteEvent);
@@ -103,7 +108,6 @@ export function initializeAppListeners() {
             const selectedOption = e.target.options[e.target.selectedIndex];
             const color = selectedOption.dataset.color;
             
-            // Aplica ou remove a borda colorida
             if (e.target.value !== 'none' && color) {
                 e.target.style.borderLeft = `5px solid ${color}`;
             } else {
@@ -125,24 +129,21 @@ export function initializeAppListeners() {
 
     if (dom.notificationBellBtn) {
         dom.notificationBellBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); // Impede que o clique feche o painel imediatamente
+            e.stopPropagation();
             dom.notificationPanel.classList.toggle('hidden');
         });
     }
     
     if (dom.periodOptionsForm) dom.periodOptionsForm.addEventListener('submit', handlePeriodOptionsFormSubmit);
     
-    // --- BOTÕES DO MODAL DE CONFIRMAÇÃO GENÉRICO ---
     if (dom.confirmModalConfirmBtn) dom.confirmModalConfirmBtn.addEventListener('click', handleConfirmAction);
     if (dom.confirmModalCancelBtn) dom.confirmModalCancelBtn.addEventListener('click', modals.hideConfirmModal);
 
-    // --- BOTÕES DAS OPÇÕES DO PERÍODO ---
     if (dom.endPeriodBtn) dom.endPeriodBtn.addEventListener('click', handleEndPeriod);
     if (dom.reopenPeriodBtn) dom.reopenPeriodBtn.addEventListener('click', handleReopenPeriod);
     if (dom.deletePeriodBtn) dom.deletePeriodBtn.addEventListener('click', handleDeletePeriod);
 
     if (dom.backToMainDashboardBtn) dom.backToMainDashboardBtn.addEventListener('click', () => {
-        // Lógica para voltar para a tela anterior
         const { activeEnrollmentId } = getState();
         if (activeEnrollmentId) {
             dom.disciplineDashboardView.classList.add('hidden');
@@ -154,8 +155,8 @@ export function initializeAppListeners() {
 
     if (dom.disciplineDashConfigGradesBtn) {
         dom.disciplineDashConfigGradesBtn.addEventListener('click', (e) => {
-            const { id, name } = e.currentTarget.dataset;
-            modals.showConfigGradesModal(id, name);
+            const { id } = e.currentTarget.dataset;
+            modals.showConfigGradesModal(id);
         });
     }
 
@@ -182,7 +183,6 @@ export function initializeAppListeners() {
         });
     }
 
-    // Modais interativos
     if (dom.addDisciplineModal) {
         dom.addDisciplineModal.querySelector('#add-schedule-btn').addEventListener('click', modals.addScheduleField);
         const palette = dom.addDisciplineModal.querySelector('#discipline-color-palette');
@@ -191,23 +191,19 @@ export function initializeAppListeners() {
                 const swatch = e.target.closest('.color-swatch');
                 if (!swatch) return;
                 
-                // Atualiza a seleção visual
                 palette.querySelector('.selected')?.classList.remove('selected');
                 swatch.classList.add('selected');
                 
-                // Atualiza o valor do input escondido
                 dom.addDisciplineForm.querySelector('#discipline-color-input').value = swatch.dataset.color;
             });
         }
     }
 
     dom.addDisciplineModal.addEventListener('change', e => {
-        // Verifica se o alvo da mudança foi um input de tempo
         if (e.target.matches('[name="schedule-start"], [name="schedule-end"]')) {
             const scheduleField = e.target.closest('.schedule-field');
             const firstScheduleField = dom.addDisciplineModal.querySelector('.schedule-field');
 
-            // Apenas calcula com base na primeira linha de horário para manter a simplicidade
             if (scheduleField && scheduleField === firstScheduleField) {
                 const startTime = scheduleField.querySelector('[name="schedule-start"]').value;
                 const endTime = scheduleField.querySelector('[name="schedule-end"]').value;
@@ -229,7 +225,6 @@ export function initializeAppListeners() {
     if (dom.disciplinesList) dom.disciplinesList.addEventListener('input', handleGradeInput);
     if (dom.absenceHistoryList) dom.absenceHistoryList.addEventListener('click', handleAbsenceHistoryListClick);
     
-    // Botões de Cancelar
     if (dom.cancelEnrollmentBtn) dom.cancelEnrollmentBtn.addEventListener('click', modals.hideEnrollmentModal);
     if (dom.cancelDisciplineBtn) dom.cancelDisciplineBtn.addEventListener('click', modals.hideDisciplineModal);
     if (dom.cancelPeriodBtn) dom.cancelPeriodBtn.addEventListener('click', modals.hidePeriodModal);
@@ -245,8 +240,6 @@ export function initializeAppListeners() {
 
     const removeCalendarBtn = document.getElementById('remove-calendar-btn');
     if (removeCalendarBtn) removeCalendarBtn.addEventListener('click', handleRemoveCalendarFile);
-
-    if (dom.addTodoForm) dom.addTodoForm.addEventListener('submit', handleTodoFormSubmit);
 }
 
 async function handleEventFormSubmit(e) {
@@ -829,5 +822,129 @@ async function handleTodoFormSubmit(e) {
     } catch (error) {
         console.error("Erro ao adicionar tarefa:", error);
         notify.error("Não foi possível adicionar a tarefa.");
+    }
+}
+
+async function handleExportPdf() {
+    const { jsPDF } = window.jspdf;
+    const { activeEnrollmentId, periods } = getState();
+    const enrollmentSnap = await firestoreApi.getEnrollment(activeEnrollmentId);
+    if (!enrollmentSnap.exists()) return notify.error("Matrícula não encontrada.");
+
+    notify.info('Gerando PDF, por favor aguarde...');
+
+    try {
+        const enrollmentData = enrollmentSnap.data();
+        const doc = new jsPDF({ orientation: 'p', unit: 'px', format: 'a4' });
+        
+        // --- CAPTURA AS CORES DO TEMA ATUAL ---
+        const styles = getComputedStyle(document.body);
+        const theme = {
+            bkg: styles.getPropertyValue('--color-bkg').trim(),
+            surface: styles.getPropertyValue('--color-surface').trim(),
+            text: styles.getPropertyValue('--color-secondary').trim(),
+            subtle: styles.getPropertyValue('--color-subtle').trim(),
+            primary: styles.getPropertyValue('--color-primary').trim(),
+            border: styles.getPropertyValue('--color-border').trim(),
+        };
+
+        // --- BUSCA E PROCESSAMENTO DE DADOS ---
+        const allPeriodsData = [];
+        for (const period of periods) {
+            const disciplines = await firestoreApi.getDisciplines(activeEnrollmentId, period.id);
+            allPeriodsData.push({ period, disciplines });
+        }
+
+        let totalWeightedGradeSum = 0;
+        let totalWorkloadSum = 0;
+        const passingGrade = enrollmentData.passingGrade || 7.0;
+
+        allPeriodsData.forEach(({ disciplines }) => {
+            disciplines.forEach(discipline => {
+                const averageGradeString = calculateAverage(discipline);
+                const averageGrade = parseFloat(averageGradeString);
+                const workload = parseInt(discipline.workload);
+                const allGradesFilled = discipline.grades && discipline.grades.length > 0 && discipline.grades.every(g => g.grade !== null);
+                if (!isNaN(averageGrade) && allGradesFilled && workload > 0) {
+                    totalWeightedGradeSum += averageGrade * workload;
+                    totalWorkloadSum += workload;
+                }
+            });
+        });
+        const overallCR = totalWorkloadSum > 0 ? (totalWeightedGradeSum / totalWorkloadSum).toFixed(2) : 'N/A';
+
+        // --- MONTAGEM DO PDF ---
+        let finalY = 40;
+        const pageMargin = 40;
+        const pageWidth = doc.internal.pageSize.getWidth();
+
+        // 1. Desenha o fundo da página com a cor do tema
+        doc.setFillColor(theme.bkg);
+        doc.rect(0, 0, pageWidth, doc.internal.pageSize.getHeight(), 'F');
+
+        // 2. Título e Subtítulo com as cores corretas
+        doc.setFontSize(22).setFont('helvetica', 'bold').setTextColor(theme.text);
+        doc.text('Boletim Acadêmico', pageWidth / 2, finalY, { align: 'center' });
+        finalY += 20;
+        doc.setFontSize(12).setFont('helvetica', 'normal').setTextColor(theme.subtle);
+        doc.text(`${enrollmentData.course} - ${enrollmentData.institution}`, pageWidth / 2, finalY, { align: 'center' });
+        finalY += 50;
+        
+        // 3. Card do CR Geral estilizado
+        doc.setFillColor(theme.surface);
+        doc.setDrawColor(theme.border);
+        doc.roundedRect(pageMargin, finalY - 25, pageWidth - (pageMargin * 2), 65, 8, 8, 'FD');
+        doc.setFontSize(14).setFont('helvetica', 'bold').setTextColor(theme.subtle);
+        doc.text('Coeficiente de Rendimento (CR) Geral', pageMargin + 15, finalY);
+        doc.setFontSize(36).setFont('helvetica', 'bold').setTextColor(theme.primary);
+        doc.text(overallCR, pageMargin + 15, finalY + 30);
+        finalY += 80;
+
+        // 4. Itera sobre os períodos para criar as tabelas estilizadas
+        for (let i = allPeriodsData.length - 1; i >= 0; i--) {
+            const { period, disciplines } = allPeriodsData[i];
+            if (disciplines.length === 0) continue;
+
+            doc.setFontSize(18).setFont('helvetica', 'bold').setTextColor(theme.text);
+            doc.text(`Período: ${period.name}`, pageMargin, finalY);
+            finalY += 20;
+
+            const head = [['Disciplina', 'Média Final', 'Status']];
+            const body = disciplines.map(discipline => {
+                const averageGradeString = calculateAverage(discipline);
+                const averageGrade = parseFloat(averageGradeString);
+                let statusText = 'Em Andamento';
+                const allGradesFilled = discipline.grades && discipline.grades.length > 0 && discipline.grades.every(g => g.grade !== null);
+                if (!isNaN(averageGrade) && allGradesFilled) {
+                    statusText = averageGrade >= passingGrade ? 'Aprovado' : 'Reprovado';
+                }
+                return [discipline.name, averageGradeString, statusText];
+            });
+
+            doc.autoTable({
+                head,
+                body,
+                startY: finalY,
+                theme: 'grid',
+                styles: { font: 'helvetica', fillColor: theme.surface, textColor: theme.text, lineColor: theme.border },
+                headStyles: { fillColor: theme.bkg, textColor: theme.subtle, fontStyle: 'bold' },
+                didParseCell: (data) => {
+                    if (data.column.dataKey === 2) { // Coluna "Status"
+                        if (data.cell.raw === 'Aprovado') data.cell.styles.textColor = '#34d399';
+                        if (data.cell.raw === 'Reprovado') data.cell.styles.textColor = '#f87171';
+                        if (data.cell.raw === 'Em Andamento') data.cell.styles.textColor = '#f59e0b';
+                    }
+                }
+            });
+            
+            finalY = doc.lastAutoTable.finalY + 40;
+        }
+
+        const fileName = `Boletim - ${enrollmentData.course}.pdf`;
+        doc.save(fileName);
+
+    } catch (error) {
+        console.error("Erro ao gerar PDF:", error);
+        notify.error("Não foi possível gerar o PDF.");
     }
 }

@@ -113,14 +113,20 @@ const mainHTML = `
       </div>
 
       <div id="grades-report-view" class="hidden">
-        <div class="flex items-center gap-4 mb-6">
-          <button data-action="back-to-main-dashboard-from-report" class="p-2 rounded-full text-subtle hover:bg-surface">
-            <svg class="w-6 h-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-          </button>
-          <div>
-            <h2 id="grades-report-title" class="text-3xl font-bold text-secondary">Boletim Acadêmico</h2>
-            <p id="grades-report-subtitle" class="text-subtle"></p>
-          </div>
+        <div class="flex items-center justify-between gap-4 mb-6">
+            <div class="flex items-center gap-4">
+                <button data-action="back-to-main-dashboard-from-report" class="p-2 rounded-full text-subtle hover:bg-surface">
+                    <svg class="w-6 h-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <div>
+                    <h2 id="grades-report-title" class="text-3xl font-bold text-secondary">Boletim Acadêmico</h2>
+                    <p id="grades-report-subtitle" class="text-subtle"></p>
+                </div>
+            </div>
+            <button id="export-pdf-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                Exportar PDF
+            </button>
         </div>
         <div id="grades-report-content">
           <p class="text-subtle">Carregando boletim...</p>
