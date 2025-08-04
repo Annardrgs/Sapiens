@@ -245,6 +245,8 @@ export function initializeAppListeners() {
 
     const removeCalendarBtn = document.getElementById('remove-calendar-btn');
     if (removeCalendarBtn) removeCalendarBtn.addEventListener('click', handleRemoveCalendarFile);
+
+    if (dom.addTodoForm) dom.addTodoForm.addEventListener('submit', handleTodoFormSubmit);
 }
 
 async function handleEventFormSubmit(e) {
@@ -283,20 +285,60 @@ async function handleAppContainerClick(e) {
     const target = e.target;
     const actionTarget = target.closest('[data-action]');
 
-    // --- LÓGICA PRINCIPAL BASEADA EM 'data-action' ---
     if (actionTarget) {
         const action = actionTarget.dataset.action;
         let id;
 
-        // Determina o ID de contexto: da disciplina ativa ou do card clicado
-        if (!dom.disciplineDashboardView.classList.contains('hidden')) {
+       if (['toggle-todo', 'delete-todo', 'edit-todo'].includes(action)) {
+            id = actionTarget.dataset.id;
+        } else if (!dom.disciplineDashboardView.classList.contains('hidden')) {
             id = getState().activeDisciplineId;
         } else {
             id = target.closest('[data-id]')?.dataset.id;
         }
 
-        // Lida com todas as ações
         switch (action) {
+            case 'toggle-todo': {
+                const completed = actionTarget.checked;
+                await firestoreApi.updateTodoStatus(id, completed);
+                await view.renderTodoList();
+                break;
+            }
+            case 'delete-todo': {
+                await firestoreApi.deleteTodo(id);
+                await view.renderTodoList();
+                break;
+            }
+            case 'edit-todo': {
+                const label = actionTarget;
+                const originalText = label.dataset.text;
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = originalText;
+                input.className = 'flex-grow bg-bkg text-secondary border border-primary rounded-md px-2 py-0.5 focus:outline-none';
+                
+                label.replaceWith(input);
+                input.focus();
+                input.select();
+
+                const saveOrCancel = async (event) => {
+                    let newText = input.value.trim();
+                    if (event.type === 'blur' || event.key === 'Enter') {
+                        if (newText && newText !== originalText) {
+                            await firestoreApi.updateTodoText(id, newText);
+                        }
+                        await view.renderTodoList(); // Sempre renderiza de novo para garantir consistência
+                    } else if (event.key === 'Escape') {
+                        await view.renderTodoList(); // Cancela e renderiza a lista original
+                    }
+                };
+
+                input.addEventListener('blur', saveOrCancel);
+                input.addEventListener('keydown', saveOrCancel);
+                break;
+            }
+
             // Ações do Dashboard Principal
             case 'edit-enrollment': e.stopPropagation(); modals.showEnrollmentModal(id); break;
             case 'delete-enrollment': e.stopPropagation(); handleDeleteEnrollment(id); break;
@@ -304,7 +346,7 @@ async function handleAppContainerClick(e) {
             case 'edit-discipline': e.stopPropagation(); modals.showDisciplineModal(id); break;
             case 'delete-discipline': e.stopPropagation(); handleDeleteDiscipline(id); break;
             case 'add-new-event': modals.showEventModal(); break;
-            case 'view-grades-report': view.showGradesReportView(); break; // <-- AÇÃO ADICIONADA AQUI
+            case 'view-grades-report': view.showGradesReportView(); break;
 
             // Ações do Dashboard da Disciplina
             case 'add-absence': modals.showAbsenceModal(id, actionTarget.dataset.name); break;
@@ -314,13 +356,9 @@ async function handleAppContainerClick(e) {
                 view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, id);
                 break;
             }
-            case 'manage-evaluations': modals.showConfigGradesModal(id, actionTarget.dataset.name); break;
-            case 'back-to-main-dashboard': { // Botão de voltar do dash da disciplina
-                const { activeEnrollmentId } = getState();
-                if (activeEnrollmentId) view.showDashboardView(activeEnrollmentId);
-                break;
-            }
-            case 'back-to-main-dashboard-from-report': { // Botão de voltar do boletim
+            case 'manage-evaluations': modals.showConfigGradesModal(id); break;
+            case 'back-to-main-dashboard':
+            case 'back-to-main-dashboard-from-report': {
                 const { activeEnrollmentId } = getState();
                 if (activeEnrollmentId) view.showDashboardView(activeEnrollmentId);
                 break;
@@ -343,14 +381,9 @@ async function handleAppContainerClick(e) {
 
                 const saveGrade = async () => {
                     const newGrade = input.value === '' ? null : parseFloat(input.value);
-                    const { activeDisciplineId } = getState();
-
+                    const { activeDisciplineId, activeEnrollmentId, activePeriodId } = getState();
                     try {
-                        await firestoreApi.saveGrade(newGrade, gradeIndex, { 
-                            enrollmentId: getState().activeEnrollmentId, 
-                            periodId: getState().activePeriodId, 
-                            disciplineId: activeDisciplineId 
-                        });
+                        await firestoreApi.saveGrade(newGrade, gradeIndex, { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId: activeDisciplineId });
                     } catch (error) {
                         console.error("Erro ao salvar a nota:", error);
                     } finally {
@@ -369,7 +402,6 @@ async function handleAppContainerClick(e) {
         return;
     }
 
-    // --- LÓGICA SECUNDÁRIA PARA BOTÕES SEM 'data-action' (BOTÕES GERAIS) ---
     const button = target.closest('button');
     if (button && button.id) {
         switch (button.id) {
@@ -383,7 +415,6 @@ async function handleAppContainerClick(e) {
         }
     }
 
-    // --- LÓGICA PARA CLIQUE GERAL NO CARD DE MATRÍCULA ---
     const enrollmentCard = target.closest('#enrollments-list [data-id]');
     if (enrollmentCard) {
         view.showDashboardView(enrollmentCard.dataset.id);
@@ -763,4 +794,40 @@ async function handleAbsenceHistoryListClick(e) {
             }
         }
     });
+}
+
+async function handleTodoFormSubmit(e) {
+    e.preventDefault();
+    if (!dom.newTodoInput) return;
+
+    const taskText = dom.newTodoInput.value.trim();
+    if (!taskText) return;
+
+    try {
+        // Salva a tarefa e recebe a referência do documento criado
+        const docRef = await firestoreApi.addTodo(taskText);
+
+        // Remove a mensagem "Nenhuma tarefa para hoje" se ela existir
+        const placeholder = dom.todoItemsList.querySelector('p');
+        if (placeholder) {
+            placeholder.remove();
+        }
+
+        // Cria o objeto da nova tarefa para a UI
+        const newTodo = {
+            id: docRef.id,
+            text: taskText,
+            completed: false
+        };
+
+        // Cria o elemento HTML da nova tarefa e o adiciona à lista
+        const todoElement = view.createTodoItemElement(newTodo);
+        dom.todoItemsList.appendChild(todoElement);
+
+        dom.addTodoForm.reset(); // Limpa o campo de input
+
+    } catch (error) {
+        console.error("Erro ao adicionar tarefa:", error);
+        notify.error("Não foi possível adicionar a tarefa.");
+    }
 }

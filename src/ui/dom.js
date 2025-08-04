@@ -127,5 +127,11 @@ export function initializeDOMElements() {
     gradesReportTitle: document.getElementById('grades-report-title'),
     gradesReportSubtitle: document.getElementById('grades-report-subtitle'),
     gradesReportContent: document.getElementById('grades-report-content'),
+
+    // --- To-Do List ---
+    todoListContainer: document.getElementById('todo-list-container'),
+    todoItemsList: document.getElementById('todo-items-list'),
+    addTodoForm: document.getElementById('add-todo-form'),
+    newTodoInput: document.getElementById('new-todo-input'),
   });
 }

@@ -5,7 +5,7 @@
 import { db, auth } from '../firebase.js';
 import {
   collection, query, orderBy, getDocs, getDoc, doc, addDoc, updateDoc,
-  deleteDoc, writeBatch, serverTimestamp, increment, runTransaction,
+  deleteDoc, writeBatch, serverTimestamp, increment, runTransaction, where,
 } from 'firebase/firestore';
 import { cloudinaryConfig } from '../firebase.js';
 
@@ -469,4 +469,62 @@ export async function saveFcmToken(token) {
     // Salva o token em uma subcoleção para evitar conflitos e permitir múltiplos dispositivos
     const tokenRef = doc(db, `users/${userId}/fcmTokens`, token);
     await setDoc(tokenRef, { createdAt: serverTimestamp() });
+}
+
+// --- TO-DO LIST ---
+
+/**
+ * Retorna a data atual no formato YYYY-MM-DD.
+ * @returns {string} A data formatada.
+ */
+function getTodayDateString() {
+    const today = new Date();
+    return today.toLocaleDateString('en-CA'); // Formato YYYY-MM-DD
+}
+
+export async function getTodosForToday() {
+    const userId = getCurrentUserId();
+    if (!userId) return [];
+    const todayStr = getTodayDateString();
+    
+    // O caminho agora é direto para uma coleção 'todos' do usuário
+    const todosRef = collection(db, 'users', userId, 'todos');
+    const q = query(todosRef, where("date", "==", todayStr), orderBy("createdAt", "asc"));
+    
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+export function addTodo(text) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const todosRef = collection(db, 'users', userId, 'todos');
+
+    return addDoc(todosRef, {
+        text: text,
+        completed: false,
+        date: getTodayDateString(),
+        createdAt: serverTimestamp()
+    });
+}
+
+export function updateTodoStatus(todoId, completed) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const todoRef = doc(db, 'users', userId, 'todos', todoId);
+    return updateDoc(todoRef, { completed });
+}
+
+export function deleteTodo(todoId) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const todoRef = doc(db, 'users', userId, 'todos', todoId);
+    return deleteDoc(todoRef);
+}
+
+export function updateTodoText(todoId, newText) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const todoRef = doc(db, 'users', userId, 'todos', todoId);
+    return updateDoc(todoRef, { text: newText });
 }

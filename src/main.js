@@ -37,6 +37,7 @@ initializeTheme();
 
 async function renderInitialView() {
   await renderEnrollments();
+  await view.showEnrollmentsView();
 }
 
 // 5. Listener principal que reage a mudanças no estado de autenticação.

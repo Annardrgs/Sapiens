@@ -59,6 +59,7 @@ export async function showEnrollmentsView() {
     setState('activeEnrollmentId', null);
     setState('activePeriodId', null);
     await renderEnrollments();
+    await renderTodoList(); // Renderiza a to-do list na tela de matrículas
 }
 
 // --- RENDERIZAÇÃO DE CONTEÚDO ---
@@ -766,6 +767,7 @@ export async function refreshDashboard() {
     renderWeeklyClasses(disciplines); 
     
     renderInteractiveCalendar(disciplines, currentPeriod);
+    renderTodoList();
 }
 
 export async function showGradesReportView() {
@@ -900,4 +902,42 @@ async function renderGradesReportContent(enrollmentData) {
 
     container.appendChild(overallCRDiv);
     container.appendChild(reportContainer);
+}
+
+export async function renderTodoList() {
+    if (!dom.todoItemsList) return;
+
+    const todos = await api.getTodosForToday();
+
+    dom.todoItemsList.innerHTML = ''; // Limpa a lista antes de renderizar
+
+    if (todos.length === 0) {
+        dom.todoItemsList.innerHTML = '<p class="text-sm text-subtle text-center">Nenhuma tarefa para hoje.</p>';
+        return;
+    }
+
+    todos.forEach(todo => {
+        const todoElement = createTodoItemElement(todo);
+        dom.todoItemsList.appendChild(todoElement);
+    });
+}
+
+export function createTodoItemElement(todo) {
+    const todoItem = document.createElement('div');
+    todoItem.className = 'flex items-center gap-3 p-2 rounded-md hover:bg-bkg animate-fade-in-down';
+    // Adicionamos data-action="edit-todo" e um data-text para facilitar a edição
+    todoItem.innerHTML = `
+        <input type="checkbox" id="todo-${todo.id}" data-action="toggle-todo" data-id="${todo.id}" class="h-5 w-5 rounded text-primary border-border focus:ring-primary flex-shrink-0" ${todo.completed ? 'checked' : ''}>
+        <label for="todo-${todo.id}" 
+               class="flex-grow text-secondary cursor-pointer ${todo.completed ? 'line-through text-subtle' : ''}"
+               data-action="edit-todo"
+               data-id="${todo.id}"
+               data-text="${todo.text}">
+            ${todo.text}
+        </label>
+        <button data-action="delete-todo" data-id="${todo.id}" class="p-1 rounded-full text-subtle hover:bg-danger/20 hover:text-danger flex-shrink-0">
+            <svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+    `;
+    return todoItem;
 }

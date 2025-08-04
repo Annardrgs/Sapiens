@@ -1,7 +1,6 @@
 /**
  * @file Módulo responsável por injetar o HTML principal e os modais no DOM.
  */
-
 const mainHTML = `
   <div id="auth-screen">
     <div class="min-h-screen flex flex-col items-center justify-center bg-bkg p-4"><div class="w-full max-w-md p-8 space-y-6 bg-surface rounded-xl shadow-2xl border border-border"><div><h2 id="auth-title" class="text-center text-3xl font-extrabold text-secondary">Acesse sua Conta</h2><p id="auth-prompt" class="mt-2 text-center text-sm text-subtle"></p></div><form id="auth-form" class="space-y-6"><input type="email" id="auth-email" placeholder="Email" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md shadow-sm"><div class="relative"><input type="password" id="auth-password" placeholder="Senha" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md shadow-sm pr-12 appearance-none"><button type="button" id="toggle-password-btn" data-toggle-password class="absolute inset-y-0 right-0 px-4 flex items-center text-subtle hover:text-primary"><svg class="w-5 h-5 eye-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg><svg class="w-5 h-5 eye-slash-icon hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.243 4.243L6.228 6.228" /></svg></button></div><button id="auth-submit-btn" type="submit" class="w-full flex justify-center py-3 px-4 rounded-md shadow-sm text-sm font-bold text-bkg bg-primary hover:opacity-90">Entrar</button></form></div></div>
@@ -14,8 +13,25 @@ const mainHTML = `
     <main class="container mx-auto py-6 sm:px-6 lg:px-8">
       
       <div id="enrollments-view">
-        <div class="px-4 py-6 sm:px-0"><div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-secondary">Minhas Matrículas</h2><button id="add-enrollment-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90">+ Adicionar Matrícula</button></div><div id="enrollments-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div></div>
-        <div id="general-dashboard" class="hidden px-4 py-6 sm:px-0 mt-8"><h2 class="text-2xl font-bold text-secondary mb-4">Resumo do Período Atual</h2><div id="general-dashboard-content" class="space-y-8"></div></div>
+        <div class="px-4 py-6 sm:px-0">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold text-secondary">Minhas Matrículas</h2>
+                <button id="add-enrollment-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90">+ Adicionar Matrícula</button>
+            </div>
+            <div id="enrollments-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </div>
+        <div class="px-4 sm:px-0 mt-8">
+            <h3 class="text-2xl font-bold text-secondary mb-4">Tarefas do Dia</h3>
+            <div id="todo-list-container" class="bg-surface p-4 rounded-xl shadow-lg border border-border max-w-xl">
+                <div id="todo-items-list" class="space-y-2 mb-4"></div>
+                <form id="add-todo-form" class="flex items-center gap-2">
+                    <input type="text" id="new-todo-input" placeholder="Nova tarefa..." required class="flex-grow px-3 py-2 bg-bkg text-secondary border border-border rounded-md">
+                    <button type="submit" class="p-2 bg-primary rounded-md text-bkg hover:opacity-90">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    </button>
+                </form>
+            </div>
+        </div>
       </div>
       
       <div id="dashboard-view" class="hidden">
