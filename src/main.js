@@ -13,52 +13,89 @@ import {
   showAuthScreen, 
   showAppScreen, 
   renderUserEmail, 
-  showEnrollmentsView, 
-  renderEnrollments 
+  showEnrollmentsView,
+  showDashboardView,
+  showDisciplineDashboard,
+  showGradesReportView,
+  showCourseChecklistView
 } from './ui/view.js';
 import { initializeTheme } from './ui/theme.js';
 import { initializeDOMElements } from './ui/dom.js';
-import { setState } from './store/state.js';
+import { setState, getState } from './store/state.js';
 import * as view from './ui/view.js';
 import * as pomodoro from './ui/pomodoro.js';
 
-// --- FLUXO DE INICIALIZAÇÃO ---
+// --- ROTEAMENTO ---
 
-// 1. Injeta o HTML base e os modais na página.
-injectHTML();
+const routes = {
+  '/': showEnrollmentsView,
+  '/dashboard': showDashboardView,
+  '/discipline': showDisciplineDashboard,
+  '/grades': showGradesReportView,
+  '/checklist': showCourseChecklistView,
+};
 
-// 2. Seleciona e armazena todos os elementos do DOM. ESSENCIAL que isso aconteça aqui.
-initializeDOMElements();
+async function handleRouteChange() {
+    const path = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+    
+    const routeAction = routes[path] || routes['/'];
+    
+    const enrollmentId = params.get('enrollmentId');
+    const disciplineId = params.get('disciplineId');
 
-// 3. Inicializa os listeners que não dependem de login.
-initializeAuthListeners();
-
-// 4. Inicializa o tema (claro/escuro).
-initializeTheme();
-
-async function renderInitialView() {
-  await renderEnrollments();
-  await view.showEnrollmentsView();
+    if (auth.currentUser) {
+        if (path === '/dashboard' && enrollmentId) {
+            await routeAction(enrollmentId);
+        } else if (path === '/discipline' && enrollmentId && disciplineId) {
+            await routeAction({ enrollmentId, disciplineId });
+        } else if ((path === '/grades' || path === '/checklist') && enrollmentId) {
+            await routeAction(enrollmentId);
+        } else {
+            await routeAction();
+        }
+    }
 }
 
-// 5. Listener principal que reage a mudanças no estado de autenticação.
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    setState('user', user);
-    showAppScreen();
-    view.checkAndRenderNotifications();
+export function navigate(path) {
+    window.history.pushState({}, "", path);
+    handleRouteChange();
+}
 
-    if (!window.appListenersInitialized) {
-      initializeAppListeners();
-      window.appListenersInitialized = true;
+// --- FLUXO DE INICIALIZAÇÃO ---
+
+injectHTML();
+initializeDOMElements();
+initializeAuthListeners();
+initializeTheme();
+
+onAuthStateChanged(auth, async (user) => {
+  try {
+    if (user) {
+      setState('user', user);
+      showAppScreen();
+      
+      if (!window.appListenersInitialized) {
+        initializeAppListeners();
+        window.appListenersInitialized = true;
+      }
+
+      renderUserEmail(user.email);
+      await handleRouteChange();
+      await view.checkAndRenderNotifications();
+
+    } else {
+      setState('user', null);
+      navigate('/');
+      showAuthScreen();
+      window.appListenersInitialized = false;
     }
-
-    renderUserEmail(user.email);
-    renderInitialView();
-
-  } else {
-    setState('user', null);
-    showAuthScreen();
-    window.appListenersInitialized = false;
+  } catch (error) {
+    console.error("Erro crítico durante a inicialização:", error);
+    const loadingOverlay = document.getElementById('loading-overlay');
+    if (loadingOverlay) loadingOverlay.classList.add('hidden');
+    alert("Ocorreu um erro inesperado. Por favor, recarregue a página.");
   }
 });
+
+window.addEventListener('popstate', handleRouteChange);

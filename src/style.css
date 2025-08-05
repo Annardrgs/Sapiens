@@ -58,6 +58,26 @@
   }
 }
 
+/* --- Estilos para Scrollbar Customizada --- */
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background-color: var(--color-bkg);
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--color-primary);
+    border-radius: 10px;
+    border: 2px solid var(--color-bkg);
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-primary-hover);
+  }
+}
+
+
 /* --- Customização do FullCalendar --- */
 :root {
   --fc-border-color: var(--color-border);
@@ -133,23 +153,4 @@
 
 .agenda-view-btn.active {
   @apply bg-surface text-secondary shadow-sm;
-}
-
-/* --- Estilos para Scrollbar Customizada --- */
-@layer utilities {
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 8px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background-color: var(--color-bkg);
-    border-radius: 10px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: var(--color-primary);
-    border-radius: 10px;
-    border: 2px solid var(--color-bkg);
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: var(--color-primary-hover);
-  }
 }

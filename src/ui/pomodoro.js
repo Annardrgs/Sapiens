@@ -8,6 +8,7 @@ let isRunning = false;
 let sessionStartTime = null;
 
 function updateDisplay() {
+    if (!dom.pomodoroDisplay) return;
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
     dom.pomodoroDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
@@ -15,9 +16,9 @@ function updateDisplay() {
 
 function finishSession() {
     const endTime = new Date();
-    const duration = Math.round((endTime - sessionStartTime) / 1000); // duração em segundos
-
-    if (duration > 10) { // Salva apenas se a sessão durou mais de 10 segundos
+    // Salva apenas se a sessão durou mais de 10 segundos
+    if (sessionStartTime && (endTime - sessionStartTime) / 1000 > 10) { 
+        const duration = Math.round((endTime - sessionStartTime) / 1000); 
         const sessionData = {
             duration: duration,
             date: new Date().toLocaleDateString('pt-BR')
@@ -28,13 +29,20 @@ function finishSession() {
     }
 
     resetTimer();
-    new Audio('https://www.soundjay.com/buttons/sounds/button-1.mp3').play();
+    // Tenta tocar um som de notificação
+    try {
+      new Audio('https://www.soundjay.com/buttons/sounds/button-1.mp3').play();
+    } catch (e) {
+      console.warn("Não foi possível tocar o som de notificação.", e);
+    }
 }
 
 export function startTimer() {
     if (isRunning) return;
     isRunning = true;
-    sessionStartTime = new Date();
+    if (!sessionStartTime) {
+      sessionStartTime = new Date();
+    }
     dom.startPomodoroBtn.disabled = true;
     dom.pausePomodoroBtn.disabled = false;
 
@@ -59,6 +67,7 @@ export function pauseTimer() {
 export function resetTimer() {
     clearInterval(timerInterval);
     isRunning = false;
+    sessionStartTime = null;
     timeLeft = 25 * 60;
     updateDisplay();
     dom.startPomodoroBtn.disabled = false;
@@ -109,4 +118,8 @@ export function hideHistoryModal() {
     if (dom.studyHistoryModal) {
         dom.studyHistoryModal.classList.add('hidden');
     }
+}
+
+export function initialize() {
+    resetTimer();
 }

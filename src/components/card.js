@@ -4,10 +4,7 @@
 export function createEnrollmentCard(data) {
     const card = document.createElement('div');
     card.dataset.id = data.id;
-    // Adiciona a ação diretamente no card para torná-lo clicável
-    card.dataset.action = 'view-dashboard'; 
     card.className = "relative bg-surface p-6 rounded-lg shadow-lg border border-border hover:border-primary transition-all group cursor-pointer";
-    
     card.innerHTML = `
         <div class="pr-10">
             <h4 class="text-xl font-bold text-secondary">${data.course}</h4>
@@ -27,18 +24,27 @@ export function createEnrollmentCard(data) {
  */
 export function createDisciplineCard(discipline, enrollmentData, isPeriodClosed = false) {
     const card = document.createElement('div');
-    // Adicionamos a classe 'group' para controlar o hover dos botões
     card.className = 'relative bg-surface border border-border rounded-xl shadow-sm transition-all duration-300 ease-in-out hover:border-primary group';
     card.dataset.id = discipline.id;
-    // Adicionamos data-action para o clique principal
     card.dataset.action = 'view-discipline-details';
 
     const currentAbsences = discipline.absences || 0;
-    const averageGrade = calculateAverage(discipline);
+    const workload = Number(discipline.workload) || 0;
+    const hoursPerClass = Number(discipline.hoursPerClass) || 1;
+    const totalClasses = workload > 0 && hoursPerClass > 0 ? Math.floor(workload / hoursPerClass) : 0;
+    const absenceLimit = totalClasses > 0 ? Math.floor(totalClasses * 0.25) : 0;
+    
+    const hasExceededAbsences = absenceLimit > 0 && currentAbsences > absenceLimit;
+
+    let averageGrade = calculateAverage(discipline);
     const passingGrade = enrollmentData.passingGrade || 7.0;
     
     let status = { text: 'N/A', color: 'subtle' };
-    if (averageGrade !== 'N/A') {
+
+    if (hasExceededAbsences) {
+        status = { text: 'Reprovado por Falta', color: 'danger' };
+        averageGrade = "0.00"; // Zera a média se reprovado por falta
+    } else if (averageGrade !== 'N/A') {
         const numericAverage = parseFloat(averageGrade);
         const allGradesFilled = discipline.grades && discipline.grades.every(g => g.grade !== null);
         if (numericAverage >= passingGrade) status = { text: 'Aprovado', color: 'success' };
@@ -96,7 +102,7 @@ export function renderGradesChart(container, discipline) {
 
     container.innerHTML = discipline.grades.map(gradeInfo => {
         const grade = (gradeInfo && gradeInfo.grade !== null) ? parseFloat(gradeInfo.grade) : 0;
-        const heightPercentage = Math.max(grade * 10, 0); // Garante que a altura não seja negativa
+        const heightPercentage = Math.max(grade * 10, 0);
         const gradeLabel = (gradeInfo && gradeInfo.grade !== null) ? grade.toFixed(1) : '-';
 
         return `
@@ -131,12 +137,10 @@ function populateGradesInputs(container, discipline, isPeriodClosed) {
 }
 
 export function calculateAverage(data) {
-    // Se não houver array de 'grades', não há média.
     if (!data.grades || data.grades.length === 0) {
         return 'N/A';
     }
 
-    // Se a disciplina tem uma configuração complexa, calcula a média baseada nela.
     if (data.gradeConfig && data.gradeConfig.evaluations && data.gradeConfig.evaluations.length > 0) {
         let averageGrade = 'N/A';
         const { rule, evaluations } = data.gradeConfig;
@@ -171,26 +175,12 @@ export function calculateAverage(data) {
         return parseFloat(averageGrade) === 0 ? "0.00" : averageGrade;
     }
 
-    // --- LÓGICA DE FALLBACK PARA DISCIPLINAS SIMPLES ---
-    // Se não houver 'gradeConfig', assume que é uma disciplina simples 
-    // com a nota final diretamente no primeiro item do array 'grades'.
     const finalGrade = data.grades[0]?.grade;
     if (typeof finalGrade === 'number') {
         return finalGrade.toFixed(2);
     }
 
     return 'N/A';
-}
-
-export function createAbsenceHistoryItem(data) {
-    const item = document.createElement('div');
-    item.className = "flex items-start justify-between bg-bkg p-3 rounded-md border border-border";
-    const absenceDate = new Date(data.absenceDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-    item.innerHTML = `
-        <div><p class="font-semibold text-secondary">${absenceDate}</p><p class="text-sm text-subtle">${data.justification || 'Sem justificativa'}</p></div>
-        <button data-id="${data.id}" class="remove-absence-btn p-1 rounded-full hover:bg-surface"><svg class="w-4 h-4 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
-    `;
-    return item;
 }
 
 function getNextClassInfo(schedules) {
@@ -231,4 +221,15 @@ function getNextClassInfo(schedules) {
     if (nextClass.dayOffset === 0) return `Hoje, ${nextClass.startTime}`;
     if (nextClass.dayOffset === 1) return `Amanhã, ${nextClass.startTime}`;
     return `${dayNames[dayMap[nextClass.day]]}, ${nextClass.startTime}`;
+}
+
+export function createAbsenceHistoryItem(data) {
+    const item = document.createElement('div');
+    item.className = "flex items-start justify-between bg-bkg p-3 rounded-md border border-border";
+    const absenceDate = new Date(data.absenceDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    item.innerHTML = `
+        <div><p class="font-semibold text-secondary">${absenceDate}</p><p class="text-sm text-subtle">${data.justification || 'Sem justificativa'}</p></div>
+        <button data-id="${data.id}" class="remove-absence-btn p-1 rounded-full hover:bg-surface"><svg class="w-4 h-4 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+    `;
+    return item;
 }

@@ -7,7 +7,7 @@ import { setState, getState } from '../store/state.js';
 import * as api from '../api/firestore.js';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase.js';
-import { renderGradesChart, createEnrollmentCard, createDisciplineCard, createAbsenceHistoryItem, calculateAverage } from '../components/card.js';
+import { renderGradesChart, calculateAverage } from '../components/card.js';
 
 // --- FUNÇÕES DE CONTROLE DE MODAL (GENÉRICAS) ---
 function showModal(modalElement) { if (modalElement) modalElement.classList.remove('hidden'); }
@@ -38,18 +38,14 @@ export async function showDisciplineDetailModal(disciplineId) {
     if (disciplineSnap.exists()) {
         const discipline = { id: disciplineSnap.id, ...disciplineSnap.data() };
         
-        // Preenche o modal com os dados
         dom.detailDisciplineName.textContent = discipline.name;
         dom.detailDisciplineTeacher.textContent = discipline.teacher || 'Professor não definido';
 
-        // Renderiza o gráfico dentro do novo modal
         renderGradesChart(dom.detailGradeChartContainer, discipline);
         
-        // Passa o ID da disciplina para o botão "Configurar Avaliações"
         dom.detailConfigGradesBtn.dataset.id = discipline.id;
         dom.detailConfigGradesBtn.dataset.name = discipline.name;
 
-        // Esconde o botão se o período estiver encerrado
         dom.detailConfigGradesBtn.classList.toggle('hidden', isPeriodClosed);
         
         showModal(dom.disciplineDetailModal);
@@ -109,7 +105,6 @@ export function showEnrollmentModal(enrollmentId = null) {
             const data = docSnap.data();
             dom.addEnrollmentForm.querySelector('#enrollment-course').value = data.course;
             dom.addEnrollmentForm.querySelector('#enrollment-institution').value = data.institution;
-            dom.addEnrollmentForm.querySelector('#enrollment-period').value = data.currentPeriod;
             dom.addEnrollmentForm.querySelector('#enrollment-passing-grade').value = data.passingGrade || '';
             const modality = data.modality || 'Presencial';
             const radioToCheck = dom.addEnrollmentForm.querySelector(`input[name="enrollment-modality"][value="${modality}"]`);
@@ -129,7 +124,7 @@ function renderColorPalette(selectedColor) {
     if (!paletteContainer || !colorInput) return;
 
     const colors = ['#6366f1', '#8b5cf6', '#d946ef', '#ef4444', '#f97316', '#eab308', '#22c55e', '#10b981', '#14b8a6', '#0ea5e9', '#ec4899'];
-    paletteContainer.innerHTML = ''; // Limpa a paleta
+    paletteContainer.innerHTML = '';
 
     colors.forEach(color => {
         const swatch = document.createElement('div');
@@ -156,26 +151,24 @@ export async function showDisciplineModal(disciplineId = null) {
   const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
   const isEAD = enrollmentSnap.exists() && enrollmentSnap.data().modality === 'EAD';
 
-  // Referências aos elementos do formulário
   const campusInput = dom.addDisciplineForm.querySelector('#discipline-campus');
   const locationInput = dom.addDisciplineForm.querySelector('#discipline-location');
   const workloadInput = dom.addDisciplineForm.querySelector('#discipline-workload');
   const hoursPerClassInput = dom.addDisciplineForm.querySelector('#discipline-hours-per-class');
-  const schedulesSection = dom.addDisciplineForm.querySelector('#schedules-container').parentElement; // Pega a div que contém os horários
+  const schedulesSection = dom.addDisciplineForm.querySelector('#schedules-container').parentElement;
 
-  // Lógica para ajustar o formulário para EAD
   if (isEAD) {
     campusInput.value = 'Remoto';
     campusInput.disabled = true;
     locationInput.disabled = true;
-    schedulesSection.classList.add('hidden'); // Esconde a seção de horários
-    workloadInput.required = false; // Torna campos opcionais
+    schedulesSection.classList.add('hidden');
+    workloadInput.required = false;
     hoursPerClassInput.required = false;
   } else {
     campusInput.disabled = false;
     locationInput.disabled = false;
-    schedulesSection.classList.remove('hidden'); // Mostra a seção de horários
-    workloadInput.required = true; // Torna campos obrigatórios
+    schedulesSection.classList.remove('hidden');
+    workloadInput.required = true;
     hoursPerClassInput.required = true;
   }
 
@@ -202,7 +195,7 @@ export async function showDisciplineModal(disciplineId = null) {
     dom.disciplineModalTitle.textContent = "Nova Disciplina";
     if (!isEAD) {
         campusInput.value = '';
-        addScheduleField(); // Adiciona um campo de horário por padrão para presencial
+        addScheduleField();
     }
     locationInput.value = '';
     renderColorPalette('#6366f1');
@@ -240,16 +233,13 @@ export async function showPeriodOptionsModal() {
     const currentPeriod = periods[activePeriodIndex]; 
     if (!currentPeriod) return; 
 
-    // Atualiza o subtítulo com o nome do período
     if (dom.periodOptionsSubtitle) dom.periodOptionsSubtitle.textContent = currentPeriod.name; 
     
-    // Preenche as datas
     if (dom.periodOptionsForm) { 
         dom.periodOptionsForm.querySelector('#period-start-date').value = currentPeriod.startDate || ''; 
         dom.periodOptionsForm.querySelector('#period-end-date').value = currentPeriod.endDate || ''; 
     } 
 
-    // Lógica para exibir o estado do calendário (com ou sem arquivo)
     const uploadView = document.getElementById('calendar-upload-view');
     const uploadedView = document.getElementById('calendar-uploaded-view');
     const fileNameSpan = document.getElementById('calendar-file-name');
@@ -258,7 +248,6 @@ export async function showPeriodOptionsModal() {
     if (currentPeriod.calendarUrl) {
         uploadView.classList.add('hidden');
         uploadedView.classList.remove('hidden');
-        // Extrai um nome de arquivo mais amigável da URL
         fileNameSpan.textContent = currentPeriod.calendarUrl.split('/').pop().slice(0, 30) + '...';
         viewLink.href = currentPeriod.calendarUrl;
     } else {
@@ -266,7 +255,6 @@ export async function showPeriodOptionsModal() {
         uploadedView.classList.add('hidden');
     }
     
-    // Controla a visibilidade dos botões de encerrar/reabrir
     if (dom.endPeriodBtn && dom.reopenPeriodBtn) { 
         if (currentPeriod.status === 'closed') { 
             dom.endPeriodBtn.classList.add('hidden'); 
@@ -349,7 +337,6 @@ export async function showEventModal(eventId = null, dateStr = null) {
     dom.addEventForm.reset();
     const { activeEnrollmentId, activePeriodId } = getState();
 
-    // Popula o dropdown de disciplinas
     const disciplineSelect = dom.addEventForm.querySelector('#event-discipline');
     const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
     disciplineSelect.innerHTML = `<option value="none">Nenhuma matéria relacionada</option>`;
@@ -361,11 +348,10 @@ export async function showEventModal(eventId = null, dateStr = null) {
         disciplineSelect.appendChild(option);
     });
 
-    // CORREÇÃO: Busca os elementos a partir do MODAL, não do FORMULÁRIO
     const titleEl = dom.addEventModal.querySelector('#event-modal-title');
     const deleteBtn = dom.addEventModal.querySelector('#delete-event-btn');
     
-    if (eventId) { // MODO EDIÇÃO
+    if (eventId) {
         if (titleEl) titleEl.textContent = 'Editar Evento';
         if (deleteBtn) deleteBtn.classList.remove('hidden');
         
@@ -380,7 +366,7 @@ export async function showEventModal(eventId = null, dateStr = null) {
             dom.addEventForm.querySelector('#event-reminder').value = data.reminder || 'none';
             renderEventColorPalette(data.color || '#d946ef');
         }
-    } else { // MODO CRIAÇÃO
+    } else {
         if (titleEl) titleEl.textContent = 'Novo Evento';
         if (deleteBtn) deleteBtn.classList.add('hidden');
         dom.addEventForm.querySelector('#event-date').value = dateStr || new Date().toISOString().split('T')[0];
@@ -390,15 +376,6 @@ export async function showEventModal(eventId = null, dateStr = null) {
     showModal(dom.addEventModal);
 }
 
-/**
- * Exibe um modal de confirmação genérico.
- * @param {object} options - As opções para o modal.
- * @param {string} options.title - O título do modal.
- * @param {string} options.message - A mensagem de confirmação.
- * @param {string} options.confirmText - O texto para o botão de confirmação.
- * @param {string} [options.confirmClass='bg-danger'] - A classe de cor para o botão de confirmação.
- * @param {Function} options.onConfirm - A função a ser executada ao confirmar.
- */
 export function showConfirmModal({ title, message, confirmText, confirmClass = 'bg-danger', onConfirm }) {
     if (!dom.confirmModal || !dom.confirmModalTitle || !dom.confirmModalMessage || !dom.confirmModalConfirmBtn) return;
     
@@ -439,7 +416,6 @@ export async function showCurriculumSubjectModal(subjectId = null) {
     setState('editingCurriculumSubjectId', subjectId);
 
     if (subjectId) {
-        // Modo Edição: busca os dados e preenche o formulário
         const { activeEnrollmentId } = getState();
         const subjectRef = doc(db, 'users', auth.currentUser.uid, 'enrollments', activeEnrollmentId, 'curriculum', subjectId);
         const subjectSnap = await getDoc(subjectRef);
@@ -465,29 +441,24 @@ export async function showMarkAsCompletedModal(subject) {
 
     dom.markAsCompletedTitle.textContent = `Concluir "${subject.name}"`;
 
-    // Popula o dropdown com os períodos existentes
     const periodSelect = form.querySelector('#completed-in-period');
     const { periods } = getState();
     periodSelect.innerHTML = '<option value="">Selecione o período</option>';
     
-    // 1. Remove o filtro de status para mostrar TODOS os períodos
     periods.forEach(p => {
         const option = new Option(p.name, p.id);
         periodSelect.appendChild(option);
     });
 
-    // 2. Adiciona a opção para criar um novo período
     const createNewOption = new Option('+ Criar novo período...', '--create-new--');
     periodSelect.add(createNewOption);
 
-    // 3. Adiciona um listener para a nova opção
     periodSelect.addEventListener('change', (e) => {
         if (e.target.value === '--create-new--') {
-            // Guarda o estado para poder retornar a este modal depois
             setState('returnToCompleteSubjectModal', true);
             setState('subjectDataForReturn', subject);
             hideMarkAsCompletedModal();
-            showPeriodModal(); // Abre o modal de criação de período
+            showPeriodModal();
         }
     });
 
@@ -520,7 +491,6 @@ export async function showCurriculumSubjectDetailsModal(subjectId) {
 
     const takenDiscipline = allTakenDisciplines.find(d => d.code === subject.code);
     
-    // --- LÓGICA DE STATUS CORRIGIDA ---
     let statusHTML = '<span class="font-bold text-warning">Pendente</span>';
     if (takenDiscipline) {
         const averageGrade = parseFloat(calculateAverage(takenDiscipline));
@@ -590,11 +560,3 @@ export async function showCurriculumSubjectDetailsModal(subjectId) {
 }
 
 export function hideCurriculumSubjectDetailsModal() { hideModal(dom.curriculumSubjectDetailsModal); }
-
-export function showStudyHistoryModal() {
-    if (!dom.studyHistoryModal) return;
-    // Futuramente, aqui vamos buscar e renderizar o histórico real
-    showModal(dom.studyHistoryModal);
-}
-
-export function hideStudyHistoryModal() { hideModal(dom.studyHistoryModal); }
