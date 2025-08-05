@@ -204,6 +204,7 @@ async function renderGeneralDashboard() {
 }
 
 export async function showDashboardView(enrollmentId) {
+    if (dom.courseChecklistView) dom.courseChecklistView.classList.add('hidden');
     if (dom.gradesReportView) dom.gradesReportView.classList.add('hidden');
     if (!dom.dashboardView || !dom.enrollmentsView) return;
 
@@ -345,6 +346,18 @@ async function renderDisciplineAgenda(disciplineId) {
 
 function renderEvaluationsList(discipline) {
     if (!dom.evaluationsList) return;
+
+    const manageButton = document.querySelector('#evaluations-section [data-action="manage-evaluations"]');
+
+    // --- CORREÇÃO APLICADA AQUI ---
+    // Se a disciplina tem 'completionDetails', ela foi criada de forma simples.
+    // Neste caso, escondemos o botão "Gerenciar".
+    if (discipline.completionDetails && manageButton) {
+        manageButton.classList.add('hidden');
+    } else if (manageButton) {
+        manageButton.classList.remove('hidden');
+    }
+
     dom.evaluationsList.innerHTML = '';
 
     if (!discipline.grades || discipline.grades.length === 0) {
@@ -356,7 +369,7 @@ function renderEvaluationsList(discipline) {
         const gradeValue = grade.grade ?? '-';
         const evaluationEl = document.createElement('div');
         evaluationEl.className = 'bg-bkg p-3 rounded-lg flex justify-between items-center border border-transparent';
-        
+
         evaluationEl.innerHTML = `
             <span class="font-semibold text-secondary">${grade.name}</span>
             <span data-action="edit-grade" data-grade-index="${index}" class="font-bold text-lg text-primary cursor-pointer hover:opacity-75 p-1 -m-1">
@@ -368,16 +381,16 @@ function renderEvaluationsList(discipline) {
 }
 
 export async function showDisciplineDashboard(disciplineId) {
-    if (!dom.dashboardView || !dom.disciplineDashboardView) return;
     if (dom.gradesReportView) dom.gradesReportView.classList.add('hidden');
+    if (dom.courseChecklistView) dom.courseChecklistView.classList.add('hidden');
+    if (!dom.dashboardView || !dom.disciplineDashboardView) return;
 
-    // Garante que outras telas estejam escondidas
     dom.dashboardView.classList.add('hidden');
     dom.enrollmentsView.classList.add('hidden');
     dom.disciplineDashboardView.classList.remove('hidden');
 
     const { activeEnrollmentId, activePeriodId } = getState();
-    setState('activeDisciplineId', disciplineId); // Armazena o ID da disciplina ativa
+    setState('activeDisciplineId', disciplineId);
 
     const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
     const disciplineSnap = await api.getDiscipline(activeEnrollmentId, activePeriodId, disciplineId);
@@ -389,9 +402,12 @@ export async function showDisciplineDashboard(disciplineId) {
         if (dom.disciplineDashTitle) dom.disciplineDashTitle.textContent = discipline.name;
         if (dom.disciplineDashSubtitle) dom.disciplineDashSubtitle.textContent = discipline.teacher || 'Professor não definido';
         
-        if (dom.disciplineDashConfigGradesBtn) {
-            dom.disciplineDashConfigGradesBtn.dataset.id = discipline.id;
-            dom.disciplineDashConfigGradesBtn.dataset.name = discipline.name;
+        // --- CORREÇÃO APLICADA AQUI ---
+        // Adiciona TODOS os IDs necessários ao botão "Gerenciar"
+        const manageButton = document.querySelector('#evaluations-section [data-action="manage-evaluations"]');
+        if (manageButton) {
+            manageButton.dataset.periodId = activePeriodId;
+            manageButton.dataset.disciplineId = disciplineId; // Adiciona o ID da disciplina
         }
         
         renderStatCards(discipline, enrollmentData);
@@ -771,6 +787,7 @@ export async function refreshDashboard() {
 }
 
 export async function showGradesReportView() {
+    if (dom.courseChecklistView) dom.courseChecklistView.classList.add('hidden');
     if (!dom.gradesReportView) return;
 
     // Esconde as outras telas principais
@@ -940,4 +957,136 @@ export function createTodoItemElement(todo) {
         </button>
     `;
     return todoItem;
+}
+
+export async function showCourseChecklistView() {
+    if (!dom.courseChecklistView) return;
+
+    // Esconde as outras telas
+    dom.dashboardView.classList.add('hidden');
+    dom.gradesReportView.classList.add('hidden');
+    dom.disciplineDashboardView.classList.add('hidden');
+
+    // Mostra a tela da grade
+    dom.courseChecklistView.classList.remove('hidden');
+
+    const { activeEnrollmentId } = getState();
+    const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
+    if (enrollmentSnap.exists()) {
+        const data = enrollmentSnap.data();
+        dom.checklistSubtitle.textContent = `${data.course} - ${data.institution}`;
+    }
+
+    await renderChecklistContent(); // Exibe o conteúdo
+}
+
+export function showCurriculumSubjectModal(subjectId = null) {
+    if (!dom.addCurriculumSubjectModal) return;
+    dom.addCurriculumSubjectForm.reset();
+    setState('editingCurriculumSubjectId', subjectId);
+
+    // Lógica para edição (será implementada no futuro)
+    // if (subjectId) { ... }
+    
+    showModal(dom.addCurriculumSubjectModal);
+}
+
+export function hideCurriculumSubjectModal() { hideModal(dom.addCurriculumSubjectModal); }
+
+export async function renderChecklistContent() {
+    if (!dom.checklistContent) return;
+    dom.checklistContent.innerHTML = '<p class="text-subtle">Sincronizando e carregando grade...</p>';
+
+    const { activeEnrollmentId } = getState();
+
+    // Busca os dados da matrícula para obter a média de aprovação
+    const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
+    if (!enrollmentSnap.exists()) return;
+    const enrollmentData = enrollmentSnap.data();
+    const passingGrade = enrollmentData.passingGrade || 7.0;
+
+    const curriculumSubjectsPromise = api.getCurriculumSubjects(activeEnrollmentId);
+    const allTakenDisciplinesPromise = api.getAllTakenDisciplines(activeEnrollmentId);
+    let [curriculumSubjects, allTakenDisciplines] = await Promise.all([curriculumSubjectsPromise, allTakenDisciplinesPromise]);
+    
+    const curriculumCodes = new Set(curriculumSubjects.map(s => s.code));
+    
+    const subjectsToSync = allTakenDisciplines.filter(d => d.code && !curriculumCodes.has(d.code));
+    if (subjectsToSync.length > 0) {
+        const syncPromises = subjectsToSync.map(d => {
+            const payload = { name: d.name, code: d.code, period: 0 };
+            return api.saveCurriculumSubject(payload, { enrollmentId: activeEnrollmentId });
+        });
+        await Promise.all(syncPromises);
+        curriculumSubjects = await api.getCurriculumSubjects(activeEnrollmentId);
+    }
+
+    if (curriculumSubjects.length === 0) {
+        dom.checklistContent.innerHTML = `<div class="text-center p-8 bg-surface rounded-xl border border-border">
+            <h3 class="font-bold text-secondary">Nenhuma disciplina na sua grade</h3>
+            <p class="text-subtle text-sm mt-2">Comece adicionando as disciplinas do seu curso para acompanhar seu progresso.</p>
+        </div>`;
+        return;
+    }
+
+    // Cria um mapa para acesso fácil às disciplinas cursadas
+    const takenDisciplinesMap = new Map(allTakenDisciplines.map(d => [d.code, d]));
+
+    const subjectsByPeriod = curriculumSubjects.reduce((acc, subject) => {
+        const period = subject.period || 0;
+        if (!acc[period]) acc[period] = [];
+        acc[period].push(subject);
+        return acc;
+    }, {});
+
+    dom.checklistContent.innerHTML = Object.keys(subjectsByPeriod).sort((a,b) => a - b).map(periodNumber => {
+        const isUnsorted = periodNumber === "0";
+        const periodTitle = isUnsorted ? "Disciplinas a Organizar" : `${periodNumber}º Período`;
+        const titleColorClass = isUnsorted ? "text-danger" : "text-secondary";
+        
+        return `
+            <div class="mb-8">
+                <h3 class="text-xl font-bold ${titleColorClass} mb-4">${periodTitle}</h3>
+                <div class="bg-surface rounded-xl border border-border p-2 sm:p-4">
+                    ${subjectsByPeriod[periodNumber].map(subject => {
+                        const takenDiscipline = takenDisciplinesMap.get(subject.code);
+                        let isCompleted = false; // Começa como falso
+                        
+                        // --- LÓGICA DE CONCLUSÃO CORRIGIDA ---
+                        if (takenDiscipline) {
+                            const averageGrade = parseFloat(calculateAverage(takenDiscipline));
+                            const allGradesFilled = takenDiscipline.grades && takenDiscipline.grades.length > 0 && takenDiscipline.grades.every(g => g.grade !== null);
+                            if (!isNaN(averageGrade) && allGradesFilled && averageGrade >= passingGrade) {
+                                isCompleted = true;
+                            }
+                        }
+
+                        return `
+                        <div data-action="edit-curriculum-subject" data-id="${subject.id}" class="flex items-center justify-between p-3 rounded-md hover:bg-bkg cursor-pointer group">
+                            <div class="flex items-center">
+                                <div class="mr-4">
+                                    ${isCompleted
+                                        ? `<div class="w-6 h-6 rounded-full bg-success flex items-center justify-center text-white" title="Disciplina Aprovada"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg></div>`
+                                        : `<button data-action="mark-subject-completed" data-id='${subject.id}' data-name='${subject.name}' data-code='${subject.code}' class="w-6 h-6 rounded-full bg-bkg border border-border hover:bg-primary/20" title="Marcar como concluída"></button>`
+                                    }
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-secondary flex items-baseline">
+                                        ${subject.name}
+                                        <span class="ml-2 text-xs font-mono text-subtle">(${subject.code})</span>
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button data-action="view-curriculum-subject-details" data-id="${subject.id}" class="p-2 rounded-full text-subtle hover:bg-bkg" title="Ver detalhes">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }).join('');
 }

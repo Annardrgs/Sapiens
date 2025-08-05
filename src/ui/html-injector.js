@@ -36,7 +36,7 @@ const mainHTML = `
       
       <div id="dashboard-view" class="hidden">
         <div class="dashboard-header"><button id="back-to-enrollments-btn" class="back-button"><svg class="w-6 h-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg></button><div><h2 id="dashboard-title" class="text-3xl font-bold text-secondary"></h2><p id="dashboard-subtitle" class="text-subtle"></p></div></div>
-        <div class="flex items-center justify-end mb-6 space-x-2"><button id="view-grades-report-btn" data-action="view-grades-report" class="bg-primary/10 text-primary font-bold py-2 px-4 rounded-lg shadow-md hover:bg-primary/20">Ver Boletim</button><div class="flex items-center bg-surface rounded-lg shadow-sm border border-border"><button id="prev-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-25 disabled:cursor-not-allowed"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M15 19l-7-7 7-7"></path></svg></button><span id="current-period-name" class="font-bold text-secondary px-4 text-center w-28"></span><button id="next-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-25 disabled:cursor-not-allowed"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 5l7 7-7 7"></path></svg></button></div><button id="new-period-btn" class="bg-primary text-bkg font-bold py-2 px-4 rounded-lg shadow-md hover:opacity-90">Novo Período</button><div class="relative"><button id="manage-period-btn" class="p-2 rounded-lg hover:bg-surface" title="Opções"><svg class="w-6 h-6 text-subtle pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg></button></div></div>
+        <div class="flex items-center justify-end mb-6 space-x-2"><button id="view-checklist-btn" data-action="view-checklist" class="bg-primary/10 text-primary font-bold py-2 px-4 rounded-lg shadow-md hover:bg-primary/20">Ver Grade</button><button id="view-grades-report-btn" data-action="view-grades-report" class="bg-primary/10 text-primary font-bold py-2 px-4 rounded-lg shadow-md hover:bg-primary/20">Ver Boletim</button><div class="flex items-center bg-surface rounded-lg shadow-sm border border-border"><button id="prev-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-25 disabled:cursor-not-allowed"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M15 19l-7-7 7-7"></path></svg></button><span id="current-period-name" class="font-bold text-secondary px-4 text-center w-28"></span><button id="next-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-25 disabled:cursor-not-allowed"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 5l7 7-7 7"></path></svg></button></div><button id="new-period-btn" class="bg-primary text-bkg font-bold py-2 px-4 rounded-lg shadow-md hover:opacity-90">Novo Período</button><div class="relative"><button id="manage-period-btn" class="p-2 rounded-lg hover:bg-surface" title="Opções"><svg class="w-6 h-6 text-subtle pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg></button></div></div>
         <div id="summary-cards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"></div>
         
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -130,6 +130,26 @@ const mainHTML = `
         </div>
         <div id="grades-report-content">
           <p class="text-subtle">Carregando boletim...</p>
+        </div>
+      </div>
+
+      <div id="course-checklist-view" class="hidden">
+        <div class="flex items-center justify-between gap-4 mb-6">
+            <div class="flex items-center gap-4">
+                <button data-action="back-to-main-dashboard-from-checklist" class="p-2 rounded-full text-subtle hover:bg-surface">
+                    <svg class="w-6 h-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <div>
+                    <h2 id="checklist-title" class="text-3xl font-bold text-secondary">Grade Curricular</h2>
+                    <p id="checklist-subtitle" class="text-subtle"></p>
+                </div>
+            </div>
+            <button id="add-curriculum-subject-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90">
+                + Adicionar Disciplina
+            </button>
+        </div>
+        <div id="checklist-content">
+          <p class="text-subtle">Carregando grade curricular...</p>
         </div>
       </div>
 
@@ -288,31 +308,84 @@ const modalHTML = `
     </div>
   </div>
 
-  <div id="discipline-detail-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-    <div class="bg-surface w-full max-w-3xl max-h-[90vh] rounded-xl shadow-2xl flex flex-col border border-border">
-      <div class="flex justify-between items-center p-4 border-b border-border flex-shrink-0">
-        <div>
-          <h3 id="detail-discipline-name" class="text-2xl font-bold text-secondary"></h3>
-          <p id="detail-discipline-teacher" class="text-sm text-subtle"></p>
-        </div>
-        <button id="close-discipline-detail-btn" class="p-2 rounded-full hover:bg-bkg">
-          <svg class="w-6 h-6 text-subtle" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
-      </div>
-
-      <div class="flex-grow p-6 overflow-y-auto space-y-8">
-        <section>
-          <div class="flex justify-between items-center mb-4">
-            <h4 class="text-xl font-bold text-secondary">Desempenho das Avaliações</h4>
-            <button id="detail-config-grades-btn" class="text-sm font-semibold bg-primary/10 text-primary px-3 py-1 rounded-md hover:bg-primary/20">
-              Configurar Avaliações
-            </button>
-          </div>
-          <div id="detail-grade-chart-container" class="grade-chart-container h-48 p-4 rounded-lg flex items-end justify-around gap-4">
+  <div id="add-curriculum-subject-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-md border border-border">
+        <h3 class="text-2xl font-bold mb-6 text-secondary">Adicionar Disciplina à Grade</h3>
+        <form id="add-curriculum-subject-form" class="space-y-4">
+            <input type="hidden" id="curriculum-subject-id">
+            <div>
+                <label for="curriculum-subject-name" class="block text-sm font-medium text-subtle mb-1">Nome da Disciplina*</label>
+                <input type="text" id="curriculum-subject-name" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
             </div>
-        </section>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="curriculum-subject-code" class="block text-sm font-medium text-subtle mb-1">Código*</label>
+                    <input type="text" id="curriculum-subject-code" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+                </div>
+                <div>
+                    <label for="curriculum-subject-period" class="block text-sm font-medium text-subtle mb-1">Período Sugerido*</label>
+                    <input type="number" id="curriculum-subject-period" min="1" placeholder="Ex: 1" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+                </div>
+            </div>
+            <div class="mt-8 flex justify-end space-x-4">
+                <button type="button" id="cancel-curriculum-subject-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg">Cancelar</button>
+                <button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg">Salvar</button>
+            </div>
+        </form>
+    </div>
+  </div>
 
+  <div id="mark-as-completed-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border">
+        <h3 id="mark-as-completed-title" class="text-2xl font-bold mb-6 text-secondary">Concluir Disciplina</h3>
+        <form id="mark-as-completed-form" class="space-y-4">
+            <input type="hidden" id="completed-subject-id">
+            <div>
+                <label for="completed-in-period" class="block text-sm font-medium text-subtle mb-1">Período Cursado*</label>
+                <select id="completed-in-period" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md custom-select">
+                    </select>
+            </div>
+            <div>
+                <label for="completed-final-grade" class="block text-sm font-medium text-subtle mb-1">Média Final*</label>
+                <input type="number" step="0.01" min="0" max="10" id="completed-final-grade" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+            </div>
+            <div class="relative flex items-start">
+                <div class="flex h-6 items-center">
+                    <input id="completed-is-equivalent" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
+                </div>
+                <div class="ml-3 text-sm leading-6">
+                    <label for="completed-is-equivalent" class="font-medium text-secondary">Cursada por equivalência / dispensa</label>
+                </div>
+            </div>
+            <div id="equivalent-code-container" class="hidden">
+                <label for="completed-equivalent-code" class="block text-sm font-medium text-subtle mb-1">Código da Disciplina Equivalente</label>
+                <input type="text" id="completed-equivalent-code" placeholder="Ex: MAT123" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+            </div>
+            <div>
+                <label for="completed-notes" class="block text-sm font-medium text-subtle mb-1">Observações</label>
+                <textarea id="completed-notes" rows="3" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md"></textarea>
+            </div>
+            <div class="mt-8 flex justify-end space-x-4">
+                <button type="button" id="cancel-mark-as-completed-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg">Cancelar</button>
+                <button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg">Salvar Conclusão</button>
+            </div>
+        </form>
+    </div>
+  </div>
+
+  <div id="curriculum-subject-details-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border">
+        <div class="flex justify-between items-start mb-6">
+            <div>
+                <h3 id="details-subject-name" class="text-2xl font-bold text-secondary"></h3>
+                <p id="details-subject-code" class="text-sm font-mono text-subtle"></p>
+            </div>
+            <button id="close-curriculum-subject-details-btn" class="p-2 -m-2 rounded-full hover:bg-bkg">
+                <svg class="w-6 h-6 text-subtle" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
         </div>
+        <div id="details-subject-content" class="space-y-4">
+            </div>
     </div>
   </div>
 `;

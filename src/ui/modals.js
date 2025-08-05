@@ -5,7 +5,9 @@
 import { dom } from './dom.js';
 import { setState, getState } from '../store/state.js';
 import * as api from '../api/firestore.js';
-import { renderGradesChart } from '../components/card.js';
+import { doc, getDoc } from 'firebase/firestore';
+import { db, auth } from '../firebase.js';
+import { renderGradesChart, createEnrollmentCard, createDisciplineCard, createAbsenceHistoryItem, calculateAverage } from '../components/card.js';
 
 // --- FUNÇÕES DE CONTROLE DE MODAL (GENÉRICAS) ---
 function showModal(modalElement) { if (modalElement) modalElement.classList.remove('hidden'); }
@@ -278,34 +280,40 @@ export async function showPeriodOptionsModal() {
     showModal(dom.periodOptionsModal); 
 }
 
-export async function showConfigGradesModal(disciplineId) { // Agora recebe apenas o ID
+export async function showConfigGradesModal(disciplineId, periodId) {
     if (!dom.configGradesModal || !dom.configGradesForm) return;
 
-    const { activeEnrollmentId, activePeriodId } = getState();
-    setState('currentDisciplineForGrades', { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId });
+    const { activeEnrollmentId } = getState();
+    setState('currentDisciplineForGrades', { enrollmentId: activeEnrollmentId, periodId: periodId, disciplineId });
     
     dom.configGradesForm.reset();
     dom.gradesContainer.innerHTML = 'Carregando...';
-    showModal(dom.configGradesModal); // Mostra o modal enquanto carrega
+    showModal(dom.configGradesModal);
 
-    const disciplineSnap = await api.getDiscipline(activeEnrollmentId, activePeriodId, disciplineId);
-    if (disciplineSnap.exists()) {
-        const discipline = disciplineSnap.data();
-        const config = discipline.gradeConfig;
-        
-        // Define o título com o nome correto
-        dom.configGradesTitle.textContent = `Avaliações de ${discipline.name}`;
-        dom.gradesContainer.innerHTML = ''; // Limpa o "Carregando..."
+    try {
+        const disciplineSnap = await api.getDiscipline(activeEnrollmentId, periodId, disciplineId);
+        if (disciplineSnap.exists()) {
+            const discipline = disciplineSnap.data();
+            const config = discipline.gradeConfig;
+            
+            dom.configGradesTitle.textContent = `Avaliações de ${discipline.name}`;
+            dom.gradesContainer.innerHTML = '';
 
-        if (config && config.evaluations) {
-            dom.configGradesForm.querySelector('#grade-calculation-rule').value = config.rule || 'weighted';
-            config.evaluations.forEach(ev => {
-                addGradeField(ev);
-            });
+            if (config && config.evaluations) {
+                dom.configGradesForm.querySelector('#grade-calculation-rule').value = config.rule || 'weighted';
+                config.evaluations.forEach(ev => {
+                    addGradeField(ev);
+                });
+            }
+        } else {
+            dom.gradesContainer.innerHTML = '<p class="text-subtle text-center">Disciplina não encontrada.</p>';
         }
+    } catch(error) {
+        console.error("Erro ao buscar disciplina no modal de avaliações:", error);
+        dom.gradesContainer.innerHTML = '<p class="text-danger text-center">Ocorreu um erro ao carregar os dados.</p>';
     }
     
-    if (dom.gradesContainer.children.length === 0) {
+    if (dom.gradesContainer.children.length === 0 && dom.gradesContainer.textContent === '') {
         addGradeField();
     }
     updateWeightsSum();
@@ -423,3 +431,162 @@ export function hideConfirmModal() {
     setState('onConfirmAction', null);
     hideModal(dom.confirmModal);
 }
+
+export async function showCurriculumSubjectModal(subjectId = null) {
+    if (!dom.addCurriculumSubjectModal) return;
+    const form = dom.addCurriculumSubjectForm;
+    form.reset();
+    setState('editingCurriculumSubjectId', subjectId);
+
+    if (subjectId) {
+        // Modo Edição: busca os dados e preenche o formulário
+        const { activeEnrollmentId } = getState();
+        const subjectRef = doc(db, 'users', auth.currentUser.uid, 'enrollments', activeEnrollmentId, 'curriculum', subjectId);
+        const subjectSnap = await getDoc(subjectRef);
+
+        if (subjectSnap.exists()) {
+            const data = subjectSnap.data();
+            form.querySelector('#curriculum-subject-name').value = data.name || '';
+            form.querySelector('#curriculum-subject-code').value = data.code || '';
+            form.querySelector('#curriculum-subject-period').value = data.period || '';
+        }
+    }
+
+    showModal(dom.addCurriculumSubjectModal);
+}
+
+export function hideCurriculumSubjectModal() { hideModal(dom.addCurriculumSubjectModal); }
+
+export async function showMarkAsCompletedModal(subject) {
+    if (!dom.markAsCompletedModal) return;
+    const form = dom.markAsCompletedForm;
+    form.reset();
+    setState('subjectToComplete', subject);
+
+    dom.markAsCompletedTitle.textContent = `Concluir "${subject.name}"`;
+
+    // Popula o dropdown com os períodos existentes
+    const periodSelect = form.querySelector('#completed-in-period');
+    const { periods } = getState();
+    periodSelect.innerHTML = '<option value="">Selecione o período</option>';
+    
+    // 1. Remove o filtro de status para mostrar TODOS os períodos
+    periods.forEach(p => {
+        const option = new Option(p.name, p.id);
+        periodSelect.appendChild(option);
+    });
+
+    // 2. Adiciona a opção para criar um novo período
+    const createNewOption = new Option('+ Criar novo período...', '--create-new--');
+    periodSelect.add(createNewOption);
+
+    // 3. Adiciona um listener para a nova opção
+    periodSelect.addEventListener('change', (e) => {
+        if (e.target.value === '--create-new--') {
+            // Guarda o estado para poder retornar a este modal depois
+            setState('returnToCompleteSubjectModal', true);
+            setState('subjectDataForReturn', subject);
+            hideMarkAsCompletedModal();
+            showPeriodModal(); // Abre o modal de criação de período
+        }
+    });
+
+    dom.equivalentCodeContainer.classList.add('hidden');
+    showModal(dom.markAsCompletedModal);
+}
+
+export function hideMarkAsCompletedModal() { hideModal(dom.markAsCompletedModal); }
+
+export async function showCurriculumSubjectDetailsModal(subjectId) {
+    if (!dom.curriculumSubjectDetailsModal) return;
+
+    const { activeEnrollmentId } = getState();
+    
+    const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
+    if (!enrollmentSnap.exists()) return;
+    const enrollmentData = enrollmentSnap.data();
+    const passingGrade = enrollmentData.passingGrade || 7.0;
+
+    const subjectRef = doc(db, 'users', auth.currentUser.uid, 'enrollments', activeEnrollmentId, 'curriculum', subjectId);
+    const subjectSnapPromise = getDoc(subjectRef);
+    const allTakenDisciplinesPromise = api.getAllTakenDisciplines(activeEnrollmentId);
+    const [subjectSnap, allTakenDisciplines] = await Promise.all([subjectSnapPromise, allTakenDisciplinesPromise]);
+
+    if (!subjectSnap.exists()) return;
+
+    const subject = { id: subjectSnap.id, ...subjectSnap.data() };
+    dom.detailsSubjectName.textContent = subject.name;
+    dom.detailsSubjectCode.textContent = subject.code;
+
+    const takenDiscipline = allTakenDisciplines.find(d => d.code === subject.code);
+    
+    // --- LÓGICA DE STATUS CORRIGIDA ---
+    let statusHTML = '<span class="font-bold text-warning">Pendente</span>';
+    if (takenDiscipline) {
+        const averageGrade = parseFloat(calculateAverage(takenDiscipline));
+        const allGradesFilled = takenDiscipline.grades && takenDiscipline.grades.length > 0 && takenDiscipline.grades.every(g => g.grade !== null);
+        if (allGradesFilled && !isNaN(averageGrade)) {
+            if (averageGrade >= passingGrade) {
+                statusHTML = '<span class="font-bold text-success">Aprovada</span>';
+            } else {
+                statusHTML = '<span class="font-bold text-danger">Reprovada</span>';
+            }
+        } else {
+            statusHTML = '<span class="font-bold text-yellow-500">Em Andamento</span>';
+        }
+    }
+
+    let detailsHTML = `
+        <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            <div class="font-semibold text-subtle">Período Sugerido:</div>
+            <div class="text-secondary">${subject.period ? `${subject.period}º Período` : 'Não definido'}</div>
+
+            <div class="font-semibold text-subtle">Status:</div>
+            <div>${statusHTML}</div>
+        </div>
+    `;
+
+    if (takenDiscipline) {
+        const averageGrade = calculateAverage(takenDiscipline);
+        detailsHTML += `
+            <hr class="border-border my-4">
+            <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div class="font-semibold text-subtle">Cursada no Período:</div>
+                <div class="text-secondary">${takenDiscipline.periodName || 'N/A'}</div>
+
+                <div class="font-semibold text-subtle">Média Final:</div>
+                <div class="text-secondary font-bold">
+                    <span class="cursor-pointer hover:opacity-75 p-1 -m-1"
+                          data-action="edit-completed-subject-grade"
+                          data-discipline-id="${takenDiscipline.id}"
+                          data-period-id="${takenDiscipline.periodId}"
+                          data-subject-id="${subject.id}">
+                        ${averageGrade}
+                    </span>
+                </div>
+            </div>
+        `;
+
+        if (takenDiscipline.completionDetails?.isEquivalent) {
+            detailsHTML += `
+                <div class="mt-4 text-sm p-3 bg-bkg rounded-md border border-border">
+                    <p class="font-semibold text-subtle">Concluída por Equivalência</p>
+                    <p class="text-secondary">Código da disciplina original: ${takenDiscipline.completionDetails.equivalentCode || 'Não informado'}</p>
+                </div>
+            `;
+        }
+        if (takenDiscipline.completionDetails?.notes) {
+            detailsHTML += `
+                <div class="mt-4 text-sm">
+                    <p class="font-semibold text-subtle mb-1">Observações:</p>
+                    <p class="text-secondary p-3 bg-bkg rounded-md border border-border whitespace-pre-wrap">${takenDiscipline.completionDetails.notes}</p>
+                </div>
+            `;
+        }
+    }
+    
+    dom.detailsSubjectContent.innerHTML = detailsHTML;
+    showModal(dom.curriculumSubjectDetailsModal);
+}
+
+export function hideCurriculumSubjectDetailsModal() { hideModal(dom.curriculumSubjectDetailsModal); }

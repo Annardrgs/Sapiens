@@ -128,48 +128,55 @@ function populateGradesInputs(container, discipline, isPeriodClosed) {
 }
 
 export function calculateAverage(data) {
-    if (!data.gradeConfig || !data.gradeConfig.evaluations || !data.grades) {
+    // Se não houver array de 'grades', não há média.
+    if (!data.grades || data.grades.length === 0) {
         return 'N/A';
     }
 
-    let averageGrade = 'N/A';
-    const { rule, evaluations } = data.gradeConfig;
-    const { grades } = data;
-    
-    // Verifica se existe pelo menos uma avaliação configurada
-    if (evaluations.length === 0) {
-        return 'N/A';
-    }
+    // Se a disciplina tem uma configuração complexa, calcula a média baseada nela.
+    if (data.gradeConfig && data.gradeConfig.evaluations && data.gradeConfig.evaluations.length > 0) {
+        let averageGrade = 'N/A';
+        const { rule, evaluations } = data.gradeConfig;
+        const { grades } = data;
 
-    if (rule === 'weighted') {
-        let totalWeight = 0;
-        let weightedSum = 0;
-        evaluations.forEach((evaluation, index) => {
-            const gradeInfo = grades[index];
-            // Trata a nota não preenchida (null/undefined) como 0
-            const grade = (gradeInfo && typeof gradeInfo.grade === 'number') ? gradeInfo.grade : 0;
+        if (rule === 'weighted') {
+            let totalWeight = 0;
+            let weightedSum = 0;
+            evaluations.forEach((evaluation, index) => {
+                const gradeInfo = grades[index];
+                const grade = (gradeInfo && typeof gradeInfo.grade === 'number') ? gradeInfo.grade : 0;
+                
+                if (evaluation.weight > 0) {
+                    weightedSum += grade * (evaluation.weight / 100);
+                    totalWeight += (evaluation.weight / 100);
+                }
+            });
+            if (totalWeight > 0) averageGrade = (weightedSum / totalWeight).toFixed(2);
+
+        } else { // Média Aritmética
+            let gradeSum = 0;
+            let gradeCount = evaluations.length;
+            if(gradeCount === 0) return 'N/A';
             
-            if (evaluation.weight > 0) {
-                weightedSum += grade * (evaluation.weight / 100);
-                totalWeight += (evaluation.weight / 100);
-            }
-        });
-        if (totalWeight > 0) averageGrade = (weightedSum / totalWeight).toFixed(2);
-
-    } else { // Média Aritmética
-        let gradeSum = 0;
-        let gradeCount = evaluations.length; // Usa o total de avaliações como divisor
-        if(gradeCount === 0) return 'N/A';
+            grades.forEach(gradeInfo => {
+                const grade = (gradeInfo && typeof gradeInfo.grade === 'number') ? gradeInfo.grade : 0;
+                gradeSum += grade;
+            });
+            averageGrade = (gradeSum / gradeCount).toFixed(2);
+        }
         
-        grades.forEach(gradeInfo => {
-            // Trata a nota não preenchida como 0
-            const grade = (gradeInfo && typeof gradeInfo.grade === 'number') ? gradeInfo.grade : 0;
-            gradeSum += grade;
-        });
-        averageGrade = (gradeSum / gradeCount).toFixed(2);
+        return parseFloat(averageGrade) === 0 ? "0.00" : averageGrade;
     }
-    
-    return parseFloat(averageGrade) === 0 ? "0.00" : averageGrade;
+
+    // --- LÓGICA DE FALLBACK PARA DISCIPLINAS SIMPLES ---
+    // Se não houver 'gradeConfig', assume que é uma disciplina simples 
+    // com a nota final diretamente no primeiro item do array 'grades'.
+    const finalGrade = data.grades[0]?.grade;
+    if (typeof finalGrade === 'number') {
+        return finalGrade.toFixed(2);
+    }
+
+    return 'N/A';
 }
 
 export function createAbsenceHistoryItem(data) {

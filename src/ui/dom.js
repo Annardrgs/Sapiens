@@ -134,5 +134,32 @@ export function initializeDOMElements() {
     todoItemsList: document.getElementById('todo-items-list'),
     addTodoForm: document.getElementById('add-todo-form'),
     newTodoInput: document.getElementById('new-todo-input'),
+
+    // --- Tela de Grade Curricular (Checklist) ---
+    courseChecklistView: document.getElementById('course-checklist-view'),
+    viewChecklistBtn: document.getElementById('view-checklist-btn'),
+    checklistTitle: document.getElementById('checklist-title'),
+    checklistSubtitle: document.getElementById('checklist-subtitle'),
+    checklistContent: document.getElementById('checklist-content'),
+    addCurriculumSubjectBtn: document.getElementById('add-curriculum-subject-btn'),
+
+    // --- Modal de Disciplina da Grade ---
+    addCurriculumSubjectModal: document.getElementById('add-curriculum-subject-modal'),
+    addCurriculumSubjectForm: document.getElementById('add-curriculum-subject-form'),
+    cancelCurriculumSubjectBtn: document.getElementById('cancel-curriculum-subject-btn'),
+
+    // --- Modal de Concluir Disciplina ---
+    markAsCompletedModal: document.getElementById('mark-as-completed-modal'),
+    markAsCompletedForm: document.getElementById('mark-as-completed-form'),
+    markAsCompletedTitle: document.getElementById('mark-as-completed-title'),
+    cancelMarkAsCompletedBtn: document.getElementById('cancel-mark-as-completed-btn'),
+    equivalentCodeContainer: document.getElementById('equivalent-code-container'),
+
+    // --- Modal de Detalhes da Disciplina da Grade ---
+    curriculumSubjectDetailsModal: document.getElementById('curriculum-subject-details-modal'),
+    closeCurriculumSubjectDetailsBtn: document.getElementById('close-curriculum-subject-details-btn'),
+    detailsSubjectName: document.getElementById('details-subject-name'),
+    detailsSubjectCode: document.getElementById('details-subject-code'),
+    detailsSubjectContent: document.getElementById('details-subject-content'),
   });
 }

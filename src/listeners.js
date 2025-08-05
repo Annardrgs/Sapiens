@@ -81,7 +81,7 @@ export function initializeAuthListeners() {
 }
 
 export function initializeAppListeners() {
-    if (dom.appContainer) dom.appContainer.addEventListener('click', handleAppContainerClick);
+    document.body.addEventListener('click', handleAppContainerClick);
     if (dom.logoutBtn) dom.logoutBtn.addEventListener('click', authApi.logOut);
     if (dom.themeToggleBtn) dom.themeToggleBtn.addEventListener('click', toggleTheme);
     document.addEventListener('click', handleOutsideClick, true);
@@ -240,6 +240,21 @@ export function initializeAppListeners() {
 
     const removeCalendarBtn = document.getElementById('remove-calendar-btn');
     if (removeCalendarBtn) removeCalendarBtn.addEventListener('click', handleRemoveCalendarFile);
+
+    if (dom.addCurriculumSubjectForm) dom.addCurriculumSubjectForm.addEventListener('submit', handleCurriculumSubjectFormSubmit);
+    if (dom.cancelCurriculumSubjectBtn) dom.cancelCurriculumSubjectBtn.addEventListener('click', modals.hideCurriculumSubjectModal);
+    if (dom.markAsCompletedForm) dom.markAsCompletedForm.addEventListener('submit', handleMarkAsCompletedSubmit);
+    if (dom.cancelMarkAsCompletedBtn) dom.cancelMarkAsCompletedBtn.addEventListener('click', modals.hideMarkAsCompletedModal);
+
+    // Listener para mostrar/esconder o campo de código equivalente
+    const isEquivalentCheckbox = document.getElementById('completed-is-equivalent');
+    if (isEquivalentCheckbox) {
+        isEquivalentCheckbox.addEventListener('change', (e) => {
+            dom.equivalentCodeContainer.classList.toggle('hidden', !e.target.checked);
+        });
+    }
+
+    if (dom.closeCurriculumSubjectDetailsBtn) dom.closeCurriculumSubjectDetailsBtn.addEventListener('click', modals.hideCurriculumSubjectDetailsModal);
 }
 
 async function handleEventFormSubmit(e) {
@@ -280,15 +295,7 @@ async function handleAppContainerClick(e) {
 
     if (actionTarget) {
         const action = actionTarget.dataset.action;
-        let id;
-
-       if (['toggle-todo', 'delete-todo', 'edit-todo'].includes(action)) {
-            id = actionTarget.dataset.id;
-        } else if (!dom.disciplineDashboardView.classList.contains('hidden')) {
-            id = getState().activeDisciplineId;
-        } else {
-            id = target.closest('[data-id]')?.dataset.id;
-        }
+        let id = actionTarget.dataset.id;
 
         switch (action) {
             case 'toggle-todo': {
@@ -305,30 +312,86 @@ async function handleAppContainerClick(e) {
             case 'edit-todo': {
                 const label = actionTarget;
                 const originalText = label.dataset.text;
-
                 const input = document.createElement('input');
                 input.type = 'text';
                 input.value = originalText;
                 input.className = 'flex-grow bg-bkg text-secondary border border-primary rounded-md px-2 py-0.5 focus:outline-none';
-                
                 label.replaceWith(input);
                 input.focus();
                 input.select();
-
                 const saveOrCancel = async (event) => {
                     let newText = input.value.trim();
                     if (event.type === 'blur' || event.key === 'Enter') {
                         if (newText && newText !== originalText) {
                             await firestoreApi.updateTodoText(id, newText);
                         }
-                        await view.renderTodoList(); // Sempre renderiza de novo para garantir consistência
+                        await view.renderTodoList();
                     } else if (event.key === 'Escape') {
-                        await view.renderTodoList(); // Cancela e renderiza a lista original
+                        await view.renderTodoList();
+                    }
+                };
+                input.addEventListener('blur', saveOrCancel);
+                input.addEventListener('keydown', saveOrCancel);
+                break;
+            }
+
+            // Ações da Grade Curricular
+            case 'edit-curriculum-subject': modals.showCurriculumSubjectModal(id); break;
+            case 'mark-subject-completed': {
+                const subject = { id, name: actionTarget.dataset.name, code: actionTarget.dataset.code };
+                modals.showMarkAsCompletedModal(subject);
+                break;
+            }
+            case 'view-curriculum-subject-details': modals.showCurriculumSubjectDetailsModal(id); break;
+            
+            case 'edit-completed-subject-grade': {
+                const span = actionTarget;
+                const { disciplineId, periodId } = span.dataset;
+                const currentGradeText = span.textContent.trim();
+
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.step = '0.01';
+                input.min = '0';
+                input.max = '10';
+                input.className = 'w-20 bg-bkg text-secondary border border-primary rounded-md px-2 py-0.5 focus:outline-none';
+                input.value = currentGradeText === 'N/A' ? '' : currentGradeText;
+                
+                span.replaceWith(input);
+                input.focus();
+                input.select();
+
+                const saveGrade = async () => {
+                    const newGrade = input.value === '' ? null : parseFloat(input.value);
+                    const gradeIndex = 0;
+                    
+                    try {
+                        await firestoreApi.saveGrade(newGrade, gradeIndex, { 
+                            enrollmentId: getState().activeEnrollmentId, 
+                            periodId: periodId, 
+                            disciplineId: disciplineId 
+                        });
+                        
+                        const newSpan = span.cloneNode(false);
+                        newSpan.textContent = newGrade !== null ? newGrade.toFixed(2) : 'N/A';
+                        input.replaceWith(newSpan);
+
+                    } catch (error) {
+                        console.error("Erro ao salvar a nota:", error);
+                        notify.error("Falha ao salvar a nota.");
+                        input.replaceWith(span); // Restaura em caso de erro
                     }
                 };
 
-                input.addEventListener('blur', saveOrCancel);
-                input.addEventListener('keydown', saveOrCancel);
+                input.addEventListener('blur', saveGrade);
+                input.addEventListener('keydown', e => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        input.blur();
+                    } else if (e.key === 'Escape') {
+                        input.replaceWith(span);
+                    }
+                });
                 break;
             }
 
@@ -340,6 +403,7 @@ async function handleAppContainerClick(e) {
             case 'delete-discipline': e.stopPropagation(); handleDeleteDiscipline(id); break;
             case 'add-new-event': modals.showEventModal(); break;
             case 'view-grades-report': view.showGradesReportView(); break;
+            case 'view-checklist': view.showCourseChecklistView(); break;
 
             // Ações do Dashboard da Disciplina
             case 'add-absence': modals.showAbsenceModal(id, actionTarget.dataset.name); break;
@@ -349,9 +413,19 @@ async function handleAppContainerClick(e) {
                 view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, id);
                 break;
             }
-            case 'manage-evaluations': modals.showConfigGradesModal(id); break;
+            case 'manage-evaluations': {
+                const { disciplineId, periodId } = actionTarget.dataset;
+                if (disciplineId && periodId) {
+                    modals.showConfigGradesModal(disciplineId, periodId);
+                } else {
+                    console.error('ERRO: IDs não encontrados no botão Gerenciar.', actionTarget.dataset);
+                    notify.error('Não foi possível abrir o gerenciador de avaliações.');
+                }
+                break;
+            }
             case 'back-to-main-dashboard':
-            case 'back-to-main-dashboard-from-report': {
+            case 'back-to-main-dashboard-from-report':
+            case 'back-to-main-dashboard-from-checklist': {
                 const { activeEnrollmentId } = getState();
                 if (activeEnrollmentId) view.showDashboardView(activeEnrollmentId);
                 break;
@@ -360,7 +434,6 @@ async function handleAppContainerClick(e) {
                 const span = actionTarget;
                 const gradeIndex = parseInt(span.dataset.gradeIndex, 10);
                 const currentGrade = span.textContent.trim();
-
                 const input = document.createElement('input');
                 input.type = 'number';
                 input.step = '0.1';
@@ -368,10 +441,8 @@ async function handleAppContainerClick(e) {
                 input.max = '10';
                 input.className = 'w-16 text-right bg-transparent font-bold text-lg text-primary outline-none ring-2 ring-primary rounded-md px-1';
                 input.value = currentGrade === '-' ? '' : currentGrade;
-                
                 span.replaceWith(input);
                 input.focus();
-
                 const saveGrade = async () => {
                     const newGrade = input.value === '' ? null : parseFloat(input.value);
                     const { activeDisciplineId, activeEnrollmentId, activePeriodId } = getState();
@@ -383,7 +454,6 @@ async function handleAppContainerClick(e) {
                         view.showDisciplineDashboard(activeDisciplineId);
                     }
                 };
-
                 input.addEventListener('blur', saveGrade);
                 input.addEventListener('keydown', e => {
                     if (e.key === 'Enter') input.blur();
@@ -402,6 +472,7 @@ async function handleAppContainerClick(e) {
             case 'add-discipline-btn': modals.showDisciplineModal(); return;
             case 'new-period-btn': modals.showPeriodModal(); return;
             case 'manage-period-btn': modals.showPeriodOptionsModal(); return;
+            case 'add-curriculum-subject-btn': modals.showCurriculumSubjectModal(); return;
             case 'back-to-enrollments-btn': await view.showEnrollmentsView(); return;
             case 'prev-period-btn': switchPeriod('prev'); return;
             case 'next-period-btn': switchPeriod('next'); return;
@@ -544,11 +615,26 @@ async function handlePeriodFormSubmit(e) {
         endDate: dom.addPeriodForm.querySelector('#period-end-date-new').value,
     };
     if (!payload.name || !payload.startDate || !payload.endDate) return notify.error("Todos os campos são obrigatórios.");
+    
     try {
         await firestoreApi.createPeriod(activeEnrollmentId, payload);
         modals.hidePeriodModal();
-        await view.showDashboardView(activeEnrollmentId);
-    } catch (error) { console.error("Error creating period:", error); }
+        
+        // Verifica se precisa voltar para o modal de conclusão de disciplina
+        if (getState().returnToCompleteSubjectModal) {
+            setState('returnToCompleteSubjectModal', false); // Reseta o estado
+            // Recarrega os dados do painel para incluir o novo período na lista
+            await view.showDashboardView(activeEnrollmentId); 
+            // Reabre o modal de conclusão
+            modals.showMarkAsCompletedModal(getState().subjectDataForReturn);
+        } else {
+            // Comportamento padrão: apenas atualiza o painel
+            await view.showDashboardView(activeEnrollmentId);
+        }
+
+    } catch (error) { 
+        console.error("Error creating period:", error); 
+    }
 }
 
 async function handleDisciplineFormSubmit(e) {
@@ -946,5 +1032,68 @@ async function handleExportPdf() {
     } catch (error) {
         console.error("Erro ao gerar PDF:", error);
         notify.error("Não foi possível gerar o PDF.");
+    }
+}
+
+async function handleCurriculumSubjectFormSubmit(e) {
+    e.preventDefault();
+    const { activeEnrollmentId, editingCurriculumSubjectId } = getState();
+    const form = dom.addCurriculumSubjectForm;
+
+    const payload = {
+        name: form.querySelector('#curriculum-subject-name').value,
+        code: form.querySelector('#curriculum-subject-code').value,
+        period: parseInt(form.querySelector('#curriculum-subject-period').value),
+    };
+
+    try {
+        await firestoreApi.saveCurriculumSubject(payload, {
+            enrollmentId: activeEnrollmentId,
+            subjectId: editingCurriculumSubjectId
+        });
+        modals.hideCurriculumSubjectModal();
+        await view.renderChecklistContent(); // Atualiza a lista
+        notify.success('Disciplina adicionada à grade!');
+    } catch (error) {
+        console.error("Erro ao salvar disciplina na grade:", error);
+        notify.error("Não foi possível salvar a disciplina.");
+    }
+}
+
+async function handleMarkAsCompletedSubmit(e) {
+    e.preventDefault();
+    const { subjectToComplete, activeEnrollmentId } = getState();
+    const form = dom.markAsCompletedForm;
+
+    const periodId = form.querySelector('#completed-in-period').value;
+    const finalGrade = parseFloat(form.querySelector('#completed-final-grade').value);
+    const isEquivalent = form.querySelector('#completed-is-equivalent').checked;
+    const equivalentCode = form.querySelector('#completed-equivalent-code').value;
+    const notes = form.querySelector('#completed-notes').value;
+
+    if (!periodId || isNaN(finalGrade)) {
+        return notify.error('Período e Média Final são obrigatórios.');
+    }
+
+    const payload = {
+        name: subjectToComplete.name,
+        code: subjectToComplete.code,
+        gradeConfig: { rule: 'arithmetic', evaluations: [{ name: 'Média Final' }] },
+        grades: [{ name: 'Média Final', grade: finalGrade }],
+        completionDetails: {
+            isEquivalent,
+            equivalentCode: isEquivalent ? equivalentCode : null,
+            notes
+        }
+    };
+
+    try {
+        await firestoreApi.saveDiscipline(payload, { enrollmentId: activeEnrollmentId, periodId });
+        modals.hideMarkAsCompletedModal();
+        await view.renderChecklistContent();
+        notify.success(`"${subjectToComplete.name}" marcada como concluída!`);
+    } catch (error) {
+        console.error('Erro ao marcar disciplina como concluída:', error);
+        notify.error('Não foi possível salvar a conclusão da disciplina.');
     }
 }
