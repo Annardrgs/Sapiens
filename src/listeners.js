@@ -8,6 +8,7 @@ import * as authApi from './api/auth.js';
 import * as firestoreApi from './api/firestore.js';
 import * as view from './ui/view.js';
 import * as modals from './ui/modals.js';
+import * as pomodoro from './ui/pomodoro.js';
 import { toggleTheme } from './ui/theme.js';
 import { notify } from './ui/notifications.js';
 import { calculateAverage } from './components/card.js';
@@ -96,6 +97,13 @@ export function initializeAppListeners() {
     if (dom.configGradesForm) dom.configGradesForm.addEventListener('submit', handleConfigGradesSubmit);
     if (dom.addTodoForm) dom.addTodoForm.addEventListener('submit', handleTodoFormSubmit);
     
+    // Pomodoro Timer
+    if (dom.startPomodoroBtn) dom.startPomodoroBtn.addEventListener('click', pomodoro.startTimer);
+    if (dom.pausePomodoroBtn) dom.pausePomodoroBtn.addEventListener('click', pomodoro.pauseTimer);
+    if (dom.resetPomodoroBtn) dom.resetPomodoroBtn.addEventListener('click', pomodoro.resetTimer);
+    if (dom.closeStudyHistoryModalBtn) dom.closeStudyHistoryModalBtn.addEventListener('click', pomodoro.hideHistoryModal);
+
+
     const deleteBtn = dom.addEventModal.querySelector('#delete-event-btn');
     if (deleteBtn) {
         deleteBtn.addEventListener('click', handleDeleteEvent);
@@ -292,12 +300,21 @@ async function handleEventFormSubmit(e) {
 async function handleAppContainerClick(e) {
     const target = e.target;
     const actionTarget = target.closest('[data-action]');
+    
+    // CORREÇÃO: Trata tanto botões com ID específico quanto elementos com data-action
+    const buttonTarget = target.closest('button');
+    if (buttonTarget && buttonTarget.id === 'add-enrollment-btn') {
+        modals.showEnrollmentModal();
+        return;
+    }
 
     if (actionTarget) {
         const action = actionTarget.dataset.action;
         let id = actionTarget.dataset.id;
 
         switch (action) {
+            case 'view-study-history': pomodoro.showHistoryModal(); break;
+
             case 'toggle-todo': {
                 const completed = actionTarget.checked;
                 await firestoreApi.updateTodoStatus(id, completed);
@@ -468,7 +485,6 @@ async function handleAppContainerClick(e) {
     const button = target.closest('button');
     if (button && button.id) {
         switch (button.id) {
-            case 'add-enrollment-btn': modals.showEnrollmentModal(); return;
             case 'add-discipline-btn': modals.showDisciplineModal(); return;
             case 'new-period-btn': modals.showPeriodModal(); return;
             case 'manage-period-btn': modals.showPeriodOptionsModal(); return;

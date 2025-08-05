@@ -506,3 +506,23 @@ export async function getAllTakenDisciplines(enrollmentId) {
     const disciplinesByPeriod = await Promise.all(allDisciplinesPromises);
     return disciplinesByPeriod.flat();
 }
+
+// --- SESSÕES DE ESTUDO (POMODORO) ---
+
+export function saveStudySession(sessionData) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const sessionsRef = collection(db, 'users', userId, 'studySessions');
+    return addDoc(sessionsRef, {
+        ...sessionData,
+        timestamp: serverTimestamp()
+    });
+}
+
+export async function getStudyHistory() {
+    const userId = getCurrentUserId();
+    if (!userId) return [];
+    const q = query(collection(db, 'users', userId, 'studySessions'), orderBy('timestamp', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}

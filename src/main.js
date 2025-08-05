@@ -20,6 +20,7 @@ import { initializeTheme } from './ui/theme.js';
 import { initializeDOMElements } from './ui/dom.js';
 import { setState } from './store/state.js';
 import * as view from './ui/view.js';
+import * as pomodoro from './ui/pomodoro.js';
 
 // --- FLUXO DE INICIALIZAÇÃO ---
 

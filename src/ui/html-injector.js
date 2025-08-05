@@ -20,17 +20,37 @@ const mainHTML = `
             </div>
             <div id="enrollments-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
         </div>
-        <div class="px-4 sm:px-0 mt-8">
-            <h3 class="text-2xl font-bold text-secondary mb-4">Tarefas do Dia</h3>
-            <div id="todo-list-container" class="bg-surface p-4 rounded-xl shadow-lg border border-border max-w-xl">
-                <div id="todo-items-list" class="space-y-2 mb-4"></div>
-                <form id="add-todo-form" class="flex items-center gap-2">
-                    <input type="text" id="new-todo-input" placeholder="Nova tarefa..." required class="flex-grow px-3 py-2 bg-bkg text-secondary border border-border rounded-md">
-                    <button type="submit" class="p-2 bg-primary rounded-md text-bkg hover:opacity-90">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8 px-4 sm:px-0">
+          <div>
+            <h3 class="text-2xl font-bold text-secondary mb-4">Sessões de Estudo</h3>
+            <div id="pomodoro-timer-container" class="bg-surface p-6 rounded-xl shadow-lg border border-border">
+                <div class="flex justify-between items-center mb-4">
+                    <h4 class="font-bold text-secondary text-lg">Pomodoro Timer</h4>
+                    <button data-action="view-study-history" class="text-sm font-semibold bg-primary/10 text-primary px-3 py-1 rounded-md hover:bg-primary/20 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Histórico
                     </button>
-                </form>
+                </div>
+                <div id="pomodoro-display" class="text-7xl font-bold text-primary text-center my-8">25:00</div>
+                <div class="flex items-center justify-center gap-4">
+                    <button id="start-pomodoro-btn" class="bg-primary text-bkg font-semibold py-2 px-6 rounded-lg flex-1">Iniciar</button>
+                    <button id="pause-pomodoro-btn" class="bg-subtle/50 text-secondary font-semibold py-2 px-6 rounded-lg flex-1">Pausar</button>
+                    <button id="reset-pomodoro-btn" class="bg-danger/80 text-white font-semibold py-2 px-6 rounded-lg flex-1">Resetar</button>
+                </div>
             </div>
+          </div>
+          <div>
+              <h3 class="text-2xl font-bold text-secondary mb-4">Tarefas do Dia</h3>
+              <div id="todo-list-container" class="bg-surface p-4 rounded-xl shadow-lg border border-border">
+                  <div id="todo-items-list" class="space-y-2 mb-4"></div>
+                  <form id="add-todo-form" class="flex items-center gap-2">
+                      <input type="text" id="new-todo-input" placeholder="Nova tarefa..." required class="flex-grow px-3 py-2 bg-bkg text-secondary border border-border rounded-md">
+                      <button type="submit" class="p-2 bg-primary rounded-md text-bkg hover:opacity-90">
+                          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                      </button>
+                  </form>
+              </div>
+          </div>
         </div>
       </div>
       
@@ -386,6 +406,20 @@ const modalHTML = `
         </div>
         <div id="details-subject-content" class="space-y-4">
             </div>
+    </div>
+  </div>
+
+  <div id="study-history-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-2xl border border-border flex flex-col max-h-[90vh]">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-2xl font-bold text-secondary">Histórico de Sessões de Estudo</h3>
+            <button id="close-study-history-modal-btn" class="p-2 -m-2 rounded-full hover:bg-bkg">
+                <svg class="w-6 h-6 text-subtle" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+        <div id="study-history-list" class="flex-grow overflow-y-auto pr-2">
+            <p class="text-subtle text-center">Nenhuma sessão registrada ainda.</p>
+        </div>
     </div>
   </div>
 `;

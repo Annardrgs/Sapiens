@@ -204,6 +204,7 @@ async function renderGeneralDashboard() {
 }
 
 export async function showDashboardView(enrollmentId) {
+    if (dom.studySessionsView) dom.studySessionsView.classList.add('hidden');
     if (dom.courseChecklistView) dom.courseChecklistView.classList.add('hidden');
     if (dom.gradesReportView) dom.gradesReportView.classList.add('hidden');
     if (!dom.dashboardView || !dom.enrollmentsView) return;
@@ -381,6 +382,7 @@ function renderEvaluationsList(discipline) {
 }
 
 export async function showDisciplineDashboard(disciplineId) {
+    if (dom.studySessionsView) dom.studySessionsView.classList.add('hidden');
     if (dom.gradesReportView) dom.gradesReportView.classList.add('hidden');
     if (dom.courseChecklistView) dom.courseChecklistView.classList.add('hidden');
     if (!dom.dashboardView || !dom.disciplineDashboardView) return;
@@ -787,6 +789,7 @@ export async function refreshDashboard() {
 }
 
 export async function showGradesReportView() {
+    if (dom.studySessionsView) dom.studySessionsView.classList.add('hidden');
     if (dom.courseChecklistView) dom.courseChecklistView.classList.add('hidden');
     if (!dom.gradesReportView) return;
 
@@ -960,6 +963,7 @@ export function createTodoItemElement(todo) {
 }
 
 export async function showCourseChecklistView() {
+    if (dom.studySessionsView) dom.studySessionsView.classList.add('hidden');
     if (!dom.courseChecklistView) return;
 
     // Esconde as outras telas
@@ -1089,4 +1093,25 @@ export async function renderChecklistContent() {
             </div>
         `;
     }).join('');
+}
+
+export async function showStudySessionsView() {
+    if (!dom.studySessionsView) return;
+
+    // Esconde as outras telas
+    dom.dashboardView.classList.add('hidden');
+    dom.gradesReportView.classList.add('hidden');
+    dom.disciplineDashboardView.classList.add('hidden');
+    dom.courseChecklistView.classList.add('hidden');
+
+    // Mostra a tela de sessões de estudo
+    dom.studySessionsView.classList.remove('hidden');
+
+    const { activeEnrollmentId } = getState();
+    const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
+    if (enrollmentSnap.exists()) {
+        const data = enrollmentSnap.data();
+        dom.studySessionsSubtitle.textContent = `${data.course} - ${data.institution}`;
+    }
+    // Futuramente, chamaremos a função para renderizar o histórico
 }

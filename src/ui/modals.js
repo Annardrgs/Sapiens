@@ -590,3 +590,11 @@ export async function showCurriculumSubjectDetailsModal(subjectId) {
 }
 
 export function hideCurriculumSubjectDetailsModal() { hideModal(dom.curriculumSubjectDetailsModal); }
+
+export function showStudyHistoryModal() {
+    if (!dom.studyHistoryModal) return;
+    // Futuramente, aqui vamos buscar e renderizar o histórico real
+    showModal(dom.studyHistoryModal);
+}
+
+export function hideStudyHistoryModal() { hideModal(dom.studyHistoryModal); }

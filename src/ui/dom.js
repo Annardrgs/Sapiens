@@ -161,5 +161,14 @@ export function initializeDOMElements() {
     detailsSubjectName: document.getElementById('details-subject-name'),
     detailsSubjectCode: document.getElementById('details-subject-code'),
     detailsSubjectContent: document.getElementById('details-subject-content'),
+
+    // --- Pomodoro Timer ---
+    pomodoroDisplay: document.getElementById('pomodoro-display'),
+    startPomodoroBtn: document.getElementById('start-pomodoro-btn'),
+    pausePomodoroBtn: document.getElementById('pause-pomodoro-btn'),
+    resetPomodoroBtn: document.getElementById('reset-pomodoro-btn'),
+    studyHistoryModal: document.getElementById('study-history-modal'),
+    studyHistoryList: document.getElementById('study-history-list'),
+    closeStudyHistoryModalBtn: document.getElementById('close-study-history-modal-btn'),
   });
 }

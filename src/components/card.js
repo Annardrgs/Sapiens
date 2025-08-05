@@ -4,7 +4,10 @@
 export function createEnrollmentCard(data) {
     const card = document.createElement('div');
     card.dataset.id = data.id;
+    // Adiciona a ação diretamente no card para torná-lo clicável
+    card.dataset.action = 'view-dashboard'; 
     card.className = "relative bg-surface p-6 rounded-lg shadow-lg border border-border hover:border-primary transition-all group cursor-pointer";
+    
     card.innerHTML = `
         <div class="pr-10">
             <h4 class="text-xl font-bold text-secondary">${data.course}</h4>
