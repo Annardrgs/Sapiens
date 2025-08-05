@@ -112,6 +112,7 @@ export function initializeDOMElements() {
     evaluationsList: document.getElementById('evaluations-list'),
     disciplineDashConfigGradesBtn: document.getElementById('discipline-dash-config-grades-btn'),
     disciplinePerformanceChart: document.getElementById('discipline-performance-chart'),
+    disciplineEventsList: document.getElementById('discipline-events-list'),
     notificationContainer: document.getElementById('notification-container'),
 
     // --- Painel de Notificações ---
@@ -119,5 +120,46 @@ export function initializeDOMElements() {
     notificationBadge: document.getElementById('notification-badge'),
     notificationPanel: document.getElementById('notification-panel'),
     notificationList: document.getElementById('notification-list'),
+
+    // --- Tela de Boletim ---
+    gradesReportView: document.getElementById('grades-report-view'),
+    viewGradesReportBtn: document.getElementById('view-grades-report-btn'),
+    gradesReportTitle: document.getElementById('grades-report-title'),
+    gradesReportSubtitle: document.getElementById('grades-report-subtitle'),
+    gradesReportContent: document.getElementById('grades-report-content'),
+    exportPdfBtn: document.getElementById('export-pdf-btn'),
+
+    // --- To-Do List ---
+    todoListContainer: document.getElementById('todo-list-container'),
+    todoItemsList: document.getElementById('todo-items-list'),
+    addTodoForm: document.getElementById('add-todo-form'),
+    newTodoInput: document.getElementById('new-todo-input'),
+
+    // --- Tela de Grade Curricular (Checklist) ---
+    courseChecklistView: document.getElementById('course-checklist-view'),
+    viewChecklistBtn: document.getElementById('view-checklist-btn'),
+    checklistTitle: document.getElementById('checklist-title'),
+    checklistSubtitle: document.getElementById('checklist-subtitle'),
+    checklistContent: document.getElementById('checklist-content'),
+    addCurriculumSubjectBtn: document.getElementById('add-curriculum-subject-btn'),
+
+    // --- Modal de Disciplina da Grade ---
+    addCurriculumSubjectModal: document.getElementById('add-curriculum-subject-modal'),
+    addCurriculumSubjectForm: document.getElementById('add-curriculum-subject-form'),
+    cancelCurriculumSubjectBtn: document.getElementById('cancel-curriculum-subject-btn'),
+
+    // --- Modal de Concluir Disciplina ---
+    markAsCompletedModal: document.getElementById('mark-as-completed-modal'),
+    markAsCompletedForm: document.getElementById('mark-as-completed-form'),
+    markAsCompletedTitle: document.getElementById('mark-as-completed-title'),
+    cancelMarkAsCompletedBtn: document.getElementById('cancel-mark-as-completed-btn'),
+    equivalentCodeContainer: document.getElementById('equivalent-code-container'),
+
+    // --- Modal de Detalhes da Disciplina da Grade ---
+    curriculumSubjectDetailsModal: document.getElementById('curriculum-subject-details-modal'),
+    closeCurriculumSubjectDetailsBtn: document.getElementById('close-curriculum-subject-details-btn'),
+    detailsSubjectName: document.getElementById('details-subject-name'),
+    detailsSubjectCode: document.getElementById('details-subject-code'),
+    detailsSubjectContent: document.getElementById('details-subject-content'),
   });
 }

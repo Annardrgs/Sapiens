@@ -1,7 +1,6 @@
 /**
  * @file Módulo para criar componentes de UI reutilizáveis, como cards.
  */
-
 export function createEnrollmentCard(data) {
     const card = document.createElement('div');
     card.dataset.id = data.id;
@@ -10,7 +9,7 @@ export function createEnrollmentCard(data) {
         <div class="pr-10">
             <h4 class="text-xl font-bold text-secondary">${data.course}</h4>
             <p class="text-subtle">${data.institution}</p>
-            <p class="text-sm text-subtle mt-4">Período: ${data.currentPeriod || 'N/A'}</p>
+            <p class="text-sm text-subtle mt-4">Período: ${data.displayPeriod || 'N/A'}</p>
         </div>
         <div class="absolute top-4 right-4 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <button data-action="edit-enrollment" title="Editar" class="p-2 rounded-full hover:bg-bkg"><svg class="w-5 h-5 text-subtle pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
@@ -50,7 +49,10 @@ export function createDisciplineCard(discipline, enrollmentData, isPeriodClosed 
                 <div class="flex items-center gap-4 pr-16">
                     <span class="w-2 h-10 rounded-full flex-shrink-0" style="background-color: ${discipline.color || '#4f46e5'}"></span>
                     <div>
-                        <h4 class="text-xl font-bold text-secondary">${discipline.name}</h4>
+                        <h4 class="text-xl font-bold text-secondary flex items-baseline">
+                            ${discipline.name}
+                            ${discipline.code ? `<span class="ml-2 text-xs font-mono text-subtle">(${discipline.code})</span>` : ''}
+                        </h4>
                         <p class="text-sm text-subtle">${discipline.schedules?.map(s => `${s.day} ${s.startTime}-${s.endTime}`).join(', ') || 'Horário indefinido'}</p>
                     </div>
                 </div>
@@ -126,48 +128,55 @@ function populateGradesInputs(container, discipline, isPeriodClosed) {
 }
 
 export function calculateAverage(data) {
-    if (!data.gradeConfig || !data.gradeConfig.evaluations || !data.grades) {
+    // Se não houver array de 'grades', não há média.
+    if (!data.grades || data.grades.length === 0) {
         return 'N/A';
     }
 
-    let averageGrade = 'N/A';
-    const { rule, evaluations } = data.gradeConfig;
-    const { grades } = data;
-    
-    // Verifica se existe pelo menos uma avaliação configurada
-    if (evaluations.length === 0) {
-        return 'N/A';
-    }
+    // Se a disciplina tem uma configuração complexa, calcula a média baseada nela.
+    if (data.gradeConfig && data.gradeConfig.evaluations && data.gradeConfig.evaluations.length > 0) {
+        let averageGrade = 'N/A';
+        const { rule, evaluations } = data.gradeConfig;
+        const { grades } = data;
 
-    if (rule === 'weighted') {
-        let totalWeight = 0;
-        let weightedSum = 0;
-        evaluations.forEach((evaluation, index) => {
-            const gradeInfo = grades[index];
-            // Trata a nota não preenchida (null/undefined) como 0
-            const grade = (gradeInfo && typeof gradeInfo.grade === 'number') ? gradeInfo.grade : 0;
+        if (rule === 'weighted') {
+            let totalWeight = 0;
+            let weightedSum = 0;
+            evaluations.forEach((evaluation, index) => {
+                const gradeInfo = grades[index];
+                const grade = (gradeInfo && typeof gradeInfo.grade === 'number') ? gradeInfo.grade : 0;
+                
+                if (evaluation.weight > 0) {
+                    weightedSum += grade * (evaluation.weight / 100);
+                    totalWeight += (evaluation.weight / 100);
+                }
+            });
+            if (totalWeight > 0) averageGrade = (weightedSum / totalWeight).toFixed(2);
+
+        } else { // Média Aritmética
+            let gradeSum = 0;
+            let gradeCount = evaluations.length;
+            if(gradeCount === 0) return 'N/A';
             
-            if (evaluation.weight > 0) {
-                weightedSum += grade * (evaluation.weight / 100);
-                totalWeight += (evaluation.weight / 100);
-            }
-        });
-        if (totalWeight > 0) averageGrade = (weightedSum / totalWeight).toFixed(2);
-
-    } else { // Média Aritmética
-        let gradeSum = 0;
-        let gradeCount = evaluations.length; // Usa o total de avaliações como divisor
-        if(gradeCount === 0) return 'N/A';
+            grades.forEach(gradeInfo => {
+                const grade = (gradeInfo && typeof gradeInfo.grade === 'number') ? gradeInfo.grade : 0;
+                gradeSum += grade;
+            });
+            averageGrade = (gradeSum / gradeCount).toFixed(2);
+        }
         
-        grades.forEach(gradeInfo => {
-            // Trata a nota não preenchida como 0
-            const grade = (gradeInfo && typeof gradeInfo.grade === 'number') ? gradeInfo.grade : 0;
-            gradeSum += grade;
-        });
-        averageGrade = (gradeSum / gradeCount).toFixed(2);
+        return parseFloat(averageGrade) === 0 ? "0.00" : averageGrade;
     }
-    
-    return parseFloat(averageGrade) === 0 ? "0.00" : averageGrade;
+
+    // --- LÓGICA DE FALLBACK PARA DISCIPLINAS SIMPLES ---
+    // Se não houver 'gradeConfig', assume que é uma disciplina simples 
+    // com a nota final diretamente no primeiro item do array 'grades'.
+    const finalGrade = data.grades[0]?.grade;
+    if (typeof finalGrade === 'number') {
+        return finalGrade.toFixed(2);
+    }
+
+    return 'N/A';
 }
 
 export function createAbsenceHistoryItem(data) {

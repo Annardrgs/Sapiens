@@ -13,6 +13,10 @@ const state = {
   // IDs para edição
   editingEnrollmentId: null,
   editingDisciplineId: null,
+  editingCurriculumSubjectId: null,
+  subjectToComplete: null,
+  returnToCompleteSubjectModal: false,
+  subjectDataForReturn: null,
 
   // Objetos para operações em modais
   itemToDelete: null,

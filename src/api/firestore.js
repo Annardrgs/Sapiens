@@ -5,20 +5,11 @@
 import { db, auth } from '../firebase.js';
 import {
   collection, query, orderBy, getDocs, getDoc, doc, addDoc, updateDoc,
-  deleteDoc, writeBatch, serverTimestamp, increment, runTransaction,
+  deleteDoc, writeBatch, serverTimestamp, increment, runTransaction, where,
 } from 'firebase/firestore';
 import { cloudinaryConfig } from '../firebase.js';
 
 const getCurrentUserId = () => auth.currentUser?.uid;
-
-function getRandomColor() {
-    const colors = [
-        '#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e', '#10b981', 
-        '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', 
-        '#a855f7', '#d946ef', '#ec4899'
-    ];
-    return colors[Math.floor(Math.random() * colors.length)];
-}
 
 // --- MATRÍCULAS ---
 
@@ -78,39 +69,6 @@ export async function updateEnrollmentsOrder(items) {
     await batch.commit();
 }
 
-export async function getActivePeriodDataForAllEnrollments() {
-  const userId = getCurrentUserId();
-  if (!userId) return [];
-
-  // 1. Pega todas as matrículas
-  const enrollments = await getEnrollments();
-  const dashboardData = [];
-
-  // 2. Itera sobre cada matrícula para buscar os dados do período ativo
-  for (const enrollment of enrollments) {
-    if (enrollment.activePeriodId) {
-      // Busca o documento do período para pegar o nome
-      const periodRef = doc(db, 'users', userId, 'enrollments', enrollment.id, 'periods', enrollment.activePeriodId);
-      const periodSnap = await getDoc(periodRef);
-      const periodName = periodSnap.exists() ? periodSnap.data().name : 'Período ativo';
-
-      // Busca as disciplinas do período ativo
-      const disciplines = await getDisciplines(enrollment.id, enrollment.activePeriodId);
-
-      dashboardData.push({
-        enrollmentId: enrollment.id,
-        course: enrollment.course,
-        institution: enrollment.institution,
-        periodId: enrollment.activePeriodId,
-        periodName: periodName,
-        disciplines: disciplines,
-      });
-    }
-  }
-
-  return dashboardData;
-}
-
 export async function saveGrade(grade, gradeIndex, { enrollmentId, periodId, disciplineId }) {
     const userId = getCurrentUserId();
     if (!userId) throw new Error("Usuário não autenticado.");
@@ -126,14 +84,13 @@ export async function saveGrade(grade, gradeIndex, { enrollmentId, periodId, dis
         const disciplineData = disciplineSnap.data();
         const grades = disciplineData.grades || [];
 
-        // Garante que o array de notas tenha o tamanho certo
         if (grades.length > gradeIndex) {
             grades[gradeIndex].grade = grade;
         } else {
-            // Isso pode ser ajustado conforme necessário, mas por segurança, não deve acontecer se a config estiver certa
-            grades[gradeIndex] = { name: `Av. ${gradeIndex + 1}`, grade: grade };
+            const gradeName = disciplineData.gradeConfig?.evaluations[gradeIndex]?.name || 'Média Final';
+            grades[gradeIndex] = { name: gradeName, grade: grade };
         }
-
+        
         transaction.update(disciplineRef, { grades: grades });
     });
 }
@@ -150,28 +107,14 @@ export async function getPeriods(enrollmentId) {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
-/**
- * Obtém um único documento de período.
- * @param {string} enrollmentId - O ID da matrícula.
- * @param {string} periodId - O ID do período.
- * @returns {Promise<DocumentSnapshot>}
- */
-export function getPeriod(enrollmentId, periodId) {
-    const userId = getCurrentUserId();
-    if (!userId) return null;
-    const periodRef = doc(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId);
-    return getDoc(periodRef);
-}
-
 export async function createPeriod(enrollmentId, periodData) {
     const userId = getCurrentUserId();
     if (!userId) throw new Error("Usuário não autenticado.");
     
-    // Agora 'periodData' é um objeto
     const periodsRef = collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods');
     
     const newPeriodDoc = await addDoc(periodsRef, {
-        ...periodData, // Salva todos os campos do objeto (name, startDate, endDate)
+        ...periodData,
         status: 'active',
         createdAt: new Date()
     });
@@ -193,18 +136,15 @@ export async function deletePeriod(enrollmentId, periodId) {
 
     const batch = writeBatch(db);
 
-    // 1. Encontrar e deletar todas as disciplinas dentro do período
     const disciplinesRef = collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId, 'disciplines');
     const disciplinesSnap = await getDocs(disciplinesRef);
     disciplinesSnap.forEach(doc => {
         batch.delete(doc.ref);
     });
 
-    // 2. Deletar o próprio período
     const periodRef = doc(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId);
     batch.delete(periodRef);
 
-    // 3. Opcional: Atualizar o período ativo da matrícula se o período deletado era o ativo
     const enrollmentRef = doc(db, 'users', userId, 'enrollments', enrollmentId);
     const enrollmentSnap = await getDoc(enrollmentRef);
     if (enrollmentSnap.exists() && enrollmentSnap.data().activePeriodId === periodId) {
@@ -220,7 +160,7 @@ export function updatePeriodStatus(enrollmentId, periodId, status) {
     const userId = getCurrentUserId();
     if (!userId) throw new Error("Usuário não autenticado.");
     const periodRef = doc(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId);
-    return updateDoc(periodRef, { status: status }); // status pode ser 'active' ou 'closed'
+    return updateDoc(periodRef, { status: status });
 }
 
 // --- DISCIPLINAS ---
@@ -233,9 +173,36 @@ export async function getDisciplines(enrollmentId, periodId) {
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
+export async function isDisciplineCodeUnique(enrollmentId, code, currentDisciplineId = null) {
+    const userId = getCurrentUserId();
+    if (!userId || !code) return true;
+
+    const periods = await getPeriods(enrollmentId);
+    
+    const disciplinePromises = periods.map(period => getDisciplines(enrollmentId, period.id));
+
+    const disciplinesByPeriod = await Promise.all(disciplinePromises);
+
+    const allDisciplines = disciplinesByPeriod.flat();
+
+    const duplicate = allDisciplines.find(discipline => 
+        String(discipline.code) === code && discipline.id !== currentDisciplineId
+    );
+
+    return !duplicate;
+}
+
 export function getDiscipline(enrollmentId, periodId, disciplineId) {
+    console.log('%c[API] Função getDiscipline chamada com:', 'color: green; font-weight: bold', { enrollmentId, periodId, disciplineId });
+    
     const userId = getCurrentUserId();
     if (!userId) return null;
+
+    if (!enrollmentId || !periodId || !disciplineId) {
+        console.error('[API] ERRO: Um dos IDs necessários para buscar a disciplina está faltando.');
+        return Promise.reject('ID inválido fornecido para getDiscipline.');
+    }
+
     return getDoc(doc(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId, 'disciplines', disciplineId));
 }
 
@@ -245,10 +212,8 @@ export function saveDiscipline(payload, { enrollmentId, periodId, disciplineId =
   const collectionRef = collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId, 'disciplines');
 
   if (disciplineId) {
-    // Atualiza uma disciplina existente
     return updateDoc(doc(collectionRef, disciplineId), payload);
   } else {
-    // Cria uma nova disciplina
     const newDiscipline = { 
         ...payload, 
         createdAt: serverTimestamp(), 
@@ -275,7 +240,6 @@ export async function updateDisciplinesOrder(items, { enrollmentId, periodId }) 
     });
     await batch.commit();
 }
-
 
 // --- FALTAS ---
 
@@ -444,4 +408,101 @@ export async function saveFcmToken(token) {
     // Salva o token em uma subcoleção para evitar conflitos e permitir múltiplos dispositivos
     const tokenRef = doc(db, `users/${userId}/fcmTokens`, token);
     await setDoc(tokenRef, { createdAt: serverTimestamp() });
+}
+
+// --- TO-DO LIST ---
+
+/**
+ * Retorna a data atual no formato YYYY-MM-DD.
+ * @returns {string} A data formatada.
+ */
+function getTodayDateString() {
+    const today = new Date();
+    return today.toLocaleDateString('en-CA'); // Formato YYYY-MM-DD
+}
+
+export async function getTodosForToday() {
+    const userId = getCurrentUserId();
+    if (!userId) return [];
+    const todayStr = getTodayDateString();
+    
+    // O caminho agora é direto para uma coleção 'todos' do usuário
+    const todosRef = collection(db, 'users', userId, 'todos');
+    const q = query(todosRef, where("date", "==", todayStr), orderBy("createdAt", "asc"));
+    
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+export function addTodo(text) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const todosRef = collection(db, 'users', userId, 'todos');
+
+    return addDoc(todosRef, {
+        text: text,
+        completed: false,
+        date: getTodayDateString(),
+        createdAt: serverTimestamp()
+    });
+}
+
+export function updateTodoStatus(todoId, completed) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const todoRef = doc(db, 'users', userId, 'todos', todoId);
+    return updateDoc(todoRef, { completed });
+}
+
+export function deleteTodo(todoId) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const todoRef = doc(db, 'users', userId, 'todos', todoId);
+    return deleteDoc(todoRef);
+}
+
+export function updateTodoText(todoId, newText) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const todoRef = doc(db, 'users', userId, 'todos', todoId);
+    return updateDoc(todoRef, { text: newText });
+}
+
+// --- GRADE CURRICULAR (CHECKLIST) ---
+
+export async function getCurriculumSubjects(enrollmentId) {
+    const userId = getCurrentUserId();
+    if (!userId) return [];
+    const q = query(collection(db, 'users', userId, 'enrollments', enrollmentId, 'curriculum'), orderBy('period', 'asc'), orderBy('name', 'asc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+export function saveCurriculumSubject(payload, { enrollmentId, subjectId = null }) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const collectionRef = collection(db, 'users', userId, 'enrollments', enrollmentId, 'curriculum');
+
+    if (subjectId) {
+        return updateDoc(doc(collectionRef, subjectId), payload);
+    } else {
+        return addDoc(collectionRef, payload);
+    }
+}
+
+export async function getAllTakenDisciplines(enrollmentId) {
+    const userId = getCurrentUserId();
+    if (!userId) return [];
+    
+    const periods = await getPeriods(enrollmentId);
+    if (periods.length === 0) return [];
+
+    const allDisciplinesPromises = periods.map(async (p) => {
+        const disciplines = await getDisciplines(enrollmentId, p.id);
+        // Adiciona a informação do período a cada disciplina
+        return disciplines.map(d => ({ ...d, periodId: p.id, periodName: p.name }));
+    });
+    
+    const disciplinesByPeriod = await Promise.all(allDisciplinesPromises);
+    return disciplinesByPeriod.flat();
 }
