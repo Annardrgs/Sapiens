@@ -391,6 +391,38 @@ export function showConfirmModal({ title, message, confirmText, confirmClass = '
     showModal(dom.confirmModal);
 }
 
+export async function showPomodoroSettingsModal() {
+    if (!dom.pomodoroSettingsModal) return;
+
+    let { activeEnrollmentId, activePeriodId } = getState();
+    const disciplineSelect = dom.pomodoroSettingsForm.querySelector('#pomodoro-discipline');
+    
+    disciplineSelect.innerHTML = `<option value="none">Nenhuma disciplina</option>`;
+    
+    // Se não houver matrícula ativa (está na tela principal), pega a primeira da lista
+    if (!activeEnrollmentId) {
+        const enrollments = await api.getEnrollments();
+        if (enrollments.length > 0) {
+            const firstEnrollment = enrollments[0];
+            activeEnrollmentId = firstEnrollment.id;
+            activePeriodId = firstEnrollment.activePeriodId;
+        }
+    }
+    
+    if (activeEnrollmentId && activePeriodId) {
+        const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
+        disciplines.forEach(d => {
+            const option = new Option(d.name, d.id);
+            disciplineSelect.appendChild(option);
+        });
+    }
+
+    dom.pomodoroSettingsForm.reset();
+    dom.pomodoroSettingsForm.querySelector('#pomodoro-study-time').value = 25;
+    dom.pomodoroSettingsForm.querySelector('#pomodoro-break-time').value = 5;
+    showModal(dom.pomodoroSettingsModal);
+}
+
 
 // --- FUNÇÕES PARA ESCONDER MODAIS ---
 export function hideEnrollmentModal() { hideModal(dom.addEnrollmentModal); }
@@ -402,6 +434,7 @@ export function hideConfigGradesModal() { hideModal(dom.configGradesModal); }
 export function hidePeriodOptionsModal() { hideModal(dom.periodOptionsModal); }
 export function hidePdfViewerModal() { if (dom.pdfViewerIframe) dom.pdfViewerIframe.src = ''; hideModal(dom.pdfViewerModal); }
 export function hideEventModal() { hideModal(dom.addEventModal); }
+export function hidePomodoroSettingsModal() { hideModal(dom.pomodoroSettingsModal); }
 
 export function hideConfirmModal() {
     setState('itemToDelete', null);

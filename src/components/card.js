@@ -29,12 +29,7 @@ export function createDisciplineCard(discipline, enrollmentData, isPeriodClosed 
     card.dataset.action = 'view-discipline-details';
 
     const currentAbsences = discipline.absences || 0;
-    const workload = Number(discipline.workload) || 0;
-    const hoursPerClass = Number(discipline.hoursPerClass) || 1;
-    const totalClasses = workload > 0 && hoursPerClass > 0 ? Math.floor(workload / hoursPerClass) : 0;
-    const absenceLimit = totalClasses > 0 ? Math.floor(totalClasses * 0.25) : 0;
-    
-    const hasExceededAbsences = absenceLimit > 0 && currentAbsences > absenceLimit;
+    const hasExceededAbsences = discipline.failedByAbsence === true;
 
     let averageGrade = calculateAverage(discipline);
     const passingGrade = enrollmentData.passingGrade || 7.0;
@@ -43,7 +38,6 @@ export function createDisciplineCard(discipline, enrollmentData, isPeriodClosed 
 
     if (hasExceededAbsences) {
         status = { text: 'Reprovado por Falta', color: 'danger' };
-        averageGrade = "0.00"; // Zera a média se reprovado por falta
     } else if (averageGrade !== 'N/A') {
         const numericAverage = parseFloat(averageGrade);
         const allGradesFilled = discipline.grades && discipline.grades.every(g => g.grade !== null);
@@ -137,6 +131,10 @@ function populateGradesInputs(container, discipline, isPeriodClosed) {
 }
 
 export function calculateAverage(data) {
+    if (data.failedByAbsence) {
+        return '0.00';
+    }
+    
     if (!data.grades || data.grades.length === 0) {
         return 'N/A';
     }
@@ -228,8 +226,15 @@ export function createAbsenceHistoryItem(data) {
     item.className = "flex items-start justify-between bg-bkg p-3 rounded-md border border-border";
     const absenceDate = new Date(data.absenceDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
     item.innerHTML = `
-        <div><p class="font-semibold text-secondary">${absenceDate}</p><p class="text-sm text-subtle">${data.justification || 'Sem justificativa'}</p></div>
-        <button data-id="${data.id}" class="remove-absence-btn p-1 rounded-full hover:bg-surface"><svg class="w-4 h-4 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+        <div>
+            <p class="font-semibold text-secondary">${absenceDate}</p>
+            <p class="text-sm text-subtle">${data.justification || 'Sem justificativa'}</p>
+        </div>
+        <button data-id="${data.id}" class="remove-absence-btn p-1 rounded-full hover:bg-surface text-danger">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 pointer-events-none" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+        </button>
     `;
     return item;
 }

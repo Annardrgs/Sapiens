@@ -99,10 +99,13 @@ export function initializeAppListeners() {
     if (dom.addTodoForm) dom.addTodoForm.addEventListener('submit', handleTodoFormSubmit);
     
     // Pomodoro Timer
-    if (dom.startPomodoroBtn) dom.startPomodoroBtn.addEventListener('click', pomodoro.startTimer);
-    if (dom.pausePomodoroBtn) dom.pausePomodoroBtn.addEventListener('click', pomodoro.pauseTimer);
-    if (dom.resetPomodoroBtn) dom.resetPomodoroBtn.addEventListener('click', pomodoro.resetTimer);
+    if (dom.startPomodoroBtn) dom.startPomodoroBtn.addEventListener('click', () => modals.showPomodoroSettingsModal());
+    if (dom.pausePomodoroBtn) dom.pausePomodoroBtn.addEventListener('click', pomodoro.togglePause);
+    if (dom.stopPomodoroBtn) dom.stopPomodoroBtn.addEventListener('click', pomodoro.stopTimer);
     if (dom.closeStudyHistoryModalBtn) dom.closeStudyHistoryModalBtn.addEventListener('click', pomodoro.hideHistoryModal);
+    if (dom.pomodoroSettingsForm) dom.pomodoroSettingsForm.addEventListener('submit', handlePomodoroSettingsSubmit);
+    if (dom.cancelPomodoroSettingsBtn) dom.cancelPomodoroSettingsBtn.addEventListener('click', modals.hidePomodoroSettingsModal);
+    if (dom.studyHistoryList) dom.studyHistoryList.addEventListener('click', handleDeleteStudySession);
 
 
     const deleteBtn = dom.addEventModal.querySelector('#delete-event-btn');
@@ -763,9 +766,18 @@ async function handleAbsenceHistoryListClick(e) {
         onConfirm: async () => {
             try {
                 await firestoreApi.removeAbsence(removeBtn.dataset.id, currentDisciplineForAbsence);
+                
                 const updatedDiscipline = await firestoreApi.getDiscipline(currentDisciplineForAbsence.enrollmentId, currentDisciplineForAbsence.periodId, currentDisciplineForAbsence.disciplineId);
-                if (updatedDiscipline.exists()) view.updateDisciplineCard({ id: updatedDiscipline.id, ...updatedDiscipline.data() });
+                if (updatedDiscipline.exists()) {
+                    view.updateDisciplineCard({ id: updatedDiscipline.id, ...updatedDiscipline.data() });
+                }
+
                 view.renderAbsenceHistory(currentDisciplineForAbsence.enrollmentId, currentDisciplineForAbsence.periodId, currentDisciplineForAbsence.disciplineId);
+                
+                if (!dom.disciplineDashboardView.classList.contains('hidden')) {
+                    await view.showDisciplineDashboard(currentDisciplineForAbsence);
+                }
+
                 notify.success("Falta removida.");
             } catch (error) { 
                 console.error("Error removing absence:", error);
@@ -980,4 +992,40 @@ async function handleMarkAsCompletedSubmit(e) {
         console.error('Erro ao marcar disciplina como concluída:', error);
         notify.error('Não foi possível salvar a conclusão da disciplina.');
     }
+}
+
+async function handlePomodoroSettingsSubmit(e) {
+    e.preventDefault();
+    const studyTime = dom.pomodoroSettingsForm.querySelector('#pomodoro-study-time').value;
+    const breakTime = dom.pomodoroSettingsForm.querySelector('#pomodoro-break-time').value;
+    const disciplineId = dom.pomodoroSettingsForm.querySelector('#pomodoro-discipline').value;
+    const disciplineName = dom.pomodoroSettingsForm.querySelector('#pomodoro-discipline').options[dom.pomodoroSettingsForm.querySelector('#pomodoro-discipline').selectedIndex].text;
+    
+    const selectedDiscipline = disciplineId === 'none' ? null : { id: disciplineId, name: disciplineName };
+
+    pomodoro.startTimer(parseInt(studyTime), parseInt(breakTime), selectedDiscipline);
+    modals.hidePomodoroSettingsModal();
+}
+
+function handleDeleteStudySession(e) {
+    const deleteButton = e.target.closest('[data-action="delete-study-session"]');
+    if (!deleteButton) return;
+
+    const sessionId = deleteButton.dataset.id;
+    modals.showConfirmModal({
+        title: 'Excluir Sessão',
+        message: 'Tem certeza que deseja excluir esta sessão de estudo do seu histórico?',
+        confirmText: 'Excluir',
+        confirmClass: 'bg-danger',
+        onConfirm: async () => {
+            try {
+                await firestoreApi.deleteStudySession(sessionId);
+                notify.success('Sessão de estudo excluída.');
+                pomodoro.showHistoryModal(); // Atualiza a lista
+            } catch (error) {
+                console.error("Erro ao excluir sessão de estudo:", error);
+                notify.error('Falha ao excluir a sessão.');
+            }
+        }
+    });
 }

@@ -1,77 +1,216 @@
 import { dom } from './dom.js';
 import * as api from '../api/firestore.js';
 import { notify } from './notifications.js';
+import * as modals from './modals.js';
+import { getState } from '../store/state.js';
 
 let timerInterval = null;
-let timeLeft = 25 * 60; // 25 minutos em segundos
+let timeLeft = 25 * 60;
 let isRunning = false;
+let isPaused = false;
+let isBreak = false;
 let sessionStartTime = null;
+let totalTimeElapsed = 0;
+let currentDiscipline = null;
 
-function updateDisplay() {
-    if (!dom.pomodoroDisplay) return;
+let studyDuration = 25 * 60;
+let breakDuration = 5 * 60;
+
+function createAudioElement(id, src, loop = false) {
+    const audio = document.createElement('audio');
+    audio.id = id;
+    audio.src = src;
+    audio.loop = loop;
+    audio.preload = 'auto';
+    document.body.appendChild(audio);
+    return audio;
+}
+
+const sounds = {
+    start: createAudioElement('start-sound', '../public/audio/play.mp3'),
+    break: createAudioElement('break-sound', '../public/audio/break.mp3'),
+    finish: createAudioElement('finish-sound', '../public/audio/end.mp3'),
+    ambient: {
+        // rain: createAudioElement('ambient-rain', '/audio/rain.mp3', true),
+        // forest: createAudioElement('ambient-forest', '/audio/forest.mp3', true),
+        // cafe: createAudioElement('ambient-cafe', '/audio/cafe.mp3', true),
+    }
+};
+
+Object.values(sounds.ambient).forEach(sound => sound.loop = true);
+let currentAmbientSound = null;
+
+function playSound(sound) {
+    try {
+        sound.currentTime = 0;
+        sound.play().catch(e => {
+            console.warn("Não foi possível tocar o som:", e);
+        });
+    } catch (e) {
+        console.warn("Erro ao tentar tocar o som:", e);
+    }
+}
+
+function stopAmbientSound() {
+    if (currentAmbientSound) {
+        currentAmbientSound.pause();
+        currentAmbientSound.currentTime = 0;
+        currentAmbientSound = null;
+    }
+}
+
+function updateDisplay(isFloating = false) {
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
-    dom.pomodoroDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    const statusText = isBreak ? 'Pausa' : 'Foco';
+
+    const displayEl = isFloating ? dom.floatingTimerDisplay : dom.pomodoroDisplay;
+    const statusEl = isFloating ? dom.floatingTimerStatus : dom.pomodoroStatus;
+
+    if (displayEl) displayEl.textContent = formattedTime;
+    if (statusEl) statusEl.textContent = statusText;
+}
+
+async function saveSession() {
+    if (totalTimeElapsed < 10) return; 
+    const sessionData = {
+        duration: Math.round(totalTimeElapsed),
+        date: new Date().toLocaleDateString('pt-BR'),
+        disciplineId: currentDiscipline ? currentDiscipline.id : null,
+        disciplineName: currentDiscipline ? currentDiscipline.name : null,
+    };
+    try {
+        await api.saveStudySession(sessionData);
+        notify.success('Sessão de estudo salva!');
+    } catch (err) {
+        notify.error('Erro ao salvar sessão.');
+    }
 }
 
 function finishSession() {
-    const endTime = new Date();
-    // Salva apenas se a sessão durou mais de 10 segundos
-    if (sessionStartTime && (endTime - sessionStartTime) / 1000 > 10) { 
-        const duration = Math.round((endTime - sessionStartTime) / 1000); 
-        const sessionData = {
-            duration: duration,
-            date: new Date().toLocaleDateString('pt-BR')
-        };
-        api.saveStudySession(sessionData)
-            .then(() => notify.success('Sessão de estudo salva!'))
-            .catch(err => notify.error('Erro ao salvar sessão.'));
+    if (!isBreak) { 
+        saveSession();
+        isBreak = true;
+        timeLeft = breakDuration;
+        notify.info("Hora da pausa!");
+        playSound(sounds.break);
+    } else { 
+        isBreak = false;
+        timeLeft = studyDuration;
+        notify.success("Pausa terminada. Hora de focar!");
+        playSound(sounds.start);
     }
-
-    resetTimer();
-    // Tenta tocar um som de notificação
-    try {
-      new Audio('https://www.soundjay.com/buttons/sounds/button-1.mp3').play();
-    } catch (e) {
-      console.warn("Não foi possível tocar o som de notificação.", e);
-    }
+    
+    totalTimeElapsed = 0;
+    sessionStartTime = new Date();
+    updateDisplay();
+    updateDisplay(true);
 }
 
-export function startTimer() {
-    if (isRunning) return;
-    isRunning = true;
-    if (!sessionStartTime) {
-      sessionStartTime = new Date();
-    }
-    dom.startPomodoroBtn.disabled = true;
-    dom.pausePomodoroBtn.disabled = false;
-
+function runTimer() {
+    clearInterval(timerInterval); 
     timerInterval = setInterval(() => {
+        if (isPaused) return;
+
         timeLeft--;
+        if (!isBreak) totalTimeElapsed++;
+        
         updateDisplay();
+        updateDisplay(true);
+
         if (timeLeft <= 0) {
-            clearInterval(timerInterval);
+            playSound(sounds.finish);
             finishSession();
         }
     }, 1000);
 }
 
-export function pauseTimer() {
+export function startTimer(studyMinutes, breakMinutes, discipline, ambientSoundKey) {
+    if (isRunning) return;
+    
+    studyDuration = studyMinutes * 60;
+    breakDuration = breakMinutes * 60;
+    timeLeft = studyDuration;
+    isBreak = false;
+    currentDiscipline = discipline;
+    
+    isRunning = true;
+    isPaused = false;
+    sessionStartTime = new Date();
+    totalTimeElapsed = 0;
+
+    dom.startPomodoroBtn.classList.add('hidden');
+    dom.pausePomodoroBtn.classList.remove('hidden');
+    dom.stopPomodoroBtn.classList.remove('hidden');
+
+    playSound(sounds.start);
+    if (ambientSoundKey !== 'none' && sounds.ambient[ambientSoundKey]) {
+        currentAmbientSound = sounds.ambient[ambientSoundKey];
+        playSound(currentAmbientSound);
+    }
+
+    updateDisplay();
+    runTimer();
+    updateFloatingTimerVisibility();
+}
+
+export function togglePause() {
     if (!isRunning) return;
-    isRunning = false;
-    clearInterval(timerInterval);
-    dom.startPomodoroBtn.disabled = false;
-    dom.pausePomodoroBtn.disabled = true;
+    isPaused = !isPaused;
+
+    if (isPaused) {
+        dom.pausePomodoroBtn.innerHTML = `<svg class="w-8 h-8 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"></path></svg>`;
+        if (currentAmbientSound) currentAmbientSound.pause();
+    } else {
+        dom.pausePomodoroBtn.innerHTML = `<svg class="w-8 h-8 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z"></path></svg>`;
+        if (currentAmbientSound) currentAmbientSound.play();
+    }
+}
+
+export function stopTimer() {
+    if (!isRunning) return;
+    isPaused = true; 
+    
+    const onConfirm = () => {
+        if (!isBreak) saveSession();
+        resetTimer();
+    };
+    const onCancel = () => resetTimer();
+
+    const message = isBreak ? "Deseja finalizar a sessão de pausa? O tempo de pausa não é salvo." : `Deseja salvar os ${Math.floor(totalTimeElapsed / 60)} minutos de foco no seu histórico?`;
+
+    modals.showConfirmModal({
+        title: 'Finalizar Sessão',
+        message: message,
+        confirmText: 'Finalizar',
+        confirmClass: 'bg-primary',
+        onConfirm: onConfirm
+    });
+    dom.confirmModalCancelBtn.onclick = () => {
+        modals.hideConfirmModal();
+        onCancel();
+    };
 }
 
 export function resetTimer() {
     clearInterval(timerInterval);
+    stopAmbientSound();
     isRunning = false;
+    isPaused = false;
+    isBreak = false;
     sessionStartTime = null;
-    timeLeft = 25 * 60;
+    totalTimeElapsed = 0;
+    timeLeft = 25 * 60; 
+    currentDiscipline = null;
+    
+    dom.startPomodoroBtn.classList.remove('hidden');
+    dom.pausePomodoroBtn.classList.add('hidden');
+    dom.stopPomodoroBtn.classList.add('hidden');
+    
+    dom.pomodoroStatus.textContent = 'Pronto para focar?';
     updateDisplay();
-    dom.startPomodoroBtn.disabled = false;
-    dom.pausePomodoroBtn.disabled = true;
+    updateFloatingTimerVisibility();
 }
 
 export async function showHistoryModal() {
@@ -89,24 +228,34 @@ export async function showHistoryModal() {
     
     const sessionsByDate = history.reduce((acc, session) => {
         const date = session.timestamp?.toDate().toLocaleDateString('pt-BR') || 'Data desconhecida';
-        if (!acc[date]) {
-            acc[date] = [];
-        }
-        acc[date].push(session);
+        if (!acc[date]) acc[date] = { sessions: [], totalMinutes: 0 };
+        acc[date].sessions.push(session);
+        acc[date].totalMinutes += Math.floor(session.duration / 60);
         return acc;
     }, {});
 
     dom.studyHistoryList.innerHTML = Object.keys(sessionsByDate).map(date => {
-        const totalMinutes = sessionsByDate[date].reduce((sum, s) => sum + Math.floor(s.duration / 60), 0);
+        const { sessions, totalMinutes } = sessionsByDate[date];
         return `
             <div class="mb-4">
                 <h4 class="font-bold text-secondary border-b border-border pb-1 mb-2">${date} - <span class="text-primary">${totalMinutes} minutos</span></h4>
                 <div class="space-y-1">
-                    ${sessionsByDate[date].map(s => {
+                    ${sessions.map(s => {
                         const minutes = Math.floor(s.duration / 60);
                         const seconds = s.duration % 60;
                         const time = s.timestamp?.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) || '';
-                        return `<p class="text-subtle text-sm">${time} - ${minutes} min e ${seconds} seg</p>`;
+                        const disciplineLabel = s.disciplineName ? `<span class="text-xs font-semibold text-primary ml-2">• ${s.disciplineName}</span>` : '';
+                        return `
+                            <div class="flex justify-between items-center text-subtle text-sm p-2 rounded hover:bg-bkg">
+                                <div>
+                                    <span>${time} - ${minutes} min e ${seconds} seg</span>
+                                    ${disciplineLabel}
+                                </div>
+                                <button data-action="delete-study-session" data-id="${s.id}" class="p-1 rounded-full text-danger/50 hover:text-danger hover:bg-danger/10">
+                                    <svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </div>
+                        `;
                     }).join('')}
                 </div>
             </div>
@@ -120,6 +269,57 @@ export function hideHistoryModal() {
     }
 }
 
+export function updateFloatingTimerVisibility() {
+    const isDashboard = window.location.pathname === '/dashboard' || window.location.pathname === '/';
+    if (isRunning && !isDashboard) {
+        if (dom.floatingTimer) dom.floatingTimer.classList.remove('hidden');
+    } else {
+        if (dom.floatingTimer) dom.floatingTimer.classList.add('hidden');
+    }
+}
+
 export function initialize() {
+    studyDuration = 25 * 60;
     resetTimer();
+
+    const floatingTimer = dom.floatingTimer;
+    if (!floatingTimer) return;
+
+    let isDragging = false;
+    let offsetX, offsetY;
+
+    const onMouseDown = (e) => {
+        if (e.target.closest('button')) return; 
+        isDragging = true;
+        const rect = floatingTimer.getBoundingClientRect();
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+        floatingTimer.style.cursor = 'grabbing';
+    };
+
+    const onMouseMove = (e) => {
+        if (!isDragging) return;
+        let newX = e.clientX - offsetX;
+        let newY = e.clientY - offsetY;
+
+        const container = document.body;
+        const rect = floatingTimer.getBoundingClientRect();
+        
+        newX = Math.max(0, Math.min(newX, container.clientWidth - rect.width));
+        newY = Math.max(0, Math.min(newY, container.clientHeight - rect.height));
+
+        floatingTimer.style.left = `${newX}px`;
+        floatingTimer.style.top = `${newY}px`;
+        floatingTimer.style.bottom = 'auto';
+        floatingTimer.style.right = 'auto';
+    };
+
+    const onMouseUp = () => {
+        isDragging = false;
+        floatingTimer.style.cursor = 'grab';
+    };
+
+    floatingTimer.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
 }

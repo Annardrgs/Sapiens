@@ -24,6 +24,7 @@ import { initializeDOMElements } from './ui/dom.js';
 import { setState, getState } from './store/state.js';
 import * as view from './ui/view.js';
 import * as pomodoro from './ui/pomodoro.js';
+import { notify } from './ui/notifications.js';
 
 // --- ROTEAMENTO ---
 
@@ -36,6 +37,7 @@ const routes = {
 };
 
 async function handleRouteChange() {
+    pomodoro.updateFloatingTimerVisibility(); // Adicionado para controlar o timer flutuante
     const path = window.location.pathname;
     const params = new URLSearchParams(window.location.search);
     
@@ -64,38 +66,40 @@ export function navigate(path) {
 
 // --- FLUXO DE INICIALIZAÇÃO ---
 
-injectHTML();
-initializeDOMElements();
-initializeAuthListeners();
-initializeTheme();
+document.addEventListener('DOMContentLoaded', () => {
+    injectHTML();
+    initializeDOMElements();
+    initializeAuthListeners();
+    initializeTheme();
 
-onAuthStateChanged(auth, async (user) => {
-  try {
-    if (user) {
-      setState('user', user);
-      showAppScreen();
-      
-      if (!window.appListenersInitialized) {
-        initializeAppListeners();
-        window.appListenersInitialized = true;
+    onAuthStateChanged(auth, async (user) => {
+      try {
+        if (user) {
+          setState('user', user);
+          showAppScreen();
+          
+          if (!window.appListenersInitialized) {
+            initializeAppListeners();
+            window.appListenersInitialized = true;
+          }
+
+          renderUserEmail(user.email);
+          await handleRouteChange();
+          await view.checkAndRenderNotifications();
+
+        } else {
+          setState('user', null);
+          navigate('/');
+          showAuthScreen();
+          window.appListenersInitialized = false;
+        }
+      } catch (error) {
+        console.error("Erro crítico durante a inicialização:", error);
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) loadingOverlay.classList.add('hidden');
+        notify.error("Ocorreu um erro inesperado. Por favor, recarregue a página.");
       }
+    });
 
-      renderUserEmail(user.email);
-      await handleRouteChange();
-      await view.checkAndRenderNotifications();
-
-    } else {
-      setState('user', null);
-      navigate('/');
-      showAuthScreen();
-      window.appListenersInitialized = false;
-    }
-  } catch (error) {
-    console.error("Erro crítico durante a inicialização:", error);
-    const loadingOverlay = document.getElementById('loading-overlay');
-    if (loadingOverlay) loadingOverlay.classList.add('hidden');
-    alert("Ocorreu um erro inesperado. Por favor, recarregue a página.");
-  }
+    window.addEventListener('popstate', handleRouteChange);
 });
-
-window.addEventListener('popstate', handleRouteChange);

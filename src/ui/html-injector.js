@@ -28,19 +28,28 @@ const mainHTML = `
             <!-- Coluna 1: Sessões de Estudo -->
             <div>
               <h3 class="text-2xl font-bold text-secondary mb-4">Sessões de Estudo</h3>
-              <div id="pomodoro-timer-container" class="bg-surface p-6 rounded-xl shadow-lg border border-border h-80 flex flex-col justify-between">
-                  <div class="flex justify-between items-center">
+              <div id="pomodoro-timer-container" class="bg-surface p-6 rounded-xl shadow-lg border border-border h-80 flex flex-col justify-between items-center">
+                  <div class="w-full flex justify-between items-center">
                       <h4 class="font-bold text-secondary text-lg">Pomodoro Timer</h4>
                       <button data-action="view-study-history" class="text-sm font-semibold bg-primary/10 text-primary px-3 py-1 rounded-md hover:bg-primary/20 flex items-center gap-2">
                           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                           Histórico
                       </button>
                   </div>
-                  <div id="pomodoro-display" class="text-7xl font-bold text-primary text-center">25:00</div>
-                  <div class="flex items-center justify-center gap-4">
-                      <button id="start-pomodoro-btn" class="bg-primary text-bkg font-semibold py-2 px-6 rounded-lg flex-1">Iniciar</button>
-                      <button id="pause-pomodoro-btn" class="font-semibold py-2 px-4 rounded-lg text-subtle hover:text-secondary">Pausar</button>
-                      <button id="reset-pomodoro-btn" class="font-semibold py-2 px-4 rounded-lg text-subtle hover:text-secondary">Resetar</button>
+                  <div id="pomodoro-display-container" class="text-center">
+                      <div id="pomodoro-status" class="text-lg font-semibold text-subtle mb-2">Pronto para focar?</div>
+                      <div id="pomodoro-display" class="text-7xl font-bold text-primary">25:00</div>
+                  </div>
+                  <div id="pomodoro-controls" class="w-full flex items-center justify-center gap-4">
+                      <button id="start-pomodoro-btn" class="bg-green-500 text-white font-semibold p-4 rounded-full hover:bg-green-600">
+                          <svg class="w-8 h-8 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"></path></svg>
+                      </button>
+                      <button id="pause-pomodoro-btn" class="hidden bg-yellow-500 text-white font-semibold p-4 rounded-full hover:bg-yellow-600">
+                          <svg class="w-8 h-8 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z"></path></svg>
+                      </button>
+                      <button id="stop-pomodoro-btn" class="hidden bg-danger text-white font-semibold p-4 rounded-full hover:opacity-90">
+                          <svg class="w-8 h-8 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.5 5.5A.5.5 0 016 5h8a.5.5 0 01.5.5v8a.5.5 0 01-.5.5H6a.5.5 0 01-.5-.5v-8z"></path></svg>
+                      </button>
                   </div>
               </div>
             </div>
@@ -187,8 +196,16 @@ const mainHTML = `
           <p class="text-subtle">Carregando grade curricular...</p>
         </div>
       </div>
-
     </main>
+    <div id="floating-pomodoro-timer" class="hidden fixed bottom-5 right-5 bg-surface p-4 rounded-lg shadow-2xl border border-border cursor-grab z-50 flex items-center gap-4">
+        <div>
+            <div id="floating-timer-status" class="text-sm font-bold text-primary">Foco</div>
+            <div id="floating-timer-display" class="text-3xl font-bold text-secondary">25:00</div>
+        </div>
+        <button id="close-floating-timer-btn" class="p-1 rounded-full text-subtle hover:bg-bkg absolute top-1 right-1">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+    </div>
   </div>
 `;
 
@@ -198,7 +215,13 @@ const modalHTML = `
   <div id="add-discipline-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"><div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-xl border border-border"><h3 id="discipline-modal-title" class="text-2xl font-bold mb-6 text-secondary">Nova Disciplina</h3><form id="add-discipline-form"><div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4"><div class="md:col-span-2"><label for="discipline-name" class="block text-sm font-medium text-subtle mb-1">Nome*</label><input type="text" id="discipline-name" placeholder="Ex: Cálculo I" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md"></div><div><label for="discipline-code" class="block text-sm font-medium text-subtle mb-1">Código</label><input type="text" id="discipline-code" placeholder="Opcional" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md"></div><div><label for="discipline-teacher" class="block text-sm font-medium text-subtle mb-1">Professor(a)</label><input type="text" id="discipline-teacher" placeholder="Opcional" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md"></div><div><label for="discipline-campus" class="block text-sm font-medium text-subtle mb-1">Campus</label><input type="text" id="discipline-campus" placeholder="Ex: Gragoatá" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md"></div><div><label for="discipline-location" class="block text-sm font-medium text-subtle mb-1">Local/Sala</label><input type="text" id="discipline-location" placeholder="Ex: Sala 203" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md"></div><div class="md:col-span-2"><label class="block text-sm font-medium text-subtle mb-1">Cor</label><div id="discipline-color-palette" class="flex flex-wrap justify-center gap-3 p-2 bg-bkg rounded-md border border-border"></div><input type="hidden" id="discipline-color-input"></div><div class="md:col-span-2"><label class="block text-sm font-medium text-subtle mb-1">Horários</label><div id="schedules-container" class="space-y-2"></div><button type="button" id="add-schedule-btn" class="mt-2 text-sm text-primary hover:opacity-80 flex items-center"><svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>Adicionar</button></div><div class="md:col-span-2 pt-2"><p class="text-sm font-medium text-subtle">Controle de Faltas</p><small class="text-xs text-subtle/70">Usado para calcular o limite de faltas.</small></div><div><label for="discipline-workload" class="block text-sm font-medium text-subtle mb-1">Carga Horária (h)*</label><input type="number" id="discipline-workload" min="1" placeholder="Ex: 60" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md"></div><div><label for="discipline-hours-per-class" class="block text-sm font-medium text-subtle mb-1">Horas por Aula*</label><input type="number" id="discipline-hours-per-class" min="1" placeholder="Ex: 2" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md"></div></div><div class="mt-8 flex justify-end space-x-4"><button type="button" id="cancel-discipline-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg">Cancelar</button><button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg">Salvar</button></div></form></div></div>
   <div id="config-grades-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"><div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border"><h3 id="config-grades-title" class="text-2xl font-bold mb-6 text-secondary">Avaliações</h3><form id="config-grades-form" class="space-y-4"><div><label for="grade-calculation-rule" class="block text-sm font-medium text-subtle mb-1">Tipo de Média</label><select id="grade-calculation-rule" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md custom-select"><option value="weighted">Média Ponderada</option><option value="arithmetic">Média Aritmética</option></select></div><div id="grades-container" class="space-y-3"></div><div id="grades-summary" class="text-right"></div><button type="button" id="add-grade-field-btn" class="text-sm text-primary hover:opacity-80 flex items-center"><svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>Adicionar</button><div class="mt-8 flex justify-end space-x-4"><button type="button" id="cancel-config-grades-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg">Cancelar</button><button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg">Salvar</button></div></form></div></div>
   <div id="add-absence-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"><div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-md border border-border"><h3 class="text-2xl font-bold mb-6 text-secondary">Registrar Falta</h3><form id="add-absence-form"><div class="space-y-4"><div><label for="absence-date" class="block text-sm font-medium text-subtle mb-1">Data</label><input type="date" id="absence-date" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md"></div><div><label for="absence-justification" class="block text-sm font-medium text-subtle mb-1">Justificativa</label><textarea id="absence-justification" placeholder="Opcional" rows="3" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md"></textarea></div></div><div class="mt-8 flex justify-end space-x-4"><button type="button" id="cancel-absence-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg">Cancelar</button><button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg">Salvar</button></div></form></div></div>
-  <div id="absence-history-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"><div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border flex flex-col" style="max-height: 90vh;"><h3 id="absence-history-title" class="text-2xl font-bold mb-4 text-secondary">Histórico de Faltas</h3><div id="absence-history-list" class="flex-grow overflow-y-auto pr-4 -mr-4"></div><button type="button" id="close-absence-history-btn" class="mt-6 w-full bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg">Fechar</button></div></div>
+  <div id="absence-history-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border flex flex-col max-h-[80vh]">
+        <h3 id="absence-history-title" class="text-2xl font-bold mb-4 text-secondary flex-shrink-0">Histórico de Faltas</h3>
+        <div id="absence-history-list" class="flex-grow overflow-y-auto custom-scrollbar pr-2"></div>
+        <button type="button" id="close-absence-history-btn" class="mt-6 w-full bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg flex-shrink-0">Fechar</button>
+    </div>
+  </div>
   
   <div id="confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-60">
     <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-sm border border-border">
@@ -435,6 +458,41 @@ const modalHTML = `
         <div id="study-history-list" class="flex-grow overflow-y-auto pr-2">
             <p class="text-subtle text-center">Nenhuma sessão registrada ainda.</p>
         </div>
+    </div>
+  </div>
+
+  <div id="pomodoro-settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-sm border border-border">
+        <h3 class="text-2xl font-bold mb-6 text-secondary">Configurar Pomodoro</h3>
+        <form id="pomodoro-settings-form" class="space-y-4">
+            <div>
+                <label for="pomodoro-discipline" class="block text-sm font-medium text-subtle mb-1">Disciplina (Opcional)</label>
+                <select id="pomodoro-discipline" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md custom-select"></select>
+            </div>
+            <div>
+                <label for="pomodoro-sound" class="block text-sm font-medium text-subtle mb-1">Som Ambiente</label>
+                <select id="pomodoro-sound" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md custom-select">
+                    <option value="none">Nenhum</option>
+                    <option value="rain">Chuva</option>
+                    <option value="forest">Floresta</option>
+                    <option value="cafe">Cafeteria</option>
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="pomodoro-study-time" class="block text-sm font-medium text-subtle mb-1">Foco (min)</label>
+                    <input type="number" id="pomodoro-study-time" value="25" min="1" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+                </div>
+                <div>
+                    <label for="pomodoro-break-time" class="block text-sm font-medium text-subtle mb-1">Pausa (min)</label>
+                    <input type="number" id="pomodoro-break-time" value="5" min="1" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+                </div>
+            </div>
+            <div class="mt-8 flex justify-end space-x-4">
+                <button type="button" id="cancel-pomodoro-settings-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg">Cancelar</button>
+                <button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg">Iniciar</button>
+            </div>
+        </form>
     </div>
   </div>
 `;
