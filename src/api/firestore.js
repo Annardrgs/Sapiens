@@ -258,8 +258,31 @@ export function addAbsence(payload, { enrollmentId, periodId, disciplineId }) {
     const absencesRef = collection(disciplineRef, 'absences');
 
     return runTransaction(db, async (transaction) => {
+        const disciplineSnap = await transaction.get(disciplineRef);
+        if (!disciplineSnap.exists()) {
+            throw new Error("Disciplina não encontrada.");
+        }
+        const disciplineData = disciplineSnap.data();
+
+        // Lógica de reprovação por falta
+        const newAbsences = (disciplineData.absences || 0) + 1;
+        const workload = Number(disciplineData.workload) || 0;
+        const hoursPerClass = Number(disciplineData.hoursPerClass) || 1;
+        const totalClasses = workload > 0 && hoursPerClass > 0 ? Math.floor(workload / hoursPerClass) : 0;
+        const absenceLimit = totalClasses > 0 ? Math.floor(totalClasses * 0.25) : 0;
+
+        const updatePayload = { absences: increment(1) };
+
+        if (absenceLimit > 0 && newAbsences > absenceLimit) {
+            updatePayload.failedByAbsence = true;
+            // Zera as notas se reprovado por falta
+            if (disciplineData.grades && disciplineData.grades.length > 0) {
+                updatePayload.grades = disciplineData.grades.map(g => ({ ...g, grade: 0 }));
+            }
+        }
+
         transaction.set(doc(absencesRef), payload);
-        transaction.update(disciplineRef, { absences: increment(1) });
+        transaction.update(disciplineRef, updatePayload);
     });
 }
 
@@ -270,8 +293,28 @@ export function removeAbsence(absenceId, { enrollmentId, periodId, disciplineId 
     const absenceRef = doc(disciplineRef, 'absences', absenceId);
 
     return runTransaction(db, async (transaction) => {
+        const disciplineSnap = await transaction.get(disciplineRef);
+        if (!disciplineSnap.exists()) {
+            throw new Error("Disciplina não encontrada.");
+        }
+        const disciplineData = disciplineSnap.data();
+
+        // Lógica para reverter reprovação por falta
+        const newAbsences = (disciplineData.absences || 1) - 1;
+        const workload = Number(disciplineData.workload) || 0;
+        const hoursPerClass = Number(disciplineData.hoursPerClass) || 1;
+        const totalClasses = workload > 0 && hoursPerClass > 0 ? Math.floor(workload / hoursPerClass) : 0;
+        const absenceLimit = totalClasses > 0 ? Math.floor(totalClasses * 0.25) : 0;
+
+        const updatePayload = { absences: increment(-1) };
+
+        if (disciplineData.failedByAbsence && newAbsences <= absenceLimit) {
+            updatePayload.failedByAbsence = false;
+            // As notas permanecem zeradas, o usuário deve re-inserir se desejar.
+        }
+
         transaction.delete(absenceRef);
-        transaction.update(disciplineRef, { absences: increment(-1) });
+        transaction.update(disciplineRef, updatePayload);
     });
 }
 
@@ -426,9 +469,8 @@ export async function getTodosForToday() {
     if (!userId) return [];
     const todayStr = getTodayDateString();
     
-    // O caminho agora é direto para uma coleção 'todos' do usuário
     const todosRef = collection(db, 'users', userId, 'todos');
-    const q = query(todosRef, where("date", "==", todayStr), orderBy("createdAt", "asc"));
+    const q = query(todosRef, where("date", "==", todayStr), orderBy("completed", "asc"), orderBy("createdAt", "asc"));
     
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -505,4 +547,76 @@ export async function getAllTakenDisciplines(enrollmentId) {
     
     const disciplinesByPeriod = await Promise.all(allDisciplinesPromises);
     return disciplinesByPeriod.flat();
+}
+
+// --- SESSÕES DE ESTUDO (POMODORO) ---
+
+export function saveStudySession(sessionData) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const sessionsRef = collection(db, 'users', userId, 'studySessions');
+    return addDoc(sessionsRef, {
+        ...sessionData,
+        timestamp: serverTimestamp()
+    });
+}
+
+export async function getStudyHistory() {
+    const userId = getCurrentUserId();
+    if (!userId) return [];
+    const q = query(collection(db, 'users', userId, 'studySessions'), orderBy('timestamp', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+export function deleteStudySession(sessionId) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const sessionRef = doc(db, 'users', userId, 'studySessions', sessionId);
+    return deleteDoc(sessionRef);
+}
+
+
+export async function getAllUpcomingEvents() {
+    const userId = getCurrentUserId();
+    if (!userId) return [];
+
+    const enrollments = await getEnrollments();
+    if (enrollments.length === 0) return [];
+
+    let allEvents = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Mapeia todas as disciplinas de todos os períodos primeiro para consulta rápida
+    const disciplinesMap = new Map();
+    for (const enrollment of enrollments) {
+        const periods = await getPeriods(enrollment.id);
+        for (const period of periods) {
+            const disciplines = await getDisciplines(enrollment.id, period.id);
+            disciplines.forEach(d => {
+                disciplinesMap.set(d.id, d.name);
+            });
+        }
+    }
+
+    for (const enrollment of enrollments) {
+        if (enrollment.activePeriodId) {
+            const events = await getCalendarEvents(enrollment.id, enrollment.activePeriodId);
+            const futureEvents = events
+                .filter(e => new Date(e.start.replace(/-/g, '/')) >= today)
+                .map(e => ({ 
+                    ...e, 
+                    courseName: enrollment.course,
+                    // Adiciona o nome da disciplina usando o mapa
+                    disciplineName: e.relatedDisciplineId ? disciplinesMap.get(e.relatedDisciplineId) : null
+                }));
+            allEvents.push(...futureEvents);
+        }
+    }
+
+    // Ordena todos os eventos por data
+    allEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
+
+    return allEvents;
 }

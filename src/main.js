@@ -13,51 +13,93 @@ import {
   showAuthScreen, 
   showAppScreen, 
   renderUserEmail, 
-  showEnrollmentsView, 
-  renderEnrollments 
+  showEnrollmentsView,
+  showDashboardView,
+  showDisciplineDashboard,
+  showGradesReportView,
+  showCourseChecklistView
 } from './ui/view.js';
 import { initializeTheme } from './ui/theme.js';
 import { initializeDOMElements } from './ui/dom.js';
-import { setState } from './store/state.js';
+import { setState, getState } from './store/state.js';
 import * as view from './ui/view.js';
+import * as pomodoro from './ui/pomodoro.js';
+import { notify } from './ui/notifications.js';
+
+// --- ROTEAMENTO ---
+
+const routes = {
+  '/': showEnrollmentsView,
+  '/dashboard': showDashboardView,
+  '/discipline': showDisciplineDashboard,
+  '/grades': showGradesReportView,
+  '/checklist': showCourseChecklistView,
+};
+
+async function handleRouteChange() {
+    pomodoro.updateFloatingTimerVisibility(); // Adicionado para controlar o timer flutuante
+    const path = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+    
+    const routeAction = routes[path] || routes['/'];
+    
+    const enrollmentId = params.get('enrollmentId');
+    const disciplineId = params.get('disciplineId');
+
+    if (auth.currentUser) {
+        if (path === '/dashboard' && enrollmentId) {
+            await routeAction(enrollmentId);
+        } else if (path === '/discipline' && enrollmentId && disciplineId) {
+            await routeAction({ enrollmentId, disciplineId });
+        } else if ((path === '/grades' || path === '/checklist') && enrollmentId) {
+            await routeAction(enrollmentId);
+        } else {
+            await routeAction();
+        }
+    }
+}
+
+export function navigate(path) {
+    window.history.pushState({}, "", path);
+    handleRouteChange();
+}
 
 // --- FLUXO DE INICIALIZAÇÃO ---
 
-// 1. Injeta o HTML base e os modais na página.
-injectHTML();
+document.addEventListener('DOMContentLoaded', () => {
+    injectHTML();
+    initializeDOMElements();
+    initializeAuthListeners();
+    initializeTheme();
 
-// 2. Seleciona e armazena todos os elementos do DOM. ESSENCIAL que isso aconteça aqui.
-initializeDOMElements();
+    onAuthStateChanged(auth, async (user) => {
+      try {
+        if (user) {
+          setState('user', user);
+          showAppScreen();
+          
+          if (!window.appListenersInitialized) {
+            initializeAppListeners();
+            window.appListenersInitialized = true;
+          }
 
-// 3. Inicializa os listeners que não dependem de login.
-initializeAuthListeners();
+          renderUserEmail(user.email);
+          await handleRouteChange();
+          await view.checkAndRenderNotifications();
 
-// 4. Inicializa o tema (claro/escuro).
-initializeTheme();
+        } else {
+          setState('user', null);
+          navigate('/');
+          showAuthScreen();
+          window.appListenersInitialized = false;
+        }
+      } catch (error) {
+        console.error("Erro crítico durante a inicialização:", error);
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) loadingOverlay.classList.add('hidden');
+        notify.error("Ocorreu um erro inesperado. Por favor, recarregue a página.");
+      }
+    });
 
-async function renderInitialView() {
-  await renderEnrollments();
-  await view.showEnrollmentsView();
-}
-
-// 5. Listener principal que reage a mudanças no estado de autenticação.
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    setState('user', user);
-    showAppScreen();
-    view.checkAndRenderNotifications();
-
-    if (!window.appListenersInitialized) {
-      initializeAppListeners();
-      window.appListenersInitialized = true;
-    }
-
-    renderUserEmail(user.email);
-    renderInitialView();
-
-  } else {
-    setState('user', null);
-    showAuthScreen();
-    window.appListenersInitialized = false;
-  }
+    window.addEventListener('popstate', handleRouteChange);
 });

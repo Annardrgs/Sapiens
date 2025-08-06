@@ -161,5 +161,21 @@ export function initializeDOMElements() {
     detailsSubjectName: document.getElementById('details-subject-name'),
     detailsSubjectCode: document.getElementById('details-subject-code'),
     detailsSubjectContent: document.getElementById('details-subject-content'),
+
+    // --- Pomodoro Timer ---
+    pomodoroDisplay: document.getElementById('pomodoro-display'),
+    pomodoroStatus: document.getElementById('pomodoro-status'),
+    startPomodoroBtn: document.getElementById('start-pomodoro-btn'),
+    pausePomodoroBtn: document.getElementById('pause-pomodoro-btn'),
+    stopPomodoroBtn: document.getElementById('stop-pomodoro-btn'),
+    studyHistoryModal: document.getElementById('study-history-modal'),
+    studyHistoryList: document.getElementById('study-history-list'),
+    closeStudyHistoryModalBtn: document.getElementById('close-study-history-modal-btn'),
+    pomodoroSettingsModal: document.getElementById('pomodoro-settings-modal'),
+    pomodoroSettingsForm: document.getElementById('pomodoro-settings-form'),
+    cancelPomodoroSettingsBtn: document.getElementById('cancel-pomodoro-settings-btn'),
+    floatingTimer: document.getElementById('floating-pomodoro-timer'),
+    floatingTimerDisplay: document.getElementById('floating-timer-display'),
+    floatingTimerStatus: document.getElementById('floating-timer-status'),
   });
 }

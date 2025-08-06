@@ -24,18 +24,21 @@ export function createEnrollmentCard(data) {
  */
 export function createDisciplineCard(discipline, enrollmentData, isPeriodClosed = false) {
     const card = document.createElement('div');
-    // Adicionamos a classe 'group' para controlar o hover dos botões
     card.className = 'relative bg-surface border border-border rounded-xl shadow-sm transition-all duration-300 ease-in-out hover:border-primary group';
     card.dataset.id = discipline.id;
-    // Adicionamos data-action para o clique principal
     card.dataset.action = 'view-discipline-details';
 
     const currentAbsences = discipline.absences || 0;
-    const averageGrade = calculateAverage(discipline);
+    const hasExceededAbsences = discipline.failedByAbsence === true;
+
+    let averageGrade = calculateAverage(discipline);
     const passingGrade = enrollmentData.passingGrade || 7.0;
     
     let status = { text: 'N/A', color: 'subtle' };
-    if (averageGrade !== 'N/A') {
+
+    if (hasExceededAbsences) {
+        status = { text: 'Reprovado por Falta', color: 'danger' };
+    } else if (averageGrade !== 'N/A') {
         const numericAverage = parseFloat(averageGrade);
         const allGradesFilled = discipline.grades && discipline.grades.every(g => g.grade !== null);
         if (numericAverage >= passingGrade) status = { text: 'Aprovado', color: 'success' };
@@ -93,7 +96,7 @@ export function renderGradesChart(container, discipline) {
 
     container.innerHTML = discipline.grades.map(gradeInfo => {
         const grade = (gradeInfo && gradeInfo.grade !== null) ? parseFloat(gradeInfo.grade) : 0;
-        const heightPercentage = Math.max(grade * 10, 0); // Garante que a altura não seja negativa
+        const heightPercentage = Math.max(grade * 10, 0);
         const gradeLabel = (gradeInfo && gradeInfo.grade !== null) ? grade.toFixed(1) : '-';
 
         return `
@@ -128,12 +131,14 @@ function populateGradesInputs(container, discipline, isPeriodClosed) {
 }
 
 export function calculateAverage(data) {
-    // Se não houver array de 'grades', não há média.
+    if (data.failedByAbsence) {
+        return '0.00';
+    }
+    
     if (!data.grades || data.grades.length === 0) {
         return 'N/A';
     }
 
-    // Se a disciplina tem uma configuração complexa, calcula a média baseada nela.
     if (data.gradeConfig && data.gradeConfig.evaluations && data.gradeConfig.evaluations.length > 0) {
         let averageGrade = 'N/A';
         const { rule, evaluations } = data.gradeConfig;
@@ -168,26 +173,12 @@ export function calculateAverage(data) {
         return parseFloat(averageGrade) === 0 ? "0.00" : averageGrade;
     }
 
-    // --- LÓGICA DE FALLBACK PARA DISCIPLINAS SIMPLES ---
-    // Se não houver 'gradeConfig', assume que é uma disciplina simples 
-    // com a nota final diretamente no primeiro item do array 'grades'.
     const finalGrade = data.grades[0]?.grade;
     if (typeof finalGrade === 'number') {
         return finalGrade.toFixed(2);
     }
 
     return 'N/A';
-}
-
-export function createAbsenceHistoryItem(data) {
-    const item = document.createElement('div');
-    item.className = "flex items-start justify-between bg-bkg p-3 rounded-md border border-border";
-    const absenceDate = new Date(data.absenceDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-    item.innerHTML = `
-        <div><p class="font-semibold text-secondary">${absenceDate}</p><p class="text-sm text-subtle">${data.justification || 'Sem justificativa'}</p></div>
-        <button data-id="${data.id}" class="remove-absence-btn p-1 rounded-full hover:bg-surface"><svg class="w-4 h-4 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
-    `;
-    return item;
 }
 
 function getNextClassInfo(schedules) {
@@ -228,4 +219,22 @@ function getNextClassInfo(schedules) {
     if (nextClass.dayOffset === 0) return `Hoje, ${nextClass.startTime}`;
     if (nextClass.dayOffset === 1) return `Amanhã, ${nextClass.startTime}`;
     return `${dayNames[dayMap[nextClass.day]]}, ${nextClass.startTime}`;
+}
+
+export function createAbsenceHistoryItem(data) {
+    const item = document.createElement('div');
+    item.className = "flex items-start justify-between bg-bkg p-3 rounded-md border border-border";
+    const absenceDate = new Date(data.absenceDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    item.innerHTML = `
+        <div>
+            <p class="font-semibold text-secondary">${absenceDate}</p>
+            <p class="text-sm text-subtle">${data.justification || 'Sem justificativa'}</p>
+        </div>
+        <button data-id="${data.id}" class="remove-absence-btn p-1 rounded-full hover:bg-surface text-danger">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 pointer-events-none" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+        </button>
+    `;
+    return item;
 }
