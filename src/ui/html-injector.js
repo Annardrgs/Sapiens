@@ -25,7 +25,6 @@ const mainHTML = `
             <div id="enrollments-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8 px-4 sm:px-0">
-            <!-- Coluna 1: Sessões de Estudo -->
             <div>
               <h3 class="text-2xl font-bold text-secondary mb-4">Sessões de Estudo</h3>
               <div id="pomodoro-timer-container" class="bg-surface p-6 rounded-xl shadow-lg border border-border h-80 flex flex-col justify-between items-center">
@@ -53,7 +52,6 @@ const mainHTML = `
                   </div>
               </div>
             </div>
-            <!-- Coluna 2: Tarefas do Dia -->
             <div>
                 <h3 class="text-2xl font-bold text-secondary mb-4">Tarefas do Dia</h3>
                 <div id="todo-list-container" class="bg-surface p-4 rounded-xl shadow-lg border border-border h-80 flex flex-col">
@@ -66,7 +64,6 @@ const mainHTML = `
                     </form>
                 </div>
             </div>
-            <!-- Coluna 3: Próximos Eventos -->
             <div>
               <h3 class="text-2xl font-bold text-secondary mb-4">Próximos Eventos</h3>
               <div class="bg-surface p-4 rounded-xl shadow-lg border border-border h-80 flex flex-col">
@@ -462,37 +459,50 @@ const modalHTML = `
   </div>
 
   <div id="pomodoro-settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-sm border border-border">
-        <h3 class="text-2xl font-bold mb-6 text-secondary">Configurar Pomodoro</h3>
-        <form id="pomodoro-settings-form" class="space-y-4">
-            <div>
-                <label for="pomodoro-discipline" class="block text-sm font-medium text-subtle mb-1">Disciplina (Opcional)</label>
-                <select id="pomodoro-discipline" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md custom-select"></select>
-            </div>
-            <div>
-                <label for="pomodoro-sound" class="block text-sm font-medium text-subtle mb-1">Som Ambiente</label>
-                <select id="pomodoro-sound" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md custom-select">
-                    <option value="none">Nenhum</option>
-                    <option value="rain">Chuva</option>
-                    <option value="forest">Floresta</option>
-                    <option value="cafe">Cafeteria</option>
-                </select>
-            </div>
-            <div class="grid grid-cols-2 gap-4">
+    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-sm border border-border flex flex-col max-h-[90vh]">
+        <h3 class="text-2xl font-bold mb-6 text-secondary flex-shrink-0">Configurar Pomodoro</h3>
+        <div class="overflow-y-auto custom-scrollbar -mr-4 pr-4">
+            <form id="pomodoro-settings-form" class="space-y-4">
                 <div>
-                    <label for="pomodoro-study-time" class="block text-sm font-medium text-subtle mb-1">Foco (min)</label>
-                    <input type="number" id="pomodoro-study-time" value="25" min="1" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+                    <label for="pomodoro-discipline" class="block text-sm font-medium text-subtle mb-1">Disciplina (Opcional)</label>
+                    <select id="pomodoro-discipline" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md custom-select"></select>
                 </div>
                 <div>
-                    <label for="pomodoro-break-time" class="block text-sm font-medium text-subtle mb-1">Pausa (min)</label>
-                    <input type="number" id="pomodoro-break-time" value="5" min="1" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+                    <label for="pomodoro-sound" class="block text-sm font-medium text-subtle mb-1">Som Ambiente</label>
+                    <select id="pomodoro-sound" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md custom-select">
+                        <option value="none">Nenhum</option>
+                        <optgroup label="Natureza">
+                            <option value="light-rain">Chuva Leve</option>
+                            <option value="storm">Tempestade Distante</option>
+                            <option value="forest-night">Noite na Floresta</option>
+                            <option value="waterfall">Cachoeira Suave</option>
+                            <option value="birds">Pássaros da Manhã</option>
+                        </optgroup>
+                        <optgroup label="Lo-fi">
+                            <option value="lofi">Beats Lo-fi</option>
+                            <option value="stars">Estrelas Lo-fi</option>
+                            <option value="milky-way">Via Láctea</option>
+                            <option value="sunrise">Amanhecer</option>
+                            <option value="dawn">Madrugada</option>
+                        </optgroup>
+                    </select>
                 </div>
-            </div>
-            <div class="mt-8 flex justify-end space-x-4">
-                <button type="button" id="cancel-pomodoro-settings-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg">Cancelar</button>
-                <button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg">Iniciar</button>
-            </div>
-        </form>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="pomodoro-study-time" class="block text-sm font-medium text-subtle mb-1">Foco (min)</label>
+                        <input type="number" id="pomodoro-study-time" value="25" min="1" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+                    </div>
+                    <div>
+                        <label for="pomodoro-break-time" class="block text-sm font-medium text-subtle mb-1">Pausa (min)</label>
+                        <input type="number" id="pomodoro-break-time" value="5" min="1" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+                    </div>
+                </div>
+                <div class="mt-8 flex justify-end space-x-4 pt-4">
+                    <button type="button" id="cancel-pomodoro-settings-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg">Cancelar</button>
+                    <button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg">Iniciar</button>
+                </div>
+            </form>
+        </div>
     </div>
   </div>
 `;

@@ -996,14 +996,17 @@ async function handleMarkAsCompletedSubmit(e) {
 
 async function handlePomodoroSettingsSubmit(e) {
     e.preventDefault();
-    const studyTime = dom.pomodoroSettingsForm.querySelector('#pomodoro-study-time').value;
-    const breakTime = dom.pomodoroSettingsForm.querySelector('#pomodoro-break-time').value;
-    const disciplineId = dom.pomodoroSettingsForm.querySelector('#pomodoro-discipline').value;
-    const disciplineName = dom.pomodoroSettingsForm.querySelector('#pomodoro-discipline').options[dom.pomodoroSettingsForm.querySelector('#pomodoro-discipline').selectedIndex].text;
+    const form = dom.pomodoroSettingsForm;
+    const studyTime = form.querySelector('#pomodoro-study-time').value;
+    const breakTime = form.querySelector('#pomodoro-break-time').value;
+    const disciplineSelect = form.querySelector('#pomodoro-discipline');
+    const disciplineId = disciplineSelect.value;
+    const disciplineName = disciplineSelect.options[disciplineSelect.selectedIndex].text;
+    const ambientSoundKey = form.querySelector('#pomodoro-sound').value;
     
     const selectedDiscipline = disciplineId === 'none' ? null : { id: disciplineId, name: disciplineName };
 
-    pomodoro.startTimer(parseInt(studyTime), parseInt(breakTime), selectedDiscipline);
+    pomodoro.startTimer(parseInt(studyTime), parseInt(breakTime), selectedDiscipline, ambientSoundKey);
     modals.hidePomodoroSettingsModal();
 }
 

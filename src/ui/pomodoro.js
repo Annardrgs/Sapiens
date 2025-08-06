@@ -4,6 +4,21 @@ import { notify } from './notifications.js';
 import * as modals from './modals.js';
 import { getState } from '../store/state.js';
 
+// Importe TODOS os áudios aqui
+import playSoundSrc from '../public/audio/play.mp3';
+import breakSoundSrc from '../public/audio/break.mp3';
+import endSoundSrc from '../public/audio/end.mp3';
+import lightRainSoundSrc from '../public/audio/music/PMSFX_RAINVege_RAIN_LIGHT_DRIZLE_DRIPPY_18MRRAT_2441.mp3';
+import stormSoundSrc from '../public/audio/music/PMSFX_STORM_RAIN_STEADY_THUNDER_2MRRAT_2446.mp3';
+import forestNightSoundSrc from '../public/audio/music/zapsplat_nature_rain_medium_light_gradually_getting_heavier.mp3';
+import waterfallSoundSrc from '../public/audio/music/zapsplat_nature_small_waterfall_water_flowing_through_rocks_110717.mp3';
+import birdsSoundSrc from '../public/audio/music/PMSFX_AMBAir_Calm_Still_Exterior_Air_Birds_PCMD100_2LSV1_2448.mp3';
+import lofiSoundSrc from '../public/audio/music/music_biiansu_no_sleep_for_busy_minds_016.mp3';
+import starsSoundSrc from '../public/audio/music/music_zapsplat_among_the_stars.mp3';
+import milkyWaySoundSrc from '../public/audio/music/music_zapsplat_milky_way.mp3';
+import sunriseSoundSrc from '../public/audio/music/music_zapsplat_sunrise_105.mp3';
+import dawnSoundSrc from '../public/audio/music/music_zapsplat_dawn_102.mp3';
+
 let timerInterval = null;
 let timeLeft = 25 * 60;
 let isRunning = false;
@@ -27,35 +42,44 @@ function createAudioElement(id, src, loop = false) {
 }
 
 const sounds = {
-    start: createAudioElement('start-sound', '../public/audio/play.mp3'),
-    break: createAudioElement('break-sound', '../public/audio/break.mp3'),
-    finish: createAudioElement('finish-sound', '../public/audio/end.mp3'),
+    start: createAudioElement('start-sound', playSoundSrc),
+    break: createAudioElement('break-sound', breakSoundSrc),
+    finish: createAudioElement('finish-sound', endSoundSrc),
     ambient: {
-        // rain: createAudioElement('ambient-rain', '/audio/rain.mp3', true),
-        // forest: createAudioElement('ambient-forest', '/audio/forest.mp3', true),
-        // cafe: createAudioElement('ambient-cafe', '/audio/cafe.mp3', true),
+        'light-rain': createAudioElement('ambient-light-rain', lightRainSoundSrc, true),
+        'storm': createAudioElement('ambient-storm', stormSoundSrc, true),
+        'forest-night': createAudioElement('ambient-forest-night', forestNightSoundSrc, true),
+        'waterfall': createAudioElement('ambient-waterfall', waterfallSoundSrc, true),
+        'birds': createAudioElement('ambient-birds', birdsSoundSrc, true),
+        'lofi': createAudioElement('ambient-lofi', lofiSoundSrc, true),
+        'stars': createAudioElement('ambient-stars', starsSoundSrc, true),
+        'milky-way': createAudioElement('ambient-milky-way', milkyWaySoundSrc, true),
+        'sunrise': createAudioElement('ambient-sunrise', sunriseSoundSrc, true),
+        'dawn': createAudioElement('ambient-dawn', dawnSoundSrc, true),
     }
 };
 
 Object.values(sounds.ambient).forEach(sound => sound.loop = true);
 let currentAmbientSound = null;
 
-function playSound(sound) {
+// Função de delay para controlar o tempo entre os sons
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
+async function playSound(sound) {
     try {
         sound.currentTime = 0;
-        sound.play().catch(e => {
-            console.warn("Não foi possível tocar o som:", e);
-        });
+        await sound.play();
     } catch (e) {
-        console.warn("Erro ao tentar tocar o som:", e);
+        console.warn("Não foi possível tocar o som:", e);
     }
 }
 
-function stopAmbientSound() {
+async function stopAmbientSound() {
     if (currentAmbientSound) {
         currentAmbientSound.pause();
         currentAmbientSound.currentTime = 0;
         currentAmbientSound = null;
+        await delay(500); // Pequena pausa após parar o som ambiente
     }
 }
 
@@ -88,18 +112,20 @@ async function saveSession() {
     }
 }
 
-function finishSession() {
+async function finishSession() {
+    await stopAmbientSound(); // Para a música ambiente antes de tocar o som de finalização
+
     if (!isBreak) { 
         saveSession();
         isBreak = true;
         timeLeft = breakDuration;
         notify.info("Hora da pausa!");
-        playSound(sounds.break);
+        await playSound(sounds.break);
     } else { 
         isBreak = false;
         timeLeft = studyDuration;
         notify.success("Pausa terminada. Hora de focar!");
-        playSound(sounds.start);
+        await playSound(sounds.start);
     }
     
     totalTimeElapsed = 0;
@@ -110,7 +136,7 @@ function finishSession() {
 
 function runTimer() {
     clearInterval(timerInterval); 
-    timerInterval = setInterval(() => {
+    timerInterval = setInterval(async () => {
         if (isPaused) return;
 
         timeLeft--;
@@ -120,13 +146,12 @@ function runTimer() {
         updateDisplay(true);
 
         if (timeLeft <= 0) {
-            playSound(sounds.finish);
-            finishSession();
+            await finishSession();
         }
     }, 1000);
 }
 
-export function startTimer(studyMinutes, breakMinutes, discipline, ambientSoundKey) {
+export async function startTimer(studyMinutes, breakMinutes, discipline, ambientSoundKey) {
     if (isRunning) return;
     
     studyDuration = studyMinutes * 60;
@@ -144,10 +169,12 @@ export function startTimer(studyMinutes, breakMinutes, discipline, ambientSoundK
     dom.pausePomodoroBtn.classList.remove('hidden');
     dom.stopPomodoroBtn.classList.remove('hidden');
 
-    playSound(sounds.start);
+    await playSound(sounds.start);
+    await delay(1000); // Espera 1 segundo antes de começar a música ambiente
+
     if (ambientSoundKey !== 'none' && sounds.ambient[ambientSoundKey]) {
         currentAmbientSound = sounds.ambient[ambientSoundKey];
-        playSound(currentAmbientSound);
+        playSound(currentAmbientSound); // Não precisa de await aqui para a música tocar em fundo
     }
 
     updateDisplay();
@@ -155,16 +182,19 @@ export function startTimer(studyMinutes, breakMinutes, discipline, ambientSoundK
     updateFloatingTimerVisibility();
 }
 
-export function togglePause() {
+export async function togglePause() {
     if (!isRunning) return;
     isPaused = !isPaused;
 
     if (isPaused) {
+        await stopAmbientSound();
+        await playSound(sounds.break);
         dom.pausePomodoroBtn.innerHTML = `<svg class="w-8 h-8 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"></path></svg>`;
-        if (currentAmbientSound) currentAmbientSound.pause();
     } else {
+        await playSound(sounds.start);
+        await delay(1000);
+        if (currentAmbientSound) playSound(currentAmbientSound);
         dom.pausePomodoroBtn.innerHTML = `<svg class="w-8 h-8 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z"></path></svg>`;
-        if (currentAmbientSound) currentAmbientSound.play();
     }
 }
 
@@ -172,11 +202,16 @@ export function stopTimer() {
     if (!isRunning) return;
     isPaused = true; 
     
-    const onConfirm = () => {
+    const onConfirm = async () => {
+        await stopAmbientSound();
+        await playSound(sounds.finish);
         if (!isBreak) saveSession();
         resetTimer();
     };
-    const onCancel = () => resetTimer();
+    
+    const onCancel = () => { 
+        isPaused = false;
+    };
 
     const message = isBreak ? "Deseja finalizar a sessão de pausa? O tempo de pausa não é salvo." : `Deseja salvar os ${Math.floor(totalTimeElapsed / 60)} minutos de foco no seu histórico?`;
 
@@ -185,13 +220,11 @@ export function stopTimer() {
         message: message,
         confirmText: 'Finalizar',
         confirmClass: 'bg-primary',
-        onConfirm: onConfirm
+        onConfirm: onConfirm,
+        onCancel: onCancel // Passa a função de cancelamento para o modal
     });
-    dom.confirmModalCancelBtn.onclick = () => {
-        modals.hideConfirmModal();
-        onCancel();
-    };
 }
+
 
 export function resetTimer() {
     clearInterval(timerInterval);
