@@ -82,8 +82,8 @@ export async function showEnrollmentsView() {
         renderUpcomingEvents()
     ]);
 
-    pomodoro.initialize();
     hideLoading();
+    pomodoro.initialize();
 }
 
 // --- RENDERIZAÇÃO DE CONTEÚDO ---
@@ -352,8 +352,7 @@ export async function showDisciplineDashboard({ enrollmentId, disciplineId }) {
 
     showLoading();
 
-    // Garante que o estado da matrícula ativa e os períodos estejam corretos,
-    // especialmente após um refresh de página.
+    // Garante que o estado da matrícula ativa e os períodos estejam corretos
     if (getState().activeEnrollmentId !== enrollmentId || !getState().activePeriodId) {
         setState('activeEnrollmentId', enrollmentId);
         const enrollment = await api.getEnrollment(enrollmentId);
@@ -362,13 +361,8 @@ export async function showDisciplineDashboard({ enrollmentId, disciplineId }) {
             setState('periods', periods);
             const activePeriod = periods.find(p => p.id === enrollment.data().activePeriodId);
             const activeIndex = periods.indexOf(activePeriod);
-            const validIndex = activeIndex > -1 ? activeIndex : 0;
-            setState('activePeriodIndex', validIndex);
-            if (periods[validIndex]) {
-                setState('activePeriodId', periods[validIndex].id);
-            }
+            setState('activePeriodIndex', activeIndex > -1 ? activeIndex : 0);
         } else {
-            // Se a matrícula não existe, volta para a home
             navigate('/');
             hideLoading();
             return;
@@ -382,7 +376,6 @@ export async function showDisciplineDashboard({ enrollmentId, disciplineId }) {
     const { activePeriodId } = getState();
     setState('activeDisciplineId', disciplineId);
 
-    // Agora, com a garantia de que todos os IDs estão corretos, busca os dados.
     const enrollmentSnap = await api.getEnrollment(enrollmentId);
     const disciplineSnap = await api.getDiscipline(enrollmentId, activePeriodId, disciplineId);
 
@@ -404,10 +397,6 @@ export async function showDisciplineDashboard({ enrollmentId, disciplineId }) {
         renderEvaluationsList(discipline);
         renderPerformanceChartWithChartJS(discipline);
         renderDisciplineAgenda(disciplineId);
-    } else {
-        // Se a disciplina não for encontrada, volta para o dashboard da matrícula
-        notify.error("Disciplina não encontrada.");
-        navigate(`/dashboard?enrollmentId=${enrollmentId}`);
     }
     hideLoading();
 }

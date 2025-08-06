@@ -313,6 +313,11 @@ async function handleAppContainerClick(e) {
         e.stopPropagation();
 
         switch (action) {
+            // **CORREÇÃO APLICADA AQUI**
+            case 'toggle-mute':
+                pomodoro.toggleMute();
+                break;
+
             // Ações de Navegação
             case 'view-grades-report': 
                 if (activeEnrollmentId) navigate(`/grades?enrollmentId=${activeEnrollmentId}`);

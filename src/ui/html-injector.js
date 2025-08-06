@@ -29,7 +29,12 @@ const mainHTML = `
               <h3 class="text-2xl font-bold text-secondary mb-4">Sessões de Estudo</h3>
               <div id="pomodoro-timer-container" class="bg-surface p-6 rounded-xl shadow-lg border border-border h-80 flex flex-col justify-between items-center">
                   <div class="w-full flex justify-between items-center">
-                      <h4 class="font-bold text-secondary text-lg">Pomodoro Timer</h4>
+                      <div class="flex items-center gap-2">
+                        <h4 class="font-bold text-secondary text-lg">Pomodoro Timer</h4>
+                        <button id="pomodoro-mute-btn" class="hidden text-subtle p-1 rounded-full hover:bg-bkg" data-action="toggle-mute">
+                            <svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l9 7.5" /></svg>
+                        </button>
+                      </div>
                       <button data-action="view-study-history" class="text-sm font-semibold bg-primary/10 text-primary px-3 py-1 rounded-md hover:bg-primary/20 flex items-center gap-2">
                           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                           Histórico
@@ -196,7 +201,12 @@ const mainHTML = `
     </main>
     <div id="floating-pomodoro-timer" class="hidden fixed bottom-5 right-5 bg-surface p-4 rounded-lg shadow-2xl border border-border cursor-grab z-50 flex items-center gap-4">
         <div>
-            <div id="floating-timer-status" class="text-sm font-bold text-primary">Foco</div>
+            <div class="flex items-center gap-2">
+                <div id="floating-timer-status" class="text-sm font-bold text-primary">Foco</div>
+                <button id="pomodoro-mute-btn" class="hidden text-subtle p-1 rounded-full hover:bg-bkg" data-action="toggle-mute">
+                    <svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l9 7.5" /></svg>
+                </button>
+            </div>
             <div id="floating-timer-display" class="text-3xl font-bold text-secondary">25:00</div>
         </div>
         <button id="close-floating-timer-btn" class="p-1 rounded-full text-subtle hover:bg-bkg absolute top-1 right-1">

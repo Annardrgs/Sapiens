@@ -77,6 +77,7 @@
   }
 }
 
+
 /* --- Customização do FullCalendar --- */
 :root {
   --fc-border-color: var(--color-border);
