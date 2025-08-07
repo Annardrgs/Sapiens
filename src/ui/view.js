@@ -27,6 +27,7 @@ function hideAllViews() {
     if (dom.disciplineDashboardView) dom.disciplineDashboardView.classList.add('hidden');
     if (dom.gradesReportView) dom.gradesReportView.classList.add('hidden');
     if (dom.courseChecklistView) dom.courseChecklistView.classList.add('hidden');
+    if (dom.documentsView) dom.documentsView.classList.add('hidden');
     if (dom.documentsView) {
         dom.documentsView.addEventListener('click', e => {
             const deleteBtn = e.target.closest('[data-action="delete-document"]');
@@ -208,7 +209,7 @@ function renderSummaryCards(disciplines) {
     const periodStatus = isPeriodClosed ? 'Encerrado' : 'Em Andamento';
 
     const summaryData = [
-        { title: 'Total de Disciplinas', value: totalDisciplines, icon: 'book' },
+        { title: 'Total de Disciplinas', value: totalDisciplines, icon: 'academic-cap' },
         { title: 'Próxima Avaliação', value: nextEvaluation, icon: 'calendar' },
         { title: 'Faltas Acumuladas', value: totalAbsences, icon: 'user-minus' },
         { title: 'Status do Período', value: periodStatus, icon: 'check-circle' }
@@ -344,9 +345,16 @@ function renderPerformanceChartWithChartJS(discipline) {
     if (performanceChartInstance) {
         performanceChartInstance.destroy();
     }
-    if (!dom.disciplinePerformanceChart) return;
+    const canvas = dom.disciplinePerformanceChart;
+    if (!canvas) return;
     
-    const ctx = dom.disciplinePerformanceChart.getContext('2d');
+    const ctx = canvas.getContext('2d');
+    
+    // Gradiente para as barras
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, 'rgba(79, 70, 229, 0.7)'); // Cor primária com transparência
+    gradient.addColorStop(1, 'rgba(79, 70, 229, 0.1)');
+
     const labels = discipline.grades?.map(g => g.name) || [];
     const data = discipline.grades?.map(g => g.grade) || [];
     
@@ -357,12 +365,11 @@ function renderPerformanceChartWithChartJS(discipline) {
             datasets: [{
                 label: 'Nota',
                 data: data,
-                backgroundColor: 'rgba(99, 102, 241, 0.6)',
-                borderColor: 'rgba(99, 102, 241, 1)',
-                borderWidth: 1,
-                borderRadius: 4,
-                barPercentage: 0.6,
-                categoryPercentage: 0.7,
+                backgroundColor: gradient,
+                borderColor: 'rgba(79, 70, 229, 1)', // Cor primária sólida
+                borderWidth: 2,
+                borderRadius: 6,
+                hoverBackgroundColor: 'rgba(79, 70, 229, 0.9)'
             }]
         },
         options: {
@@ -372,16 +379,27 @@ function renderPerformanceChartWithChartJS(discipline) {
                 y: {
                     beginAtZero: true,
                     max: 10,
-                    grid: { color: 'rgba(55, 65, 81, 0.6)' },
-                    ticks: { color: '#9ca3af' }
+                    grid: { 
+                        color: 'rgba(55, 65, 81, 0.4)', // Linhas de grade mais suaves
+                        borderDash: [2, 4], 
+                    },
+                    ticks: { color: '#9ca3af', font: { weight: '600' } }
                 },
                 x: {
                     grid: { display: false },
-                    ticks: { color: '#9ca3af' }
+                    ticks: { color: '#9ca3af', font: { weight: '600' } }
                 }
             },
             plugins: {
-                legend: { display: false }
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(31, 41, 55, 0.9)', // Cor de fundo do tooltip
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 12 },
+                    padding: 10,
+                    cornerRadius: 8,
+                    displayColors: false
+                }
             }
         }
     });
@@ -404,22 +422,30 @@ async function renderDisciplineAgenda(disciplineId) {
         .sort((a, b) => new Date(a.start) - new Date(b.start));
 
     if (relatedEvents.length === 0) {
-        dom.disciplineEventsList.innerHTML = `<div class="bg-surface border border-border p-4 rounded-lg text-center text-subtle">Nenhum evento futuro para esta disciplina.</div>`;
+        dom.disciplineEventsList.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
+                </div>
+                <h4 class="empty-state-title">Nenhum evento futuro</h4>
+                <p class="empty-state-subtitle">Adicione provas ou trabalhos no calendário principal.</p>
+            </div>
+        `;
         return;
     }
 
     dom.disciplineEventsList.innerHTML = relatedEvents.map(event => {
         const eventDate = new Date(event.start.replace(/-/g, '/') + ' 00:00:00');
-        const formattedDate = eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+        const formattedDate = eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 
         return `
-            <div class="flex items-center bg-surface border border-border p-3 rounded-lg shadow-sm">
-                <span class="w-2 h-10 rounded-full mr-4 flex-shrink-0" style="background-color: ${event.backgroundColor};"></span>
+            <div class="flex items-center bg-bkg p-3 rounded-lg border border-border">
+                <span class="w-1.5 h-8 rounded-full mr-3 flex-shrink-0" style="background-color: ${event.backgroundColor};"></span>
                 <div class="flex-grow">
-                    <p class="font-semibold text-secondary">${event.title}</p>
-                    <p class="text-sm text-subtle">${event.category || 'Evento'}</p>
+                    <p class="font-semibold text-secondary truncate" title="${event.title}">${event.title}</p>
+                    <p class="text-xs text-subtle">${event.category || 'Evento'}</p>
                 </div>
-                <div class="text-right">
+                <div class="text-right flex-shrink-0 ml-2">
                     <p class="font-semibold text-sm text-primary">${formattedDate}</p>
                 </div>
             </div>
@@ -430,29 +456,29 @@ async function renderDisciplineAgenda(disciplineId) {
 function renderEvaluationsList(discipline) {
     if (!dom.evaluationsList) return;
 
-    const manageButton = document.querySelector('#evaluations-section [data-action="manage-evaluations"]');
-
-    if (discipline.completionDetails && manageButton) {
-        manageButton.classList.add('hidden');
-    } else if (manageButton) {
-        manageButton.classList.remove('hidden');
-    }
-
     dom.evaluationsList.innerHTML = '';
 
     if (!discipline.grades || discipline.grades.length === 0) {
-        dom.evaluationsList.innerHTML = `<p class="text-sm text-subtle">Nenhuma avaliação configurada.</p>`;
+        dom.evaluationsList.innerHTML = `
+            <div class="col-span-full empty-state">
+                <div class="empty-state-icon">
+                    <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                </div>
+                <h4 class="empty-state-title">Nenhuma avaliação configurada</h4>
+                <p class="empty-state-subtitle">Clique em "Gerenciar" para adicionar as provas e trabalhos.</p>
+            </div>
+        `;
         return;
     }
 
     discipline.grades.forEach((grade, index) => {
         const gradeValue = grade.grade ?? '-';
         const evaluationEl = document.createElement('div');
-        evaluationEl.className = 'bg-bkg p-3 rounded-lg flex justify-between items-center border border-transparent';
+        evaluationEl.className = 'evaluation-item'; // Usaremos esta nova classe no CSS
 
         evaluationEl.innerHTML = `
-            <span class="font-semibold text-secondary">${grade.name}</span>
-            <span data-action="edit-grade" data-grade-index="${index}" class="font-bold text-lg text-primary cursor-pointer hover:opacity-75 p-1 -m-1">
+            <span class="evaluation-item-label" title="${grade.name}">${grade.name}</span>
+            <span data-action="edit-grade" data-discipline-id="${discipline.id}" data-grade-index="${index}" class="evaluation-item-grade">
                 ${gradeValue}
             </span>
         `;
@@ -564,28 +590,53 @@ function renderStatCards(discipline, enrollmentData) {
     const passingGrade = enrollmentData.passingGrade || 7.0;
     const currentAbsences = discipline.absences || 0;
 
-    let status = { text: 'Em Andamento', color: 'text-warning' };
-    if (averageGrade !== 'N/A') {
+    let status = { text: 'Em Andamento', color: 'text-warning', iconColor: 'bg-warning/10 text-warning' };
+    if (discipline.failedByAbsence) {
+        status = { text: 'Reprovado', color: 'text-danger', iconColor: 'bg-danger/10 text-danger' };
+    } else if (averageGrade !== 'N/A') {
         const numericAverage = parseFloat(averageGrade);
         const allGradesFilled = discipline.grades && discipline.grades.every(g => g.grade !== null);
-        if (numericAverage >= passingGrade) status = { text: 'Aprovado', color: 'text-success' };
-        else if (allGradesFilled) status = { text: 'Reprovado', color: 'text-danger' };
+        if (numericAverage >= passingGrade) {
+            status = { text: 'Aprovado', color: 'text-success', iconColor: 'bg-success/10 text-success' };
+        } else if (allGradesFilled) {
+            status = { text: 'Reprovado', color: 'text-danger', iconColor: 'bg-danger/10 text-danger' };
+        }
     }
 
-    container.innerHTML = `
-        <div class="bg-surface p-4 rounded-xl border border-border">
-            <h4 class="text-sm font-bold text-subtle mb-1">Média Atual</h4>
-            <p class="text-3xl font-bold text-secondary">${averageGrade}</p>
-        </div>
-        <div class="bg-surface p-4 rounded-xl border border-border">
-            <h4 class="text-sm font-bold text-subtle mb-1">Faltas</h4>
-            <p class="text-3xl font-bold text-secondary">${currentAbsences}</p>
-        </div>
-        <div class="bg-surface p-4 rounded-xl border border-border">
-            <h4 class="text-sm font-bold text-subtle mb-1">Status</h4>
-            <p class="text-3xl font-bold ${status.color}">${status.text}</p>
-        </div>
-    `;
+    const stats = [
+        {
+            label: 'Média Atual',
+            value: averageGrade,
+            icon: `<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" /></svg>`,
+            iconColor: 'bg-primary/10 text-primary'
+        },
+        {
+            label: 'Faltas',
+            value: currentAbsences,
+            // ÍCONE CORRIGIDO ABAIXO
+            icon: `<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>`,
+            iconColor: 'bg-primary/10 text-primary'
+        },
+        {
+            label: 'Status',
+            value: status.text,
+            icon: `<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>`,
+            iconColor: status.iconColor,
+            valueColor: status.color,
+        }
+    ];
+
+    container.innerHTML = stats.map(stat => `
+        <section class="ui-card">
+            <div class="stat-card-lg">
+                <div class="stat-card-lg-icon ${stat.iconColor}">${stat.icon}</div>
+                <div>
+                    <h3 class="card-header">${stat.label}</h3>
+                    <p class="stat-card-lg-value ${stat.valueColor || ''}">${stat.value}</p>
+                </div>
+            </div>
+        </section>
+    `).join('');
 }
 
 export async function renderDisciplines(enrollmentId, periodId, enrollmentData, isPeriodClosed = false) {

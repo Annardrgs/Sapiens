@@ -8,7 +8,8 @@ const state = {
     
     enrollments: [],
     activeEnrollmentId: null,
-    activeEnrollment: null, // Chave adicionada
+    activeEnrollment: null,
+    activeDisciplineId: null,
 
     periods: [],
     activePeriodIndex: 0,
@@ -29,6 +30,7 @@ const state = {
     currentDisciplineForAbsence: null,
 
     onConfirmAction: null,
+    onCancelAction: null, 
 
     calendarMarkedForDeletion: false,
     returnToCompleteSubjectModal: false,

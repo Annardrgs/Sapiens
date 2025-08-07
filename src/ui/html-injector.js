@@ -59,7 +59,7 @@ const mainHTML = `
                       <div class="flex items-center gap-2">
                         <h4 class="font-bold text-secondary text-lg">Pomodoro Timer</h4>
                         <button id="main-pomodoro-mute-btn" class="hidden text-subtle p-1 rounded-full hover:bg-bkg" data-action="toggle-mute">
-                            <svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l9 7.5" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 pointer-events-none"><path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 001.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.66 1.905H6.44l4.5 4.5c.944.945 2.56.276 2.56-1.06V4.06zM18.584 5.106a.75.75 0 011.06 0c3.808 3.807 3.808 9.98 0 13.788a.75.75 0 11-1.06-1.06 8.25 8.25 0 000-11.668.75.75 0 010-1.06z" /><path d="M15.932 7.757a.75.75 0 011.061 0 6 6 0 010 8.486.75.75 0 01-1.06-1.061 4.5 4.5 0 000-6.364.75.75 0 010-1.06z" /></svg>
                         </button>
                       </div>
                       <button data-action="view-study-history" class="text-sm font-semibold bg-primary/10 text-primary px-3 py-1 rounded-md hover:bg-primary/20 flex items-center gap-2">
@@ -143,13 +143,97 @@ const mainHTML = `
         </div>
       </div>
 
-      <div id="discipline-dashboard-view" class="hidden"></div>
-      <div id="grades-report-view" class="hidden"></div>
-      <div id="course-checklist-view" class="hidden"></div>
+      <div id="discipline-dashboard-view" class="hidden flex-grow flex flex-col">
+        <div class="dashboard-header flex-shrink-0">
+          <button data-action="back-to-dashboard" class="back-button">
+            <svg class="w-6 h-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+          </button>
+          <div>
+            <h2 id="discipline-dash-title" class="text-3xl font-bold text-secondary"></h2>
+            <p id="discipline-dash-subtitle" class="text-subtle"></p>
+          </div>
+        </div>
+        
+        <div class="flex-grow overflow-y-auto custom-scrollbar pr-2 mt-2">
+            <div id="discipline-stats-container" class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+                </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                <section class="ui-card lg:col-span-2">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="card-header">Avaliações</h3>
+                        <button data-action="manage-evaluations" class="text-sm font-semibold text-link">Gerenciar</button>
+                    </div>
+                    <div id="evaluations-list" class="grid grid-cols-[repeat(auto-fit,minmax(96px,1fr))] gap-4">
+                        </div>
+                </section>
+
+                <section id="absences-section" class="ui-card lg:col-span-1">
+                     </section>
+
+                <section id="performance-section" class="ui-card lg:col-span-2">
+                    <h3 class="card-header mb-4">Desempenho nas Avaliações</h3>
+                    <div class="h-64" id="discipline-performance-chart-container">
+                        <canvas id="discipline-performance-chart"></canvas>
+                    </div>
+                </section>
+
+                <section id="events-section" class="ui-card lg:col-span-1">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="card-header">Próximos Eventos</h3>
+                        <button data-action="add-new-event" class="text-sm font-semibold text-link">+ Novo Evento</button>
+                    </div>
+                    <div id="discipline-events-list" class="space-y-3">
+                        </div>
+                </section>
+                
+            </div>
+        </div>
+      </div>
+      
+      <div id="grades-report-view" class="hidden flex flex-col flex-grow">
+        <div class="dashboard-header flex-shrink-0">
+          <button data-action="back-to-dashboard" class="back-button">
+            <svg class="w-6 h-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+          </button>
+          <div>
+            <h2 id="grades-report-title" class="text-3xl font-bold text-secondary">Boletim Acadêmico</h2>
+            <p id="grades-report-subtitle" class="text-subtle"></p>
+          </div>
+        </div>
+        <div class="flex items-center justify-end mb-6 flex-shrink-0">
+            <button id="export-pdf-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                Exportar PDF
+            </button>
+        </div>
+        <div id="grades-report-content" class="flex-grow overflow-y-auto custom-scrollbar pr-2">
+            </div>
+      </div>
+      <div id="course-checklist-view" class="hidden flex flex-col flex-grow">
+        <div class="dashboard-header flex-shrink-0">
+          <button data-action="back-to-dashboard" class="back-button">
+            <svg class="w-6 h-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+          </button>
+          <div>
+            <h2 id="checklist-title" class="text-3xl font-bold text-secondary">Grade Curricular</h2>
+            <p id="checklist-subtitle" class="text-subtle"></p>
+          </div>
+        </div>
+        <div class="flex items-center justify-end mb-6 flex-shrink-0">
+            <button id="add-curriculum-subject-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                Adicionar Disciplina
+            </button>
+        </div>
+        <div id="checklist-content" class="flex-grow overflow-y-auto custom-scrollbar pr-2">
+            </div>
+      </div>
       
       <div id="documents-view" class="hidden flex flex-col flex-grow">
         <div class="dashboard-header flex-shrink-0">
-          <button data-action="back-to-enrollments" class="back-button">
+          <button data-action="back-from-documents" class="back-button">
             <svg class="w-6 h-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
           </button>
           <div>
@@ -192,6 +276,20 @@ const mainHTML = `
     </main>
 
     <div id="floating-pomodoro-timer" class="hidden fixed bottom-5 right-5 bg-surface p-4 rounded-lg shadow-2xl border border-border cursor-grab z-50 flex items-center gap-4">
+      <div class="text-center">
+        <div id="floating-timer-display" class="text-2xl font-bold text-primary">25:00</div>
+        <div id="floating-timer-status" class="text-xs font-semibold text-subtle">Foco</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="floating-pause-pomodoro-btn" class="p-2 rounded-full hover:bg-bkg text-secondary">
+          </button>
+        <button id="floating-stop-pomodoro-btn" class="p-2 rounded-full hover:bg-bkg text-danger" title="Parar">
+          <svg class="w-5 h-5 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.5 5.5A.5.5 0 016 5h8a.5.5 0 01.5.5v8a.5.5 0 01-.5.5H6a.5.5 0 01-.5-.5v-8z"></path></svg>
+        </button>
+        <button data-action="toggle-mute" class="p-2 rounded-full hover:bg-bkg text-subtle" title="Mudo">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 pointer-events-none"><path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 001.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.66 1.905H6.44l4.5 4.5c.944.945 2.56.276 2.56-1.06V4.06zM18.584 5.106a.75.75 0 011.06 0c3.808 3.807 3.808 9.98 0 13.788a.75.75 0 11-1.06-1.06 8.25 8.25 0 000-11.668.75.75 0 010-1.06z" /><path d="M15.932 7.757a.75.75 0 011.061 0 6 6 0 010 8.486.75.75 0 01-1.06-1.061 4.5 4.5 0 000-6.364.75.75 0 010-1.06z" /></svg>
+        </button>
+      </div>
     </div>
   </div>
 `;
@@ -215,7 +313,7 @@ const modalHTML = `
       <h3 id="confirm-modal-title" class="text-xl font-bold text-secondary"></h3>
       <p id="confirm-modal-message" class="text-subtle mt-2"></p>
       <div class="mt-6 flex justify-end space-x-4">
-        <button id="confirm-modal-cancel-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg">Cancelar</button>
+        <button id="confirm-modal-cancel-btn" class="bg-danger text-white font-semibold py-2 px-4 rounded-lg hover:opacity-90">Cancelar</button>
         <button id="confirm-modal-confirm-btn" class="font-semibold py-2 px-4 rounded-lg text-white"></button>
       </div>
     </div>
@@ -339,7 +437,7 @@ const modalHTML = `
         <div class="mt-8 flex justify-between items-center">
           <button type="button" id="delete-event-btn" class="text-sm font-semibold text-danger hover:opacity-80">Excluir Evento</button>
           <div class="space-x-4">
-            <button type="button" id="cancel-event-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg">Cancelar</button>
+            <button type="button" id="cancel-event-btn" class="bg-subtle/50 text-secondary font-semibold py-2 px-4 rounded-lg hover:bg-subtle/80">Cancelar</button>
             <button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg">Salvar</button>
           </div>
         </div>

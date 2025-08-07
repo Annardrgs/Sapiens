@@ -376,10 +376,11 @@ export async function showEventModal(eventId = null, dateStr = null) {
     showModal(dom.addEventModal);
 }
 
-export function showConfirmModal({ title, message, confirmText, confirmClass = 'bg-danger', onConfirm }) {
+export function showConfirmModal({ title, message, confirmText, confirmClass = 'bg-danger', onConfirm, onCancel }) {
     if (!dom.confirmModal || !dom.confirmModalTitle || !dom.confirmModalMessage || !dom.confirmModalConfirmBtn) return;
     
     setState('onConfirmAction', onConfirm);
+    setState('onCancelAction', onCancel || null);
 
     dom.confirmModalTitle.textContent = title;
     dom.confirmModalMessage.textContent = message;
@@ -453,6 +454,7 @@ export function hidePomodoroSettingsModal() { hideModal(dom.pomodoroSettingsModa
 export function hideConfirmModal() {
     setState('itemToDelete', null);
     setState('onConfirmAction', null);
+    setState('onCancelAction', null);
     hideModal(dom.confirmModal);
 }
 

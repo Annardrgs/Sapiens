@@ -12,7 +12,7 @@ export default {
             surface: 'var(--color-surface)',
             primary: 'var(--color-primary)',
             secondary: 'var(--color-secondary)',
-            subtle: 'var(--color-subtle)',
+            subtle: 'rgb(var(--color-subtle-rgb) / <alpha-value>)',
             border: 'var(--color-border)',
             success: 'var(--color-success)',
             danger: 'var(--color-danger)',
