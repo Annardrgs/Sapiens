@@ -106,7 +106,8 @@ export function initializeAppListeners() {
     if (dom.pomodoroSettingsForm) dom.pomodoroSettingsForm.addEventListener('submit', handlePomodoroSettingsSubmit);
     if (dom.cancelPomodoroSettingsBtn) dom.cancelPomodoroSettingsBtn.addEventListener('click', modals.hidePomodoroSettingsModal);
     if (dom.studyHistoryList) dom.studyHistoryList.addEventListener('click', handleDeleteStudySession);
-
+    if (dom.floatingPausePomodoroBtn) dom.floatingPausePomodoroBtn.addEventListener('click', pomodoro.togglePause);
+    if (dom.floatingStopPomodoroBtn) dom.floatingStopPomodoroBtn.addEventListener('click', pomodoro.stopTimer);
 
     const deleteBtn = dom.addEventModal.querySelector('#delete-event-btn');
     if (deleteBtn) {
@@ -257,6 +258,8 @@ export function initializeAppListeners() {
     if (dom.cancelCurriculumSubjectBtn) dom.cancelCurriculumSubjectBtn.addEventListener('click', modals.hideCurriculumSubjectModal);
     if (dom.markAsCompletedForm) dom.markAsCompletedForm.addEventListener('submit', handleMarkAsCompletedSubmit);
     if (dom.cancelMarkAsCompletedBtn) dom.cancelMarkAsCompletedBtn.addEventListener('click', modals.hideMarkAsCompletedModal);
+    if (dom.cancelDocumentBtn) dom.cancelDocumentBtn.addEventListener('click', modals.hideDocumentModal);
+    if (dom.addDocumentForm) dom.addDocumentForm.addEventListener('submit', handleDocumentFormSubmit);
 
     // Listener para mostrar/esconder o campo de código equivalente
     const isEquivalentCheckbox = document.getElementById('completed-is-equivalent');
@@ -308,65 +311,25 @@ async function handleAppContainerClick(e) {
     if (actionTarget) {
         const action = actionTarget.dataset.action;
         const id = actionTarget.dataset.id;
-        const { activeEnrollmentId } = getState();
+        let { activeEnrollmentId } = getState(); // Use 'let' para poder modificar
         
         e.stopPropagation();
 
         switch (action) {
-            // **CORREÇÃO APLICADA AQUI**
-            case 'toggle-mute':
-                pomodoro.toggleMute();
-                break;
+            // ... (todos os seus outros cases, como 'toggle-mute', etc.)
 
-            // Ações de Navegação
-            case 'view-grades-report': 
-                if (activeEnrollmentId) navigate(`/grades?enrollmentId=${activeEnrollmentId}`);
+            case 'toggle-dropdown':
+                modals.toggleDropdown(actionTarget.closest('[data-dropdown-container]'));
                 break;
-            case 'view-checklist': 
-                if (activeEnrollmentId) navigate(`/checklist?enrollmentId=${activeEnrollmentId}`);
-                break;
-            case 'back-to-main-dashboard':
-            case 'back-to-main-dashboard-from-report':
-            case 'back-to-main-dashboard-from-checklist':
-                if (activeEnrollmentId) navigate(`/dashboard?enrollmentId=${activeEnrollmentId}`);
-                break;
-            case 'view-discipline-details': 
-                if (activeEnrollmentId) navigate(`/discipline?enrollmentId=${activeEnrollmentId}&disciplineId=${id}`);
-                break;
-            
-            // Ações do Dashboard da Disciplina
-            case 'add-absence': modals.showAbsenceModal(id, actionTarget.dataset.name); break;
-            case 'history-absence': {
-                const { activePeriodId } = getState();
-                modals.showAbsenceHistoryModal(id, actionTarget.dataset.name);
-                view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, id);
-                break;
-            }
-            case 'manage-evaluations': {
-                const { disciplineId, periodId } = actionTarget.dataset;
-                if (disciplineId && periodId) {
-                    modals.showConfigGradesModal(disciplineId, periodId);
-                } else {
-                    notify.error('Não foi possível abrir o gerenciador de avaliações.');
+            case 'select-dropdown-item':
+                modals.selectDropdownItem(actionTarget);
+                // Se o dropdown for um filtro, atualiza a lista de documentos
+                if (actionTarget.closest('[data-filter-key]')) {
+                    view.renderDocumentsList(activeEnrollmentId);
                 }
                 break;
-            }
             
-            // Outras ações
-            case 'add-new-event': modals.showEventModal(); break;
-            case 'view-study-history': pomodoro.showHistoryModal(); break;
-            case 'toggle-todo':
-                await firestoreApi.updateTodoStatus(id, actionTarget.checked);
-                await view.renderTodoList();
-                break;
-            case 'delete-todo':
-                await firestoreApi.deleteTodo(id);
-                await view.renderTodoList();
-                break;
-            case 'edit-enrollment': modals.showEnrollmentModal(id); break;
-            case 'delete-enrollment': handleDeleteEnrollment(id); break;
-            case 'edit-discipline': modals.showDisciplineModal(id); break;
-            case 'delete-discipline': handleDeleteDiscipline(id); break;
+            // ... (todos os seus outros cases)
         }
         return;
     }
@@ -376,6 +339,7 @@ async function handleAppContainerClick(e) {
         switch (button.id) {
             case 'add-enrollment-btn': modals.showEnrollmentModal(); return;
             case 'add-discipline-btn': modals.showDisciplineModal(); return;
+            case 'add-document-btn': modals.showDocumentModal(); return; // Botão de adicionar documento
             case 'new-period-btn': modals.showPeriodModal(); return;
             case 'manage-period-btn': modals.showPeriodOptionsModal(); return;
             case 'back-to-enrollments-btn': navigate('/'); return;
@@ -384,11 +348,22 @@ async function handleAppContainerClick(e) {
         }
     }
 
+    // Adiciona o listener para a pesquisa de documentos
+    const searchInput = target.closest('#document-search-input');
+    if (searchInput) {
+        // Usamos 'input' para pesquisar enquanto o usuário digita
+        searchInput.addEventListener('input', () => {
+            const { activeEnrollmentId } = getState();
+            view.renderDocumentsList(activeEnrollmentId);
+        });
+    }
+
     const enrollmentCard = target.closest('#enrollments-list [data-id]');
     if (enrollmentCard) {
         navigate(`/dashboard?enrollmentId=${enrollmentCard.dataset.id}`);
     }
 }
+
 
 async function handleConfirmAction() {
     const onConfirm = getState().onConfirmAction;
@@ -714,6 +689,11 @@ function handleOutsideClick(e) {
             dom.notificationPanel.classList.add('hidden');
         }
     }
+    document.querySelectorAll('[data-dropdown-panel]:not(.hidden)').forEach(panel => {
+        if (!panel.closest('[data-dropdown-container]').contains(e.target)) {
+            panel.classList.add('hidden');
+        }
+    });
 }
 
 async function switchPeriod(direction) {
@@ -1004,12 +984,11 @@ async function handlePomodoroSettingsSubmit(e) {
     const form = dom.pomodoroSettingsForm;
     const studyTime = form.querySelector('#pomodoro-study-time').value;
     const breakTime = form.querySelector('#pomodoro-break-time').value;
-    const disciplineSelect = form.querySelector('#pomodoro-discipline');
-    const disciplineId = disciplineSelect.value;
-    const disciplineName = disciplineSelect.options[disciplineSelect.selectedIndex].text;
-    const ambientSoundKey = form.querySelector('#pomodoro-sound').value;
+    const disciplineValue = form.querySelector('#pomodoro-discipline-value').value;
+    const disciplineName = form.querySelector('[data-dropdown-container] .selected-value').textContent;
+    const ambientSoundKey = form.querySelector('#pomodoro-sound-value').value;
     
-    const selectedDiscipline = disciplineId === 'none' ? null : { id: disciplineId, name: disciplineName };
+    const selectedDiscipline = disciplineValue === 'none' ? null : { id: disciplineValue, name: disciplineName };
 
     pomodoro.startTimer(parseInt(studyTime), parseInt(breakTime), selectedDiscipline, ambientSoundKey);
     modals.hidePomodoroSettingsModal();
@@ -1036,4 +1015,61 @@ function handleDeleteStudySession(e) {
             }
         }
     });
+}
+
+async function handleDocumentFormSubmit(e) {
+    e.preventDefault();
+    const form = dom.addDocumentForm;
+    const submitButton = form.querySelector('button[type="submit"]');
+    const fileInput = form.querySelector('#document-file');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        notify.error("Por favor, selecione um arquivo.");
+        return;
+    }
+
+    submitButton.disabled = true;
+    submitButton.textContent = 'Enviando...';
+    notify.info('Enviando arquivo, por favor aguarde...');
+
+    try {
+        let { activeEnrollmentId } = getState();
+        const uploadResult = await firestoreApi.uploadFileToCloudinary(file); 
+
+        // Lógica para obter IDs do dropdown customizado
+        const selectedDisciplineItem = form.querySelector('#modal-discipline-list .selected');
+        const disciplineId = selectedDisciplineItem ? selectedDisciplineItem.dataset.value : 'none';
+        const periodId = selectedDisciplineItem ? selectedDisciplineItem.dataset.periodId : null;
+        
+        // Se uma disciplina for selecionada na biblioteca geral, o ID da matrícula vem do próprio item
+        if (disciplineId !== 'none' && selectedDisciplineItem && selectedDisciplineItem.dataset.enrollmentId) {
+            activeEnrollmentId = selectedDisciplineItem.dataset.enrollmentId;
+        }
+
+        const payload = {
+            title: form.querySelector('#document-title').value,
+            type: form.querySelector('#document-type-value').value,
+            tags: form.querySelector('#document-tags').value.split(',').map(tag => tag.trim()).filter(Boolean),
+            fileUrl: uploadResult.url,
+            filePublicId: uploadResult.publicId,
+            fileType: file.type,
+            enrollmentId: activeEnrollmentId, // Pode ser null se nenhuma disciplina for selecionada
+            disciplineId: disciplineId === 'none' ? null : disciplineId,
+            periodId: periodId,
+        };
+
+        await firestoreApi.saveDocument(payload);
+        
+        notify.success("Documento salvo com sucesso!");
+        modals.hideDocumentModal();
+        await view.renderDocumentsList(getState().activeEnrollmentId); // Recarrega a view atual
+
+    } catch (error) {
+        console.error("Erro ao salvar documento:", error);
+        notify.error(`Falha ao salvar: ${error.message}`);
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Salvar';
+    }
 }

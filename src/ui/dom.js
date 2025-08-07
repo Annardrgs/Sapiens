@@ -13,6 +13,7 @@ export function initializeDOMElements() {
     authScreen: document.getElementById('auth-screen'),
     enrollmentsView: document.getElementById('enrollments-view'),
     dashboardView: document.getElementById('dashboard-view'),
+    documentsView: document.getElementById('documents-view'),
 
     // --- Autenticação ---
     authForm: document.getElementById('auth-form'),
@@ -177,5 +178,18 @@ export function initializeDOMElements() {
     floatingTimer: document.getElementById('floating-pomodoro-timer'),
     floatingTimerDisplay: document.getElementById('floating-timer-display'),
     floatingTimerStatus: document.getElementById('floating-timer-status'),
+    floatingPausePomodoroBtn: document.getElementById('floating-pause-pomodoro-btn'),
+    floatingStopPomodoroBtn: document.getElementById('floating-stop-pomodoro-btn'),
+
+    // --- Documentos ---
+    documentsView: document.getElementById('documents-view'),
+    documentsTitle: document.getElementById('documents-title'),
+    documentsSubtitle: document.getElementById('documents-subtitle'),
+    addDocumentBtn: document.getElementById('add-document-btn'),
+    documentsList: document.getElementById('documents-list'),
+    addDocumentModal: document.getElementById('add-document-modal'),
+    addDocumentForm: document.getElementById('add-document-form'),
+    cancelDocumentBtn: document.getElementById('cancel-document-btn'),
+    documentsEmptyState: document.getElementById('documents-empty-state'),
   });
 }

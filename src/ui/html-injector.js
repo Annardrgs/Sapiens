@@ -10,17 +10,44 @@ const mainHTML = `
     <div class="min-h-screen flex flex-col items-center justify-center bg-bkg p-4"><div class="w-full max-w-md p-8 space-y-6 bg-surface rounded-xl shadow-2xl border border-border"><div><h2 id="auth-title" class="text-center text-3xl font-extrabold text-secondary">Acesse sua Conta</h2><p id="auth-prompt" class="mt-2 text-center text-sm text-subtle"></p></div><form id="auth-form" class="space-y-6"><input type="email" id="auth-email" placeholder="Email" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md shadow-sm"><div class="relative"><input type="password" id="auth-password" placeholder="Senha" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md shadow-sm pr-12 appearance-none"><button type="button" id="toggle-password-btn" data-toggle-password class="absolute inset-y-0 right-0 px-4 flex items-center text-subtle hover:text-primary"><svg class="w-5 h-5 eye-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg><svg class="w-5 h-5 eye-slash-icon hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.243 4.243L6.228 6.228" /></svg></button></div><button id="auth-submit-btn" type="submit" class="w-full flex justify-center py-3 px-4 rounded-md shadow-sm text-sm font-bold text-bkg bg-primary hover:opacity-90">Entrar</button></form></div></div>
   </div>
 
-  <div id="app-container" class="hidden">
+  <div id="app-container" class="hidden flex flex-col min-h-screen">
     <div id="notification-container" class="fixed top-5 right-5 z-[100] w-full max-w-sm space-y-2"></div>
-    <header class="bg-surface shadow-md border-b border-border sticky top-0 z-40"><div class="container mx-auto px-4 sm:px-6 lg:px-8"><div class="flex items-center justify-between h-16"><h1 class="text-2xl font-bold text-secondary">Meu Planner</h1><div class="flex items-center"><button id="theme-toggle-btn" class="p-2 rounded-full text-subtle hover:text-secondary hover:bg-surface mr-4"><svg id="theme-sun-icon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg><svg id="theme-moon-icon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg></button><div class="relative"><button id="notification-bell-btn" class="p-2 rounded-full text-subtle hover:text-secondary hover:bg-surface mr-4"><span id="notification-badge" class="hidden absolute top-1 right-1 block h-2 w-2 rounded-full bg-danger ring-2 ring-surface"></span><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg></button><div id="notification-panel" class="hidden absolute right-0 mt-2 w-72 md:w-80 bg-surface rounded-md shadow-lg z-50 border border-border"><div class="p-3 border-b border-border"><h4 class="font-semibold text-secondary">Notificações</h4></div><div id="notification-list" class="max-h-80 overflow-y-auto"></div></div></div><span id="user-email" class="text-sm text-subtle mx-4"></span><button id="logout-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90">Sair</button></div></div></div></header>
+    <header class="bg-surface shadow-md border-b border-border sticky top-0 z-40 flex-shrink-0">
+      <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <h1 class="text-2xl font-bold text-secondary">Meu Planner</h1>
+          <div class="flex items-center">
+            <button id="theme-toggle-btn" class="p-2 rounded-full text-subtle hover:text-secondary hover:bg-surface mr-4">
+              <svg id="theme-sun-icon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+              <svg id="theme-moon-icon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+            </button>
+            <div class="relative">
+              <button id="notification-bell-btn" class="p-2 rounded-full text-subtle hover:text-secondary hover:bg-surface mr-4">
+                <span id="notification-badge" class="hidden absolute top-1 right-1 block h-2 w-2 rounded-full bg-danger ring-2 ring-surface"></span>
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+              </button>
+              <div id="notification-panel" class="hidden absolute right-0 mt-2 w-72 md:w-80 bg-surface rounded-md shadow-lg z-50 border border-border">
+                <div class="p-3 border-b border-border"><h4 class="font-semibold text-secondary">Notificações</h4></div>
+                <div id="notification-list" class="max-h-80 overflow-y-auto"></div>
+              </div>
+            </div>
+            <span id="user-email" class="text-sm text-subtle mx-4"></span>
+            <button id="logout-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90">Sair</button>
+          </div>
+        </div>
+      </div>
+    </header>
     
-    <main class="container mx-auto py-6 sm:px-6 lg:px-8">
+    <main class="container mx-auto py-6 sm:px-6 lg:px-8 flex flex-col flex-grow">
       
-      <div id="enrollments-view">
+      <div id="enrollments-view" class="hidden">
         <div class="px-4 py-6 sm:px-0">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-3xl font-bold text-secondary">Minhas Matrículas</h2>
-                <button id="add-enrollment-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90">+ Adicionar Matrícula</button>
+                <div class="flex items-center gap-4">
+                    <button data-action="view-documents" class="bg-primary/10 text-primary font-bold py-2 px-4 rounded-lg shadow-md hover:bg-primary/20">Documentos</button>
+                    <button id="add-enrollment-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90">+ Adicionar Matrícula</button>
+                </div>
             </div>
             <div id="enrollments-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
         </div>
@@ -31,7 +58,7 @@ const mainHTML = `
                   <div class="w-full flex justify-between items-center">
                       <div class="flex items-center gap-2">
                         <h4 class="font-bold text-secondary text-lg">Pomodoro Timer</h4>
-                        <button id="pomodoro-mute-btn" class="hidden text-subtle p-1 rounded-full hover:bg-bkg" data-action="toggle-mute">
+                        <button id="main-pomodoro-mute-btn" class="hidden text-subtle p-1 rounded-full hover:bg-bkg" data-action="toggle-mute">
                             <svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l9 7.5" /></svg>
                         </button>
                       </div>
@@ -82,9 +109,8 @@ const mainHTML = `
       
       <div id="dashboard-view" class="hidden">
         <div class="dashboard-header"><button id="back-to-enrollments-btn" class="back-button"><svg class="w-6 h-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg></button><div><h2 id="dashboard-title" class="text-3xl font-bold text-secondary"></h2><p id="dashboard-subtitle" class="text-subtle"></p></div></div>
-        <div class="flex items-center justify-end mb-6 space-x-2"><button data-action="view-checklist" class="bg-primary/10 text-primary font-bold py-2 px-4 rounded-lg shadow-md hover:bg-primary/20">Ver Grade</button><button data-action="view-grades-report" class="bg-primary/10 text-primary font-bold py-2 px-4 rounded-lg shadow-md hover:bg-primary/20">Ver Boletim</button><div class="flex items-center bg-surface rounded-lg shadow-sm border border-border"><button id="prev-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-25 disabled:cursor-not-allowed"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M15 19l-7-7 7-7"></path></svg></button><span id="current-period-name" class="font-bold text-secondary px-4 text-center w-28"></span><button id="next-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-25 disabled:cursor-not-allowed"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 5l7 7-7 7"></path></svg></button></div><button id="new-period-btn" class="bg-primary text-bkg font-bold py-2 px-4 rounded-lg shadow-md hover:opacity-90">Novo Período</button><div class="relative"><button id="manage-period-btn" class="p-2 rounded-lg hover:bg-surface" title="Opções"><svg class="w-6 h-6 text-subtle pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg></button></div></div>
+        <div class="flex items-center justify-end mb-6 space-x-2"><button data-action="view-documents" class="bg-primary/10 text-primary font-bold py-2 px-4 rounded-lg shadow-md hover:bg-primary/20">Documentos</button><button data-action="view-checklist" class="bg-primary/10 text-primary font-bold py-2 px-4 rounded-lg shadow-md hover:bg-primary/20">Ver Grade</button><button data-action="view-grades-report" class="bg-primary/10 text-primary font-bold py-2 px-4 rounded-lg shadow-md hover:bg-primary/20">Ver Boletim</button><div class="flex items-center bg-surface rounded-lg shadow-sm border border-border"><button id="prev-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-25 disabled:cursor-not-allowed"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M15 19l-7-7 7-7"></path></svg></button><span id="current-period-name" class="font-bold text-secondary px-4 text-center w-28"></span><button id="next-period-btn" class="p-2 rounded-md hover:bg-bkg disabled:opacity-25 disabled:cursor-not-allowed"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 5l7 7-7 7"></path></svg></button></div><button id="new-period-btn" class="bg-primary text-bkg font-bold py-2 px-4 rounded-lg shadow-md hover:opacity-90">Novo Período</button><div class="relative"><button id="manage-period-btn" class="p-2 rounded-lg hover:bg-surface" title="Opções"><svg class="w-6 h-6 text-subtle pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg></button></div></div>
         <div id="summary-cards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"></div>
-        
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div class="lg:col-span-2">
             <div class="flex justify-between items-center mb-4">
@@ -117,101 +143,55 @@ const mainHTML = `
         </div>
       </div>
 
-      <div id="discipline-dashboard-view" class="hidden">
-        <div class="flex items-center gap-4 mb-6">
-          <button data-action="back-to-main-dashboard" class="p-2 rounded-full text-subtle hover:bg-surface">
-            <svg class="w-6 h-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+      <div id="discipline-dashboard-view" class="hidden"></div>
+      <div id="grades-report-view" class="hidden"></div>
+      <div id="course-checklist-view" class="hidden"></div>
+      
+      <div id="documents-view" class="hidden flex flex-col flex-grow">
+        <div class="dashboard-header flex-shrink-0">
+          <button data-action="back-to-enrollments" class="back-button">
+            <svg class="w-6 h-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
           </button>
           <div>
-            <h2 id="discipline-dash-title" class="text-3xl font-bold text-secondary"></h2>
-            <p id="discipline-dash-subtitle" class="text-subtle"></p>
+            <h2 id="documents-title" class="text-3xl font-bold text-secondary">Meus Documentos</h2>
+            <p id="documents-subtitle" class="text-subtle"></p>
           </div>
         </div>
-        <div id="discipline-stats-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8"></div>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div class="lg:col-span-2 space-y-8">
-            <section id="performance-section">
-              <h3 class="text-xl font-bold text-secondary mb-4">Desempenho Geral</h3>
-              <div class="relative bg-surface p-4 rounded-xl border border-border h-72">
-                <canvas id="discipline-performance-chart"></canvas>
-              </div>
-            </section>
-            <section id="discipline-agenda-section">
-              <h3 class="text-xl font-bold text-secondary mb-4">Próximos Eventos</h3>
-              <div id="discipline-events-list" class="space-y-3"></div>
-            </section>
+        <div id="documents-toolbar" class="mb-6 p-4 bg-surface rounded-xl border border-border flex flex-col md:flex-row items-center gap-4 flex-shrink-0">
+          <div class="relative w-full md:flex-grow">
+            <svg class="w-5 h-5 text-subtle absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <input type="search" id="document-search-input" placeholder="Pesquisar por título ou tag..." class="w-full pl-10 pr-4 py-2 bg-bkg text-secondary border border-border rounded-md">
           </div>
-          <div class="lg:col-span-1 space-y-8">
-            <section id="absences-section"></section>
-            <section id="evaluations-section">
-              <div class="bg-surface p-4 rounded-xl border border-border">
-                <div class="flex justify-between items-center mb-4">
-                  <h3 class="text-xl font-bold text-secondary">Avaliações</h3>
-                  <button data-action="manage-evaluations" class="text-sm font-semibold bg-primary/10 text-primary px-3 py-1 rounded-md hover:bg-primary/20">
-                    Gerenciar
-                  </button>
-                </div>
-                <div id="evaluations-list" class="space-y-3"></div>
-              </div>
-            </section>
+          <div class="flex items-center gap-4 w-full md:w-auto">
+            <div class="relative" data-dropdown-container data-filter-key="type">
+                <input type="hidden" class="filter-value" value="all">
+                <button type="button" data-action="toggle-dropdown" class="custom-dropdown-button w-48"><span class="selected-value truncate">Todos os Tipos</span><svg class="w-5 h-5 text-subtle ml-auto flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg></button>
+                <div data-dropdown-panel class="custom-dropdown-panel hidden"><ul class="custom-dropdown-list"><li data-action="select-dropdown-item" data-value="all" class="selected">Todos os Tipos</li><li data-action="select-dropdown-item" data-value="Certificado">Certificado</li><li data-action="select-dropdown-item" data-value="Comprovante">Comprovante</li><li data-action="select-dropdown-item" data-value="Material de Estudo">Material de Estudo</li><li data-action="select-dropdown-item" data-value="Slide de Aula">Slide de Aula</li><li data-action="select-dropdown-item" data-value="Trabalho Acadêmico">Trabalho Acadêmico</li><li data-action="select-dropdown-item" data-value="Outro">Outro</li></ul></div>
+            </div>
+            <div class="relative" data-dropdown-container data-filter-key="sort">
+                <input type="hidden" class="filter-value" value="createdAt_desc">
+                <button type="button" data-action="toggle-dropdown" class="custom-dropdown-button w-48"><span class="selected-value truncate">Mais Recentes</span><svg class="w-5 h-5 text-subtle ml-auto flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg></button>
+                <div data-dropdown-panel class="custom-dropdown-panel hidden"><ul class="custom-dropdown-list"><li data-action="select-dropdown-item" data-value="createdAt_desc" class="selected">Mais Recentes</li><li data-action="select-dropdown-item" data-value="createdAt_asc">Mais Antigos</li><li data-action="select-dropdown-item" data-value="title_asc">Título (A-Z)</li></ul></div>
+            </div>
           </div>
+          <button id="add-document-btn" class="w-full md:w-auto bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 flex-shrink-0">
+            + Adicionar Documento
+          </button>
+        </div>
+        
+        <div id="documents-content-wrapper" class="flex flex-col flex-grow">
+            <div id="documents-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+            <div id="documents-empty-state" class="hidden text-center m-auto">
+                <div id="documents-empty-state-icon"></div>
+                <h3 id="documents-empty-state-title" class="mt-4 text-xl font-bold text-secondary"></h3>
+                <p id="documents-empty-state-subtitle" class="mt-1 text-sm text-subtle"></p>
+            </div>
         </div>
       </div>
 
-      <div id="grades-report-view" class="hidden">
-        <div class="flex items-center justify-between gap-4 mb-6">
-            <div class="flex items-center gap-4">
-                <button data-action="back-to-main-dashboard-from-report" class="p-2 rounded-full text-subtle hover:bg-surface">
-                    <svg class="w-6 h-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <div>
-                    <h2 id="grades-report-title" class="text-3xl font-bold text-secondary">Boletim Acadêmico</h2>
-                    <p id="grades-report-subtitle" class="text-subtle"></p>
-                </div>
-            </div>
-            <button id="export-pdf-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90 flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-                Exportar PDF
-            </button>
-        </div>
-        <div id="grades-report-content">
-          <p class="text-subtle">Carregando boletim...</p>
-        </div>
-      </div>
-
-      <div id="course-checklist-view" class="hidden">
-        <div class="flex items-center justify-between gap-4 mb-6">
-            <div class="flex items-center gap-4">
-                <button data-action="back-to-main-dashboard-from-checklist" class="p-2 rounded-full text-subtle hover:bg-surface">
-                    <svg class="w-6 h-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <div>
-                    <h2 id="checklist-title" class="text-3xl font-bold text-secondary">Grade Curricular</h2>
-                    <p id="checklist-subtitle" class="text-subtle"></p>
-                </div>
-            </div>
-            <button id="add-curriculum-subject-btn" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg shadow-md hover:opacity-90">
-                + Adicionar Disciplina
-            </button>
-        </div>
-        <div id="checklist-content">
-          <p class="text-subtle">Carregando grade curricular...</p>
-        </div>
-      </div>
     </main>
+
     <div id="floating-pomodoro-timer" class="hidden fixed bottom-5 right-5 bg-surface p-4 rounded-lg shadow-2xl border border-border cursor-grab z-50 flex items-center gap-4">
-        <div>
-            <div class="flex items-center gap-2">
-                <div id="floating-timer-status" class="text-sm font-bold text-primary">Foco</div>
-                <button id="pomodoro-mute-btn" class="hidden text-subtle p-1 rounded-full hover:bg-bkg" data-action="toggle-mute">
-                    <svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l9 7.5" /></svg>
-                </button>
-            </div>
-            <div id="floating-timer-display" class="text-3xl font-bold text-secondary">25:00</div>
-        </div>
-        <button id="close-floating-timer-btn" class="p-1 rounded-full text-subtle hover:bg-bkg absolute top-1 right-1">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
     </div>
   </div>
 `;
@@ -315,12 +295,10 @@ const modalHTML = `
       <h3 id="event-modal-title" class="text-2xl font-bold mb-6 text-secondary">Novo Evento</h3>
       <form id="add-event-form" class="space-y-4">
         <input type="hidden" id="event-id">
-        
         <div>
           <label for="event-title" class="block text-sm font-medium text-subtle mb-1">Título do Evento*</label>
           <input type="text" id="event-title" placeholder="Ex: Entrega de TCC" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
         </div>
-
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label for="event-date" class="block text-sm font-medium text-subtle mb-1">Data*</label>
@@ -339,13 +317,11 @@ const modalHTML = `
             </select>
           </div>
         </div>
-        
         <div>
           <label for="event-discipline" class="block text-sm font-medium text-subtle mb-1">Matéria Relacionada</label>
           <select id="event-discipline" class="custom-select w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
             </select>
         </div>
-        
         <div>
           <label for="event-reminder" class="block text-sm font-medium text-subtle mb-1">Lembrete</label>
           <select id="event-reminder" class="custom-select w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
@@ -355,13 +331,11 @@ const modalHTML = `
             <option value="1w">1 semana antes</option>
           </select>
         </div>
-
         <div>
           <label class="block text-sm font-medium text-subtle mb-1">Cor</label>
           <div id="event-color-palette" class="flex flex-wrap justify-center gap-3 p-2 bg-bkg rounded-md border border-border w-full"></div>
           <input type="hidden" id="event-color-input">
         </div>
-
         <div class="mt-8 flex justify-between items-center">
           <button type="button" id="delete-event-btn" class="text-sm font-semibold text-danger hover:opacity-80">Excluir Evento</button>
           <div class="space-x-4">
@@ -462,7 +436,7 @@ const modalHTML = `
                 <svg class="w-6 h-6 text-subtle" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
         </div>
-        <div id="study-history-list" class="flex-grow overflow-y-auto pr-2">
+        <div id="study-history-list" class="flex-grow overflow-y-auto pr-2 history-scrollbar">
             <p class="text-subtle text-center">Nenhuma sessão registrada ainda.</p>
         </div>
     </div>
@@ -474,28 +448,42 @@ const modalHTML = `
         <div class="overflow-y-auto custom-scrollbar -mr-4 pr-4">
             <form id="pomodoro-settings-form" class="space-y-4">
                 <div>
-                    <label for="pomodoro-discipline" class="block text-sm font-medium text-subtle mb-1">Disciplina (Opcional)</label>
-                    <select id="pomodoro-discipline" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md custom-select"></select>
+                    <label for="pomodoro-discipline-value" class="block text-sm font-medium text-subtle mb-1">Disciplina (Opcional)</label>
+                    <div class="relative" data-dropdown-container>
+                        <input type="hidden" id="pomodoro-discipline-value" name="pomodoro-discipline">
+                        <button type="button" data-action="toggle-dropdown" class="custom-dropdown-button">
+                            <span class="selected-value truncate">Nenhuma disciplina</span>
+                            <svg class="w-5 h-5 text-subtle ml-auto" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>
+                        </button>
+                        <div data-dropdown-panel class="custom-dropdown-panel hidden">
+                            <ul id="pomodoro-discipline-list" class="custom-dropdown-list"></ul>
+                        </div>
+                    </div>
                 </div>
                 <div>
-                    <label for="pomodoro-sound" class="block text-sm font-medium text-subtle mb-1">Som Ambiente</label>
-                    <select id="pomodoro-sound" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md custom-select">
-                        <option value="none">Nenhum</option>
-                        <optgroup label="Natureza">
-                            <option value="light-rain">Chuva Leve</option>
-                            <option value="storm">Tempestade Distante</option>
-                            <option value="forest-night">Noite na Floresta</option>
-                            <option value="waterfall">Cachoeira Suave</option>
-                            <option value="birds">Pássaros da Manhã</option>
-                        </optgroup>
-                        <optgroup label="Lo-fi">
-                            <option value="lofi">Beats Lo-fi</option>
-                            <option value="stars">Estrelas Lo-fi</option>
-                            <option value="milky-way">Via Láctea</option>
-                            <option value="sunrise">Amanhecer</option>
-                            <option value="dawn">Madrugada</option>
-                        </optgroup>
-                    </select>
+                    <label for="pomodoro-sound-value" class="block text-sm font-medium text-subtle mb-1">Som Ambiente</label>
+                     <div class="relative" data-dropdown-container>
+                        <input type="hidden" id="pomodoro-sound-value" name="pomodoro-sound" value="none">
+                        <button type="button" data-action="toggle-dropdown" class="custom-dropdown-button">
+                            <span class="selected-value truncate">Nenhum</span>
+                             <svg class="w-5 h-5 text-subtle ml-auto" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>
+                        </button>
+                        <div data-dropdown-panel class="custom-dropdown-panel hidden">
+                            <ul id="pomodoro-sound-list" class="custom-dropdown-list">
+                                <li data-action="select-dropdown-item" data-value="none">Nenhum</li>
+                                <li data-action="select-dropdown-item" data-value="light-rain">Chuva Leve</li>
+                                <li data-action="select-dropdown-item" data-value="storm">Tempestade Distante</li>
+                                <li data-action="select-dropdown-item" data-value="forest-night">Noite na Floresta</li>
+                                <li data-action="select-dropdown-item" data-value="waterfall">Cachoeira Suave</li>
+                                <li data-action="select-dropdown-item" data-value="birds">Pássaros da Manhã</li>
+                                <li data-action="select-dropdown-item" data-value="lofi">Beats Lo-fi</li>
+                                <li data-action="select-dropdown-item" data-value="stars">Estrelas Lo-fi</li>
+                                <li data-action="select-dropdown-item" data-value="milky-way">Via Láctea</li>
+                                <li data-action="select-dropdown-item" data-value="sunrise">Amanhecer</li>
+                                <li data-action="select-dropdown-item" data-value="dawn">Madrugada</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -513,6 +501,51 @@ const modalHTML = `
                 </div>
             </form>
         </div>
+    </div>
+  </div>
+  
+  <div id="add-document-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+    <div class="bg-surface p-8 rounded-lg shadow-xl w-full max-w-lg border border-border">
+      <h3 id="document-modal-title" class="text-2xl font-bold mb-6 text-secondary">Adicionar Documento</h3>
+      <form id="add-document-form" class="space-y-4">
+        <input type="hidden" id="document-id">
+        <div>
+          <label for="document-file" class="block text-sm font-medium text-subtle mb-1">Arquivo*</label>
+          <input type="file" id="document-file" required class="w-full text-sm text-subtle file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20">
+        </div>
+        <div>
+          <label for="document-title" class="block text-sm font-medium text-subtle mb-1">Título*</label>
+          <input type="text" id="document-title" placeholder="Ex: Certificado de Horas Complementares" required class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-subtle mb-1">Tipo/Categoria*</label>
+            <div class="relative" data-dropdown-container>
+              <input type="hidden" id="document-type-value" value="Certificado">
+              <button type="button" data-action="toggle-dropdown" class="custom-dropdown-button"><span class="selected-value truncate">Certificado</span><svg class="w-5 h-5 text-subtle ml-auto flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9"></path></svg></button>
+              <div data-dropdown-panel class="custom-dropdown-panel hidden"><ul class="custom-dropdown-list"><li data-action="select-dropdown-item" data-value="Certificado" class="selected">Certificado</li><li data-action="select-dropdown-item" data-value="Comprovante">Comprovante</li><li data-action="select-dropdown-item" data-value="Material de Estudo">Material de Estudo</li><li data-action="select-dropdown-item" data-value="Slide de Aula">Slide de Aula</li><li data-action="select-dropdown-item" data-value="Trabalho Acadêmico">Trabalho Acadêmico</li><li data-action="select-dropdown-item" data-value="Outro">Outro</li></ul></div>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-subtle mb-1">Disciplina Associada</label>
+            <div class="relative" data-dropdown-container>
+              <input type="hidden" id="document-discipline-value" value="none">
+              <input type="hidden" id="document-period-id-value">
+              <input type="hidden" id="document-enrollment-id-value">
+              <button type="button" data-action="toggle-dropdown" class="custom-dropdown-button"><span class="selected-value truncate">Nenhuma</span><svg class="w-5 h-5 text-subtle ml-auto flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9"></path></svg></button>
+              <div data-dropdown-panel class="custom-dropdown-panel hidden"><ul id="modal-discipline-list" class="custom-dropdown-list"></ul></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <label for="document-tags" class="block text-sm font-medium text-subtle mb-1">Tags (separadas por vírgula)</label>
+          <input type="text" id="document-tags" placeholder="Ex: online, palestra, 2025" class="w-full px-4 py-3 bg-bkg text-secondary border border-border rounded-md">
+        </div>
+        <div class="mt-8 flex justify-end space-x-4">
+          <button type="button" id="cancel-document-btn" class="bg-subtle text-bkg font-semibold py-2 px-4 rounded-lg">Cancelar</button>
+          <button type="submit" class="bg-primary text-bkg font-semibold py-2 px-4 rounded-lg">Salvar</button>
+        </div>
+      </form>
     </div>
   </div>
 `;

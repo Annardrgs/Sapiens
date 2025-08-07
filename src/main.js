@@ -17,7 +17,8 @@ import {
   showDashboardView,
   showDisciplineDashboard,
   showGradesReportView,
-  showCourseChecklistView
+  showCourseChecklistView,
+  showDocumentsView
 } from './ui/view.js';
 import { initializeTheme } from './ui/theme.js';
 import { initializeDOMElements } from './ui/dom.js';
@@ -25,6 +26,7 @@ import { setState, getState } from './store/state.js';
 import * as view from './ui/view.js';
 import * as pomodoro from './ui/pomodoro.js';
 import { notify } from './ui/notifications.js';
+import * as firestoreApi from './api/firestore.js';
 
 // --- ROTEAMENTO ---
 
@@ -34,6 +36,7 @@ const routes = {
   '/discipline': showDisciplineDashboard,
   '/grades': showGradesReportView,
   '/checklist': showCourseChecklistView,
+  '/documents': showDocumentsView,
 };
 
 async function handleRouteChange() {
@@ -51,7 +54,7 @@ async function handleRouteChange() {
             await routeAction(enrollmentId);
         } else if (path === '/discipline' && enrollmentId && disciplineId) {
             await routeAction({ enrollmentId, disciplineId });
-        } else if ((path === '/grades' || path === '/checklist') && enrollmentId) {
+        } else if ((path === '/grades' || path === '/checklist' || path === '/documents') && enrollmentId) {
             await routeAction(enrollmentId);
         } else {
             await routeAction();
@@ -77,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (user) {
           setState('user', user);
           showAppScreen();
+          await firestoreApi.cleanupOldTodos();
           
           if (!window.appListenersInitialized) {
             initializeAppListeners();

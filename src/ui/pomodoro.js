@@ -100,6 +100,7 @@ async function saveSession() {
         disciplineId: currentDiscipline ? currentDiscipline.id : null,
         disciplineName: currentDiscipline ? currentDiscipline.name : null,
         ambientSound: currentAmbientSoundKey,
+        timestamp: new Date(),
     };
     try {
         await api.saveStudySession(sessionData);
@@ -160,14 +161,17 @@ export async function startTimer(studyMinutes, breakMinutes, discipline, ambient
     if (dom.pausePomodoroBtn) dom.pausePomodoroBtn.classList.remove('hidden');
     if (dom.stopPomodoroBtn) dom.stopPomodoroBtn.classList.remove('hidden');
     
+    if (dom.floatingPausePomodoroBtn) {
+        dom.floatingPausePomodoroBtn.innerHTML = `<svg class="w-5 h-5 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z"></path></svg>`;
+    }
+
     await playSound(sounds.start);
     await delay(1000);
 
     if (ambientSoundKey !== 'none' && sounds.ambient[ambientSoundKey]) {
         currentAmbientSound = sounds.ambient[ambientSoundKey];
         playSound(currentAmbientSound);
-        if (dom.pomodoroTimerContainer) dom.pomodoroTimerContainer.querySelector('#pomodoro-mute-btn')?.classList.remove('hidden');
-        if (dom.floatingTimer) dom.floatingTimer.querySelector('#pomodoro-mute-btn')?.classList.remove('hidden');
+        document.querySelectorAll('[data-action="toggle-mute"]').forEach(btn => btn.classList.remove('hidden'));
     }
     
     updateDisplay();
@@ -179,14 +183,22 @@ export async function togglePause() {
     if (!isRunning) return;
     isPaused = !isPaused;
 
+    const playIcon = `<svg class="w-8 h-8 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"></path></svg>`;
+    const pauseIcon = `<svg class="w-8 h-8 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z"></path></svg>`;
+    
+    const floatingPlayIcon = `<svg class="w-5 h-5 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"></path></svg>`;
+    const floatingPauseIcon = `<svg class="w-5 h-5 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z"></path></svg>`;
+
     if (isPaused) {
         if (currentAmbientSound) currentAmbientSound.pause();
         await playSound(sounds.break);
-        if (dom.pausePomodoroBtn) dom.pausePomodoroBtn.innerHTML = `<svg class="w-8 h-8 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"></path></svg>`;
+        if (dom.pausePomodoroBtn) dom.pausePomodoroBtn.innerHTML = playIcon;
+        if (dom.floatingPausePomodoroBtn) dom.floatingPausePomodoroBtn.innerHTML = floatingPlayIcon;
     } else {
         await playSound(sounds.start);
         if (currentAmbientSound) currentAmbientSound.play();
-        if (dom.pausePomodoroBtn) dom.pausePomodoroBtn.innerHTML = `<svg class="w-8 h-8 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z"></path></svg>`;
+        if (dom.pausePomodoroBtn) dom.pausePomodoroBtn.innerHTML = pauseIcon;
+        if (dom.floatingPausePomodoroBtn) dom.floatingPausePomodoroBtn.innerHTML = floatingPauseIcon;
     }
 }
 
@@ -229,13 +241,7 @@ export function resetTimer() {
     if (dom.pausePomodoroBtn) dom.pausePomodoroBtn.classList.add('hidden');
     if (dom.stopPomodoroBtn) dom.stopPomodoroBtn.classList.add('hidden');
     
-    // **CORREÇÃO APLICADA AQUI**
-    if (dom.pomodoroTimerContainer) {
-        dom.pomodoroTimerContainer.querySelector('#pomodoro-mute-btn')?.classList.add('hidden');
-    }
-    if (dom.floatingTimer) {
-        dom.floatingTimer.querySelector('#pomodoro-mute-btn')?.classList.add('hidden');
-    }
+    document.querySelectorAll('[data-action="toggle-mute"]').forEach(btn => btn.classList.add('hidden'));
 
     if (dom.pomodoroStatus) dom.pomodoroStatus.textContent = 'Pronto para focar?';
     
@@ -264,28 +270,39 @@ export async function showHistoryModal() {
         acc[date].totalMinutes += Math.floor(session.duration / 60);
         return acc;
     }, {});
-    dom.studyHistoryList.innerHTML = Object.keys(sessionsByDate).map(date => {
+    
+    dom.studyHistoryList.innerHTML = Object.keys(sessionsByDate).sort((a, b) => new Date(b.split('/').reverse().join('-')) - new Date(a.split('/').reverse().join('-'))).map(date => {
         const { sessions, totalMinutes } = sessionsByDate[date];
         return `
             <div class="mb-4">
-                <h4 class="font-bold text-secondary border-b border-border pb-1 mb-2">${date} - <span class="text-primary">${totalMinutes} minutos</span></h4>
-                <div class="space-y-1">
-                    ${sessions.map(s => {
+                <h4 class="font-bold text-secondary border-b border-border pb-1 mb-2">${date} - <span class="text-success font-semibold">${totalMinutes} minutos</span></h4>
+                <div class="space-y-2">
+                    ${sessions.sort((a, b) => b.timestamp - a.timestamp).map(s => {
                         const minutes = Math.floor(s.duration / 60);
                         const seconds = s.duration % 60;
                         const time = s.timestamp?.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) || '';
-                        let disciplineLabel = s.disciplineName ? `<span class="text-xs font-semibold text-primary/80 ml-2">• ${s.disciplineName}</span>` : '';
-                        let soundLabel = s.ambientSound && s.ambientSound !== 'none' ? `<span class="text-xs font-semibold text-green-500/80 ml-2">• ${soundNames[s.ambientSound] || s.ambientSound}</span>` : '';
+                        const soundName = s.ambientSound && s.ambientSound !== 'none' ? (soundNames[s.ambientSound] || s.ambientSound) : null;
+
                         return `
-                            <div class="flex justify-between items-center text-subtle text-sm p-2 rounded hover:bg-bkg">
-                                <div class="flex items-center">
-                                    <span>${time} - ${minutes} min e ${seconds} seg</span>
-                                    ${disciplineLabel}
-                                    ${soundLabel}
+                            <div class="flex justify-between items-center p-3 rounded-lg hover:bg-bkg transition-colors duration-200">
+                                <div class="flex flex-col">
+                                    <span class="font-bold text-blue-500 dark:text-blue-400">${s.disciplineName || 'Sessão Livre'}</span>
+                                    <span class="text-sm text-subtle">${minutes} min e ${seconds} seg de foco</span>
                                 </div>
-                                <button data-action="delete-study-session" data-id="${s.id}" class="p-1 rounded-full text-danger/50 hover:text-danger hover:bg-danger/10">
-                                    <svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                </button>
+                                <div class="flex items-center gap-4">
+                                    <div class="text-right">
+                                        <span class="text-sm text-subtle">${time}</span>
+                                        ${soundName ? `
+                                            <div class="flex items-center justify-end gap-1 text-sm font-bold text-blue-500 dark:text-blue-400 mt-1">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" /></svg>
+                                                <span>${soundName}</span>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                    <button data-action="delete-study-session" data-id="${s.id}" class="p-1 rounded-full text-danger/50 hover:text-danger hover:bg-danger/10">
+                                        <svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    </button>
+                                </div>
                             </div>
                         `;
                     }).join('')}
@@ -302,8 +319,8 @@ export function hideHistoryModal() {
 }
 
 export function updateFloatingTimerVisibility() {
-    const isDashboard = window.location.pathname === '/dashboard' || window.location.pathname === '/';
-    if (isRunning && !isDashboard) {
+    const isEnrollmentsView = window.location.pathname === '/';
+    if (isRunning && !isEnrollmentsView) {
         if (dom.floatingTimer) dom.floatingTimer.classList.remove('hidden');
     } else {
         if (dom.floatingTimer) dom.floatingTimer.classList.add('hidden');
@@ -314,20 +331,14 @@ export function toggleMute() {
     if (!currentAmbientSound) return;
     currentAmbientSound.muted = !currentAmbientSound.muted;
     
-    const mutedIcon = `<svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 9.75 19.5 12m0 0 2.25 2.25M19.5 12l-2.25 2.25M19.5 12l2.25-2.25M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM15.75 9.75 14.25 8.25m0 0-1.5-1.5m1.5 1.5-1.5 1.5m1.5-1.5 1.5-1.5" /></svg>`;
-    const unmutedIcon = `<svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l9 7.5" /></svg>`;
+    const mutedIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 pointer-events-none"><path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 001.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.66 1.905H6.44l4.5 4.5c.944.945 2.56.276 2.56-1.06V4.06zM17.53 9.47a.75.75 0 00-1.06 0L15 10.94l-1.47-1.47a.75.75 0 00-1.06 1.06L13.94 12l-1.47 1.47a.75.75 0 101.06 1.06L15 13.06l1.47 1.47a.75.75 0 101.06-1.06L16.06 12l1.47-1.47a.75.75 0 000-1.06z" /></svg>`;
+    const unmutedIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 pointer-events-none"><path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 001.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.66 1.905H6.44l4.5 4.5c.944.945 2.56.276 2.56-1.06V4.06zM18.584 5.106a.75.75 0 011.06 0c3.808 3.807 3.808 9.98 0 13.788a.75.75 0 11-1.06-1.06 8.25 8.25 0 000-11.668.75.75 0 010-1.06z" /><path d="M15.932 7.757a.75.75 0 011.061 0 6 6 0 010 8.486.75.75 0 01-1.06-1.061 4.5 4.5 0 000-6.364.75.75 0 010-1.06z" /></svg>`;
     const icon = currentAmbientSound.muted ? mutedIcon : unmutedIcon;
 
-    if (dom.pomodoroTimerContainer) dom.pomodoroTimerContainer.querySelector('#pomodoro-mute-btn').innerHTML = icon;
-    if (dom.floatingTimer) dom.floatingTimer.querySelector('#pomodoro-mute-btn').innerHTML = icon;
+    document.querySelectorAll('[data-action="toggle-mute"]').forEach(btn => btn.innerHTML = icon);
 }
 
 export function initialize() {
-    // **CORREÇÃO APLICADA AQUI**
-    // A chamada para resetTimer() foi movida para depois que as visualizações são renderizadas
-    // para garantir que os elementos do DOM existam.
-    // resetTimer(); -> Esta linha foi removida daqui e será chamada pelo view.js
-
     const floatingTimer = dom.floatingTimer;
     if (!floatingTimer) return;
 
@@ -347,10 +358,14 @@ export function initialize() {
         if (!isDragging) return;
         let newX = e.clientX - offsetX;
         let newY = e.clientY - offsetY;
-        const container = document.body;
+        
+        // Use document.documentElement para garantir que a área de arrasto seja a tela inteira.
+        const container = document.documentElement;
         const rect = floatingTimer.getBoundingClientRect();
+        
         newX = Math.max(0, Math.min(newX, container.clientWidth - rect.width));
         newY = Math.max(0, Math.min(newY, container.clientHeight - rect.height));
+        
         floatingTimer.style.left = `${newX}px`;
         floatingTimer.style.top = `${newY}px`;
         floatingTimer.style.bottom = 'auto';

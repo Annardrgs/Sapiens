@@ -4,7 +4,7 @@
 import { dom } from './dom.js';
 import * as api from '../api/firestore.js';
 import { getState, setState } from '../store/state.js';
-import { createEnrollmentCard, createDisciplineCard, createAbsenceHistoryItem, calculateAverage } from '../components/card.js';
+import { createEnrollmentCard, createDisciplineCard, createDocumentCard, createAbsenceHistoryItem, calculateAverage, createSummaryCard } from '../components/card.js';
 import { Calendar } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import * as modals from './modals.js';
@@ -12,19 +12,225 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { notify } from './notifications.js';
 import * as pomodoro from './pomodoro.js';
 import { navigate } from '../main.js';
+import { selectDropdownItem } from './modals.js';
+
+let calendarInstance = null;
+let performanceChart = null;
 
 let sortableInstances = { enrollments: null, disciplines: null };
 let performanceChartInstance = null;
 
-// --- CONTROLE DE LOADING ---
-function showLoading() {
-    const overlay = document.getElementById('loading-overlay');
-    if (overlay) overlay.classList.remove('hidden');
+// --- FUNÇÕES DE CONTROLO DE VISIBILIDADE ---
+function hideAllViews() {
+    if (dom.enrollmentsView) dom.enrollmentsView.classList.add('hidden');
+    if (dom.dashboardView) dom.dashboardView.classList.add('hidden');
+    if (dom.disciplineDashboardView) dom.disciplineDashboardView.classList.add('hidden');
+    if (dom.gradesReportView) dom.gradesReportView.classList.add('hidden');
+    if (dom.courseChecklistView) dom.courseChecklistView.classList.add('hidden');
+    if (dom.documentsView) {
+        dom.documentsView.addEventListener('click', e => {
+            const deleteBtn = e.target.closest('[data-action="delete-document"]');
+            if(deleteBtn) {
+                const docId = deleteBtn.dataset.id;
+                const { activeEnrollmentId } = getState();
+                modals.showConfirmModal({
+                    title: 'Excluir Documento',
+                    message: 'Tem certeza que deseja excluir este documento?',
+                    confirmText: 'Excluir',
+                    onConfirm: async () => {
+                        // CORREÇÃO: Removido o segundo parâmetro da chamada
+                        await api.deleteDocument(docId);
+                        notify.success('Documento excluído.');
+                        await renderDocumentsList(activeEnrollmentId);
+                    }
+                });
+            }
+        });
+    }
 }
 
-function hideLoading() {
-    const overlay = document.getElementById('loading-overlay');
-    if (overlay) overlay.classList.add('hidden');
+export function showAuthScreen() {
+    dom.authScreen.classList.remove('hidden');
+    dom.appContainer.classList.add('hidden');
+    updateAuthView();
+}
+
+export function showAppScreen() {
+    dom.authScreen.classList.add('hidden');
+    dom.appContainer.classList.remove('hidden');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    if (loadingOverlay) loadingOverlay.classList.add('hidden');
+}
+
+export async function showEnrollmentsView() {
+    hideAllViews();
+    dom.enrollmentsView.classList.remove('hidden');
+    await renderEnrollments();
+    await renderTodoList();
+    await renderUpcomingEvents();
+}
+
+export async function showDashboardView(enrollmentId) {
+    hideAllViews();
+    setState('activeEnrollmentId', enrollmentId);
+    dom.dashboardView.classList.remove('hidden');
+    
+    showLoading(true);
+
+    try {
+        const enrollmentSnap = await api.getEnrollment(enrollmentId);
+        if (!enrollmentSnap.exists()) {
+            navigate('/');
+            return;
+        }
+        const enrollment = { id: enrollmentSnap.id, ...enrollmentSnap.data() };
+        setState('activeEnrollment', enrollment);
+        dom.dashboardTitle.textContent = enrollment.course;
+        dom.dashboardSubtitle.textContent = enrollment.institution;
+
+        const periods = await api.getPeriods(enrollmentId);
+        setState('periods', periods);
+        
+        let activePeriodIndex = periods.findIndex(p => p.id === enrollment.activePeriodId);
+        if (activePeriodIndex === -1 && periods.length > 0) {
+            activePeriodIndex = 0;
+            await api.updateActivePeriod(enrollmentId, periods[0].id);
+        }
+        setState('activePeriodIndex', activePeriodIndex);
+
+        if (periods.length > 0) {
+            await renderPeriodNavigator();
+            await refreshDashboard();
+        } else {
+            dom.disciplinesList.innerHTML = `<div class="text-center p-8 bg-surface rounded-lg border border-border"><p class="text-subtle">Nenhum período letivo encontrado.</p><button id="new-period-btn" class="mt-4 bg-primary text-bkg font-bold py-2 px-4 rounded-lg shadow-md hover:opacity-90">Criar Primeiro Período</button></div>`;
+            dom.summaryCardsContainer.innerHTML = '';
+            dom.agendaContentContainer.innerHTML = '';
+            if (calendarInstance) calendarInstance.destroy();
+        }
+
+    } catch (error) {
+        console.error("Erro ao carregar o dashboard:", error);
+    } finally {
+        showLoading(false);
+    }
+}
+
+export async function showDocumentsView(enrollmentId) {
+    hideAllViews();
+    dom.documentsView.classList.remove('hidden');
+    
+    // Define o título e subtítulo da página
+    if (enrollmentId) {
+        const enrollmentSnap = await api.getEnrollment(enrollmentId);
+        if (enrollmentSnap.exists()) {
+            const enrollment = enrollmentSnap.data();
+            if (dom.documentsTitle) dom.documentsTitle.textContent = "Documentos";
+            if (dom.documentsSubtitle) dom.documentsSubtitle.textContent = `${enrollment.course} - ${enrollment.institution}`;
+            setState('activeEnrollmentId', enrollmentId);
+        }
+    } else {
+        if (dom.documentsTitle) dom.documentsTitle.textContent = "Todos os Documentos";
+        if (dom.documentsSubtitle) dom.documentsSubtitle.textContent = "Biblioteca geral";
+        setState('activeEnrollmentId', null);
+    }
+
+    // Reseta os filtros para o estado inicial
+    const toolbar = document.getElementById('documents-toolbar');
+    if (toolbar) {
+        toolbar.querySelector('#document-search-input').value = '';
+        const dropdowns = toolbar.querySelectorAll('[data-dropdown-container]');
+        dropdowns.forEach(container => {
+            const firstItem = container.querySelector('li');
+            if(firstItem) selectDropdownItem(firstItem);
+        });
+    }
+
+    // Carrega a lista de documentos inicial
+    await renderDocumentsList(enrollmentId);
+}
+
+function showLoading(show = true) {
+    const loadingOverlay = document.getElementById('loading-overlay');
+    if (loadingOverlay) {
+        loadingOverlay.classList.toggle('hidden', !show);
+    }
+}
+
+export async function refreshDashboard() {
+    showLoading(true);
+    try {
+        const { activeEnrollmentId, activePeriodId, activeEnrollment, periods, activePeriodIndex } = getState();
+        if (!activeEnrollmentId || !activePeriodId) return;
+
+        const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
+        setState('disciplines', disciplines);
+        
+        const currentPeriod = periods[activePeriodIndex];
+
+        renderSummaryCards(disciplines);
+        renderDisciplineCards(disciplines, activeEnrollment); // Passando o dado necessário
+        renderWeeklyClasses(disciplines);
+        await renderInteractiveCalendar(disciplines, currentPeriod); // Chamada correta da função
+        checkAndRenderNotifications();
+    } catch (error) {
+        console.error("Erro ao atualizar o dashboard:", error);
+    } finally {
+        showLoading(false);
+    }
+}
+
+export async function renderPeriodNavigator() {
+    const { periods, activePeriodIndex } = getState();
+    const currentPeriod = periods[activePeriodIndex];
+
+    if (dom.currentPeriodName && currentPeriod) {
+        dom.currentPeriodName.textContent = currentPeriod.name;
+    }
+
+    if (dom.prevPeriodBtn) dom.prevPeriodBtn.disabled = activePeriodIndex === 0;
+    if (dom.nextPeriodBtn) dom.nextPeriodBtn.disabled = activePeriodIndex === periods.length - 1;
+}
+
+function renderSummaryCards(disciplines) {
+    const { periods, activePeriodIndex } = getState();
+    const currentPeriod = periods[activePeriodIndex];
+
+    if (!currentPeriod) {
+        if (dom.summaryCardsContainer) dom.summaryCardsContainer.innerHTML = '';
+        return;
+    }
+    
+    const isPeriodClosed = currentPeriod.status === 'closed';
+    
+    const totalDisciplines = disciplines.length;
+    const nextEvaluation = 'N/A'; // Lógica a ser implementada
+    const totalAbsences = disciplines.reduce((acc, d) => acc + (d.absences || 0), 0);
+    const periodStatus = isPeriodClosed ? 'Encerrado' : 'Em Andamento';
+
+    const summaryData = [
+        { title: 'Total de Disciplinas', value: totalDisciplines, icon: 'book' },
+        { title: 'Próxima Avaliação', value: nextEvaluation, icon: 'calendar' },
+        { title: 'Faltas Acumuladas', value: totalAbsences, icon: 'user-minus' },
+        { title: 'Status do Período', value: periodStatus, icon: 'check-circle' }
+    ];
+
+    dom.summaryCardsContainer.innerHTML = summaryData.map(createSummaryCard).join('');
+}
+
+function renderDisciplineCards(disciplines, enrollmentData) {
+    if (!dom.disciplinesList) return;
+    if (disciplines.length === 0) {
+        dom.disciplinesList.innerHTML = '<p class="text-subtle text-center">Nenhuma disciplina adicionada a este período.</p>';
+        return;
+    }
+    dom.disciplinesList.innerHTML = '';
+    const { periods, activePeriodIndex } = getState();
+    const isPeriodClosed = periods[activePeriodIndex]?.status === 'closed';
+
+    disciplines.forEach(discipline => {
+        const card = createDisciplineCard(discipline, enrollmentData, isPeriodClosed);
+        dom.disciplinesList.appendChild(card);
+    });
 }
 
 /**
@@ -45,45 +251,6 @@ export function updateDisciplineCard(disciplineData) {
             }
         });
     }
-}
-
-// --- CONTROLE DE VISIBILIDADE DAS TELAS ---
-export function showAuthScreen() {
-  dom.authScreen.classList.remove('hidden');
-  dom.appContainer.classList.add('hidden');
-  hideLoading();
-  updateAuthView();
-}
-
-export function showAppScreen() {
-  dom.authScreen.classList.add('hidden');
-  dom.appContainer.classList.remove('hidden');
-}
-
-export async function showEnrollmentsView() {
-    showLoading();
-    if (sortableInstances.disciplines && sortableInstances.disciplines.el) {
-        try { sortableInstances.disciplines.destroy(); } catch (e) {}
-    }
-    sortableInstances.disciplines = null;
-
-    dom.dashboardView.classList.add('hidden');
-    dom.enrollmentsView.classList.remove('hidden');
-    dom.disciplineDashboardView.classList.add('hidden');
-    dom.gradesReportView.classList.add('hidden');
-    dom.courseChecklistView.classList.add('hidden');
-    
-    setState('activeEnrollmentId', null);
-    setState('activePeriodId', null);
-    
-    await Promise.all([
-        renderEnrollments(),
-        renderTodoList(),
-        renderUpcomingEvents()
-    ]);
-
-    hideLoading();
-    pomodoro.initialize();
 }
 
 // --- RENDERIZAÇÃO DE CONTEÚDO ---
@@ -171,57 +338,6 @@ async function checkAndCloseOutdatedPeriods(enrollmentId, periods) {
         notify.error("Não foi possível atualizar o status dos períodos.");
         return periods;
     }
-}
-
-export async function showDashboardView(enrollmentId) {
-    if (!enrollmentId) {
-        navigate('/');
-        return;
-    }
-    
-    showLoading();
-    dom.courseChecklistView.classList.add('hidden');
-    dom.gradesReportView.classList.add('hidden');
-    dom.enrollmentsView.classList.add('hidden');
-    dom.disciplineDashboardView.classList.add('hidden');
-    dom.dashboardView.classList.remove('hidden');
-    setState('activeEnrollmentId', enrollmentId);
-    
-    const enrollmentSnap = await api.getEnrollment(enrollmentId);
-    if (enrollmentSnap.exists()) {
-        const data = enrollmentSnap.data();
-        
-        dom.dashboardTitle.textContent = data.course;
-        dom.dashboardSubtitle.textContent = data.institution;
-        
-        let periods = await api.getPeriods(enrollmentId);
-        periods = await checkAndCloseOutdatedPeriods(enrollmentId, periods);
-        
-        setState('periods', periods);
-        
-        let activeIndex = -1;
-        const lastActivePeriod = periods.find(p => p.id === data.activePeriodId);
-
-        if (lastActivePeriod && lastActivePeriod.status !== 'closed') {
-            activeIndex = periods.indexOf(lastActivePeriod);
-        } else {
-            const openPeriods = periods.filter(p => p.status !== 'closed');
-            
-            if (openPeriods.length > 0) {
-                const newestOpenPeriod = openPeriods[openPeriods.length - 1];
-                activeIndex = periods.indexOf(newestOpenPeriod);
-                await api.updateActivePeriod(enrollmentId, newestOpenPeriod.id);
-            } else {
-                activeIndex = periods.length > 0 ? periods.length - 1 : -1;
-            }
-        }
-        
-        setState('activePeriodIndex', activeIndex > -1 ? activeIndex : 0);
-        
-        await renderPeriodNavigator();
-        await refreshDashboard();
-    }
-    hideLoading();
 }
 
 function renderPerformanceChartWithChartJS(discipline) {
@@ -364,7 +480,7 @@ export async function showDisciplineDashboard({ enrollmentId, disciplineId }) {
             setState('activePeriodIndex', activeIndex > -1 ? activeIndex : 0);
         } else {
             navigate('/');
-            hideLoading();
+            showLoading(false);
             return;
         }
     }
@@ -398,7 +514,7 @@ export async function showDisciplineDashboard({ enrollmentId, disciplineId }) {
         renderPerformanceChartWithChartJS(discipline);
         renderDisciplineAgenda(disciplineId);
     }
-    hideLoading();
+    showLoading(false);
 }
 
 function renderAbsenceControls(discipline) {
@@ -510,29 +626,6 @@ export async function renderAbsenceHistory(enrollmentId, periodId, disciplineId)
     dom.absenceHistoryList.appendChild(listContainer);
 }
 
-export async function renderPeriodNavigator() {
-    const { periods, activePeriodIndex } = getState();
-    if (!periods || periods.length === 0) {
-        dom.currentPeriodName.textContent = 'Nenhum';
-        dom.prevPeriodBtn.disabled = true;
-        dom.nextPeriodBtn.disabled = true;
-        dom.disciplinesList.innerHTML = '<p class="text-subtle col-span-full text-center">Crie um novo período para começar.</p>';
-        return;
-    }
-    const currentPeriod = periods[activePeriodIndex];
-    if (!currentPeriod) return;
-
-    setState('activePeriodId', currentPeriod.id);
-    dom.currentPeriodName.textContent = currentPeriod.name;
-    if (currentPeriod.status === 'closed') {
-        dom.currentPeriodName.classList.add('line-through', 'text-subtle');
-    } else {
-        dom.currentPeriodName.classList.remove('line-through', 'text-subtle');
-    }
-    dom.prevPeriodBtn.disabled = activePeriodIndex <= 0;
-    dom.nextPeriodBtn.disabled = activePeriodIndex >= periods.length - 1;
-}
-
 export function updateAuthView() {
   const authMode = getState().authMode;
   if (authMode === 'login') {
@@ -551,21 +644,6 @@ export function togglePasswordVisibility() {
     dom.authPasswordInput.type = isPassword ? 'text' : 'password';
     dom.eyeIcon.classList.toggle('hidden', isPassword);
     dom.eyeSlashIcon.classList.toggle('hidden', !isPassword);
-}
-
-function renderSummaryCards(disciplines, period) {
-    const container = dom.summaryCardsContainer;
-    if (!container) return;
-    const totalDisciplines = disciplines.length;
-    const nextAssessment = 'N/A';
-    const totalAbsences = disciplines.reduce((acc, dis) => acc + (dis.absences || 0), 0);
-    const periodStatus = period.status === 'closed' ? 'Encerrado' : 'Em andamento';
-    container.innerHTML = `
-        <div class="bg-surface p-4 rounded-xl shadow-lg border border-border"><h3 class="text-subtle text-sm font-bold">Total de Disciplinas</h3><p class="text-secondary text-2xl font-bold">${totalDisciplines}</p></div>
-        <div class="bg-surface p-4 rounded-xl shadow-lg border border-border"><h3 class="text-subtle text-sm font-bold">Próxima Avaliação</h3><p class="text-secondary text-2xl font-bold">${nextAssessment}</p></div>
-        <div class="bg-surface p-4 rounded-xl shadow-lg border border-border"><h3 class="text-subtle text-sm font-bold">Faltas Acumuladas</h3><p class="text-secondary text-2xl font-bold">${totalAbsences}</p></div>
-        <div class="bg-surface p-4 rounded-xl shadow-lg border border-border"><h3 class="text-subtle text-sm font-bold">Status do Período</h3><p class="text-secondary text-2xl font-bold">${periodStatus}</p></div>
-    `;
 }
 
 async function renderInteractiveCalendar(disciplines, period) {
@@ -647,41 +725,6 @@ export async function renderUpcomingEvents() {
     }
 }
 
-export async function refreshDashboard() {
-    showLoading();
-    const { activeEnrollmentId, activePeriodId, periods, activePeriodIndex } = getState();
-    if (!activeEnrollmentId || !activePeriodId) {
-        hideLoading();
-        return;
-    }
-    
-    const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
-    if (!enrollmentSnap.exists()) {
-        hideLoading();
-        return;
-    }
-    
-    const enrollmentData = enrollmentSnap.data();
-    const currentPeriod = periods[activePeriodIndex];
-    if (!currentPeriod) {
-        hideLoading();
-        return;
-    }
-
-    const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
-    const isPeriodClosed = currentPeriod.status === 'closed';
-
-    setState('disciplines', disciplines); 
-    
-    renderSummaryCards(disciplines, currentPeriod);
-    renderDisciplines(activeEnrollmentId, activePeriodId, enrollmentData, isPeriodClosed);
-    
-    renderWeeklyClasses(disciplines); 
-    
-    renderInteractiveCalendar(disciplines, currentPeriod);
-    hideLoading();
-}
-
 export async function showGradesReportView(enrollmentId) {
     if (!enrollmentId) {
         const params = new URLSearchParams(window.location.search);
@@ -708,7 +751,7 @@ export async function showGradesReportView(enrollmentId) {
         dom.gradesReportSubtitle.textContent = `${enrollmentData.course} - ${enrollmentData.institution}`;
         await renderGradesReportContent(enrollmentData); 
     }
-    hideLoading();
+    showLoading(false);
 }
 
 async function renderGradesReportContent(enrollmentData) {
@@ -879,7 +922,7 @@ export async function showCourseChecklistView(enrollmentId) {
     }
 
     await renderChecklistContent();
-    hideLoading();
+    showLoading(false);
 }
 
 export function showCurriculumSubjectModal(subjectId = null) {
@@ -1141,4 +1184,93 @@ export async function renderAllEvents() {
             </div>
         `;
     }).join('');
+}
+
+function updateEmptyState(icon, title, subtitle) {
+    if (!dom.documentsEmptyState) return;
+    const iconContainer = document.getElementById('documents-empty-state-icon');
+    const titleEl = document.getElementById('documents-empty-state-title');
+    const subtitleEl = document.getElementById('documents-empty-state-subtitle');
+
+    // Novo ícone (Heroicons - Document)
+    const newIcon = `<svg class="w-16 h-16 mx-auto text-subtle/50" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>`;
+    
+    if(iconContainer) iconContainer.innerHTML = icon || newIcon;
+    if(titleEl) titleEl.textContent = title;
+    if(subtitleEl) subtitleEl.textContent = subtitle;
+
+    dom.documentsEmptyState.classList.remove('hidden');
+}
+
+export async function renderDocumentsList(enrollmentId) {
+    const listContainer = dom.documentsList;
+    if (!listContainer || !dom.documentsEmptyState) return;
+    
+    // 1. Estado de Carregamento Centralizado
+    listContainer.classList.add('hidden');
+    const spinnerIcon = `<svg class="w-16 h-16 mx-auto text-primary animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+    updateEmptyState(spinnerIcon, 'A carregar documentos...', 'Por favor, aguarde.');
+
+    try {
+        const documents = await api.getDocuments(enrollmentId);
+        const totalDocumentsCount = documents.length;
+
+        // Obter valores dos filtros
+        const searchTerm = document.getElementById('document-search-input')?.value.toLowerCase() || '';
+        const typeFilter = document.querySelector('[data-filter-key="type"] .selected-value')?.textContent || 'Todos os Tipos';
+        const sortOrder = document.querySelector('[data-filter-key="sort"] [data-action="select-dropdown-item"].selected')?.dataset.value || 'createdAt_desc';
+        
+        // 2. Lógica de Mensagens de Estado Vazio
+        if (totalDocumentsCount === 0) {
+            const emptyIcon = `<svg class="w-16 h-16 mx-auto text-subtle/50" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>`;
+            const title = "Biblioteca Vazia";
+            // Usa o 'enrollmentId' para decidir qual mensagem mostrar
+            const subtitle = enrollmentId 
+                ? "Ainda não foram adicionados documentos a esta matrícula."
+                : "Ainda não foram adicionados documentos à biblioteca geral.";
+            updateEmptyState(emptyIcon, title, subtitle);
+            return;
+        }
+
+        // 3. Aplicar Filtros e Ordenação
+        const filteredDocuments = documents.filter(doc => {
+            const matchesSearch = searchTerm ? doc.title.toLowerCase().includes(searchTerm) || (doc.tags && doc.tags.some(tag => tag.toLowerCase().includes(searchTerm))) : true;
+            const matchesType = typeFilter !== 'Todos os Tipos' ? doc.type === typeFilter : true;
+            return matchesSearch && matchesType;
+        });
+
+        const [sortField, sortDirection] = sortOrder.split('_');
+        filteredDocuments.sort((a, b) => {
+            let valA, valB;
+            if (sortField === 'createdAt') {
+                valA = a.createdAt?.toDate() || new Date(0);
+                valB = b.createdAt?.toDate() || new Date(0);
+            } else { // title
+                valA = a.title.toLowerCase();
+                valB = b.title.toLowerCase();
+            }
+
+            if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+            if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        // 4. Renderizar Resultados ou Mensagem de "Nenhum Encontrado"
+        if (filteredDocuments.length === 0) {
+            const noResultsIcon = `<svg class="w-16 h-16 mx-auto text-subtle/50" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>`;
+            updateEmptyState(noResultsIcon, "Nenhum Documento Encontrado", "Tente ajustar seus filtros de pesquisa.");
+        } else {
+            dom.documentsEmptyState.classList.add('hidden');
+            listContainer.innerHTML = '';
+            listContainer.classList.remove('hidden');
+            filteredDocuments.forEach(doc => {
+                const card = createDocumentCard(doc);
+                listContainer.appendChild(card);
+            });
+        }
+    } catch (error) {
+        console.error("Erro ao renderizar documentos:", error);
+        const errorIcon = `<svg class="w-16 h-16 mx-auto text-danger" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>`;
+        updateEmptyState(errorIcon, "Ocorreu um Erro", "Não foi possível carregar os documentos. Tente novamente.");
+    }
 }

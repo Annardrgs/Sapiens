@@ -52,6 +52,27 @@
   .dark .custom-select {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor' class='w-5 h-5'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd' fill='white' /%3E%3C/svg%3E");
   }
+
+  .custom-dropdown-button {
+      @apply w-full flex items-center text-left px-4 py-3 bg-bkg text-secondary border border-border rounded-md;
+  }
+
+  .custom-dropdown-panel {
+      @apply absolute w-full mt-1 bg-surface border border-border rounded-md shadow-lg z-50;
+  }
+
+  .custom-dropdown-list {
+      @apply max-h-48 overflow-y-auto p-1 custom-scrollbar;
+  }
+
+  .custom-dropdown-list li {
+      @apply p-2 rounded-md cursor-pointer hover:bg-bkg;
+  }
+
+    .custom-dropdown-list li.selected {
+      @apply bg-primary text-bkg font-semibold;
+  }
+
   /* Adicionando classe de z-index maior */
   .z-60 {
     z-index: 60;
@@ -64,16 +85,19 @@
     width: 8px;
   }
   .custom-scrollbar::-webkit-scrollbar-track {
-    background-color: var(--color-bkg);
+    background-color: transparent;
     border-radius: 10px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: var(--color-primary);
+    background-color: var(--color-subtle);
     border-radius: 10px;
+    border: 2px solid var(--color-surface);
+  }
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
     border: 2px solid var(--color-bkg);
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: var(--color-primary-hover);
+    background-color: var(--color-secondary);
   }
 }
 
@@ -153,4 +177,20 @@
 
 .agenda-view-btn.active {
   @apply bg-surface text-secondary shadow-sm;
+}
+
+.history-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+.history-scrollbar::-webkit-scrollbar-track {
+    background-color: var(--color-surface);
+    border-radius: 10px;
+}
+.history-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--color-subtle);
+    border-radius: 10px;
+    border: 2px solid var(--color-surface);
+}
+.history-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-secondary);
 }

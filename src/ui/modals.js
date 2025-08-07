@@ -395,11 +395,13 @@ export async function showPomodoroSettingsModal() {
     if (!dom.pomodoroSettingsModal) return;
 
     let { activeEnrollmentId, activePeriodId } = getState();
-    const disciplineSelect = dom.pomodoroSettingsForm.querySelector('#pomodoro-discipline');
+    const disciplineList = dom.pomodoroSettingsForm.querySelector('#pomodoro-discipline-list');
     
-    disciplineSelect.innerHTML = `<option value="none">Nenhuma disciplina</option>`;
+    // CORREÇÃO: Verificar se disciplineList existe antes de modificar
+    if (disciplineList) {
+        disciplineList.innerHTML = `<li data-action="select-dropdown-item" data-value="none">Nenhuma disciplina</li>`;
+    }
     
-    // Se não houver matrícula ativa (está na tela principal), pega a primeira da lista
     if (!activeEnrollmentId) {
         const enrollments = await api.getEnrollments();
         if (enrollments.length > 0) {
@@ -409,17 +411,29 @@ export async function showPomodoroSettingsModal() {
         }
     }
     
-    if (activeEnrollmentId && activePeriodId) {
+    if (activeEnrollmentId && activePeriodId && disciplineList) {
         const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
         disciplines.forEach(d => {
-            const option = new Option(d.name, d.id);
-            disciplineSelect.appendChild(option);
+            const li = document.createElement('li');
+            li.dataset.action = 'select-dropdown-item';
+            li.dataset.value = d.id;
+            li.textContent = d.name;
+            disciplineList.appendChild(li);
         });
     }
 
     dom.pomodoroSettingsForm.reset();
     dom.pomodoroSettingsForm.querySelector('#pomodoro-study-time').value = 25;
     dom.pomodoroSettingsForm.querySelector('#pomodoro-break-time').value = 5;
+    
+    // Resetar dropdowns para o valor padrão
+    document.querySelectorAll('#pomodoro-settings-modal [data-dropdown-container]').forEach(container => {
+        const firstItem = container.querySelector('li');
+        if (firstItem) {
+            selectDropdownItem(firstItem);
+        }
+    });
+
     showModal(dom.pomodoroSettingsModal);
 }
 
@@ -593,3 +607,93 @@ export async function showCurriculumSubjectDetailsModal(subjectId) {
 }
 
 export function hideCurriculumSubjectDetailsModal() { hideModal(dom.curriculumSubjectDetailsModal); }
+
+// --- FUNÇÕES DO DROPDOWN PERSONALIZADO ---
+
+export function toggleDropdown(container) {
+    const panel = container.querySelector('[data-dropdown-panel]');
+    if (panel) {
+        panel.classList.toggle('hidden');
+    }
+}
+
+export function selectDropdownItem(itemElement) {
+    const container = itemElement.closest('[data-dropdown-container]');
+    if (!container) return;
+
+    const value = itemElement.dataset.value;
+    const text = itemElement.textContent;
+
+    const hiddenInput = container.querySelector('input[type="hidden"]');
+    const selectedValueSpan = container.querySelector('.selected-value');
+    const panel = container.querySelector('[data-dropdown-panel]');
+    
+    if (hiddenInput) hiddenInput.value = value;
+    if (selectedValueSpan) selectedValueSpan.textContent = text;
+    
+    // Atualiza o item selecionado na lista
+    const list = container.querySelector('.custom-dropdown-list');
+    if (list) {
+        list.querySelector('.selected')?.classList.remove('selected');
+        itemElement.classList.add('selected');
+    }
+
+    if (panel) panel.classList.add('hidden');
+}
+
+export async function showDocumentModal(documentId = null) {
+    if (!dom.addDocumentModal) return;
+    const form = dom.addDocumentForm;
+    form.reset();
+    setState('editingDocumentId', documentId);
+
+    // Reseta os dropdowns customizados para o valor padrão
+    form.querySelectorAll('[data-dropdown-container]').forEach(container => {
+        const firstItem = container.querySelector('li');
+        if (firstItem) selectDropdownItem(firstItem);
+    });
+
+    const { activeEnrollmentId } = getState();
+    const disciplineList = document.getElementById('modal-discipline-list');
+    disciplineList.innerHTML = '<li data-action="select-dropdown-item" data-value="none" class="selected">Nenhuma</li>'; // Opção padrão
+
+    try {
+        const enrollments = activeEnrollmentId ? [getState().activeEnrollment] : await api.getEnrollments();
+        if (!enrollments || enrollments.length === 0) {
+            // Se não houver matrículas, não há o que carregar.
+            showModal(dom.addDocumentModal);
+            return;
+        }
+
+        for (const enrollment of enrollments) {
+            if (!enrollment || !enrollment.id) continue;
+            
+            const periods = await api.getPeriods(enrollment.id);
+            const activePeriod = periods.find(p => p.id === enrollment.activePeriodId) || periods[0];
+
+            if (activePeriod) {
+                const disciplines = await api.getDisciplines(enrollment.id, activePeriod.id);
+                disciplines.forEach(d => {
+                    const li = document.createElement('li');
+                    li.dataset.action = 'select-dropdown-item';
+                    li.dataset.value = d.id;
+                    li.dataset.enrollmentId = enrollment.id; // Guarda o ID da matrícula
+                    li.dataset.periodId = activePeriod.id;
+                    // Adiciona o nome do curso para diferenciar na visão geral
+                    li.textContent = activeEnrollmentId ? d.name : `${d.name} (${enrollment.course})`;
+                    disciplineList.appendChild(li);
+                });
+            }
+        }
+    } catch (error) {
+        console.error("Erro ao carregar disciplinas para o modal:", error);
+        notify.error("Não foi possível carregar as disciplinas.");
+    }
+    
+    showModal(dom.addDocumentModal);
+}
+
+
+export function hideDocumentModal() {
+    hideModal(dom.addDocumentModal);
+}
