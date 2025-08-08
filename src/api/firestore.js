@@ -470,7 +470,8 @@ export async function getTodosForToday() {
     const todayStr = getTodayDateString();
     
     const todosRef = collection(db, 'users', userId, 'todos');
-    const q = query(todosRef, where("date", "==", todayStr), orderBy("completed", "asc"), orderBy("createdAt", "asc"));
+    // CORREÇÃO: Ordena primeiro por 'completed' (false vem primeiro) e depois por data de criação.
+    const q = query(todosRef, where("date", "==", todayStr), orderBy("completed", "asc"), orderBy("createdAt", "desc"));
     
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -484,16 +485,24 @@ export function addTodo(text) {
     return addDoc(todosRef, {
         text: text,
         completed: false,
+        isPinned: false,
         date: getTodayDateString(),
         createdAt: serverTimestamp()
     });
+}
+
+export function updateTodoPinnedStatus(todoId, isPinned) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const todoRef = doc(db, 'users', userId, 'todos', todoId);
+    return updateTodo(todoId, { isPinned });
 }
 
 export function updateTodoStatus(todoId, completed) {
     const userId = getCurrentUserId();
     if (!userId) throw new Error("Usuário não autenticado.");
     const todoRef = doc(db, 'users', userId, 'todos', todoId);
-    return updateDoc(todoRef, { completed });
+    return updateTodo(todoId, { completed });
 }
 
 export function deleteTodo(todoId) {
@@ -725,17 +734,12 @@ export async function uploadFileToCloudinary(file) {
 export async function cleanupOldTodos() {
     const userId = getCurrentUserId();
     if (!userId) return;
-
-    // CORREÇÃO: Usa a mesma função 'getTodayDateString' que a criação de tarefas usa.
-    // Isso garante que a data de "hoje" seja sempre baseada no fuso horário do usuário,
-    // evitando que tarefas do dia corrente sejam apagadas à noite.
     const todayStr = getTodayDateString();
 
     try {
         const todosRef = collection(db, 'users', userId, 'todos');
         
-        // A query agora compara corretamente a data da tarefa com a data local do usuário.
-        const q = query(todosRef, where("date", "<", todayStr));
+        const q = query(todosRef, where("date", "<", todayStr), where("isPinned", "==", false));
         
         const snapshot = await getDocs(q);
 
@@ -755,4 +759,11 @@ export async function cleanupOldTodos() {
     } catch (error) {
         console.error("Erro ao limpar tarefas antigas:", error);
     }
+}
+
+export function updateTodo(todoId, payload) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    const todoRef = doc(db, 'users', userId, 'todos', todoId);
+    return updateDoc(todoRef, payload);
 }
