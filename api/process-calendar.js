@@ -1,17 +1,19 @@
 import axios from 'axios';
-import pdf from 'pdf-parse';
+// ADICIONAR: Importa a nova biblioteca pdfjs-dist
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // A chave de API será configurada como uma Variável de Ambiente na Vercel
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Lista de origens permitidas (seu app local e na Vercel)
+// Lista de origens permitidas
 const allowedOrigins = [
   'http://localhost:5173',
-  'https://sapiens-rdrgs.web.app'
+  'http://localhost:3000', // Adicionado para vercel dev
+  'https://sapiens-rdrgs.web.app',
+  'https://sapiens-git-wip-rdrgs-projects-team.vercel.app' // URL do seu deploy
 ];
 
-// Esta é a função principal que será exportada
 export default async function handler(req, res) {
   // Lógica de CORS
   const origin = req.headers.origin;
@@ -39,9 +41,17 @@ export default async function handler(req, res) {
     const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
     const pdfBuffer = response.data;
 
-    // pdf-parse requer uma chamada um pouco diferente com import
-    const pdfData = await pdf(pdfBuffer);
-    const text = pdfData.text;
+    // --- CÓDIGO DE LEITURA DO PDF SUBSTITUÍDO ---
+    const pdfData = await pdfjsLib.getDocument({ data: pdfBuffer }).promise;
+    let fullText = '';
+    for (let i = 1; i <= pdfData.numPages; i++) {
+        const page = await pdfData.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        fullText += pageText + '\n';
+    }
+    const text = fullText;
+    // --- FIM DA SUBSTITUIÇÃO ---
 
     if (!text || text.length < 50) {
       return res.status(400).json({ error: "Não foi possível extrair texto do PDF." });
@@ -74,6 +84,10 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error("Erro na função serverless:", error);
-    return res.status(500).json({ error: "Ocorreu um erro interno ao processar o calendário." });
+    // Retorna uma mensagem de erro mais detalhada para depuração
+    return res.status(500).json({ 
+        error: "Ocorreu um erro interno ao processar o calendário.",
+        details: error.message 
+    });
   }
 };
