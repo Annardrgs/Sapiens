@@ -16,11 +16,10 @@ import { selectDropdownItem } from './modals.js';
 
 let calendarInstance = null;
 let performanceChart = null;
-
 let sortableInstances = { enrollments: null, disciplines: null };
 let performanceChartInstance = null;
 
-// --- FUNÇÕES DE CONTROLO DE VISIBILIDADE ---
+// --- FUNÇÕES DE CONTROLE DE VISIBILIDADE ---
 function hideAllViews() {
     if (dom.enrollmentsView) dom.enrollmentsView.classList.add('hidden');
     if (dom.dashboardView) dom.dashboardView.classList.add('hidden');
@@ -28,26 +27,6 @@ function hideAllViews() {
     if (dom.gradesReportView) dom.gradesReportView.classList.add('hidden');
     if (dom.courseChecklistView) dom.courseChecklistView.classList.add('hidden');
     if (dom.documentsView) dom.documentsView.classList.add('hidden');
-    if (dom.documentsView) {
-        dom.documentsView.addEventListener('click', e => {
-            const deleteBtn = e.target.closest('[data-action="delete-document"]');
-            if(deleteBtn) {
-                const docId = deleteBtn.dataset.id;
-                const { activeEnrollmentId } = getState();
-                modals.showConfirmModal({
-                    title: 'Excluir Documento',
-                    message: 'Tem certeza que deseja excluir este documento?',
-                    confirmText: 'Excluir',
-                    onConfirm: async () => {
-                        // CORREÇÃO: Removido o segundo parâmetro da chamada
-                        await api.deleteDocument(docId);
-                        notify.success('Documento excluído.');
-                        await renderDocumentsList(activeEnrollmentId);
-                    }
-                });
-            }
-        });
-    }
 }
 
 export function showAuthScreen() {
@@ -64,6 +43,9 @@ export function showAppScreen() {
 }
 
 export async function showEnrollmentsView() {
+    // CORREÇÃO: Reseta o ID da matrícula ativa ao voltar para a tela principal.
+    setState('activeEnrollmentId', null);
+
     hideAllViews();
     dom.enrollmentsView.classList.remove('hidden');
     await renderEnrollments();
@@ -102,6 +84,19 @@ export async function showDashboardView(enrollmentId) {
         if (periods.length > 0) {
             await renderPeriodNavigator();
             await refreshDashboard();
+            
+            const currentPeriod = periods[activePeriodIndex];
+            const isClosed = currentPeriod?.status === 'closed';
+            if (dom.newPeriodBtn) dom.newPeriodBtn.disabled = isClosed;
+            if (dom.addDisciplineBtn) dom.addDisciplineBtn.disabled = isClosed;
+            
+            const dashboardButtons = dom.dashboardView.querySelectorAll('button:not(#prev-period-btn):not(#next-period-btn):not(#back-to-enrollments-btn)');
+            dashboardButtons.forEach(btn => {
+                if (btn.id !== 'manage-period-btn') {
+                     btn.classList.toggle('opacity-50', isClosed);
+                     btn.classList.toggle('cursor-not-allowed', isClosed);
+                }
+            });
         } else {
             dom.disciplinesList.innerHTML = `<div class="text-center p-8 bg-surface rounded-lg border border-border"><p class="text-subtle">Nenhum período letivo encontrado.</p><button id="new-period-btn" class="mt-4 bg-primary text-bkg font-bold py-2 px-4 rounded-lg shadow-md hover:opacity-90">Criar Primeiro Período</button></div>`;
             dom.summaryCardsContainer.innerHTML = '';
@@ -120,7 +115,6 @@ export async function showDocumentsView(enrollmentId) {
     hideAllViews();
     dom.documentsView.classList.remove('hidden');
     
-    // Define o título e subtítulo da página
     if (enrollmentId) {
         const enrollmentSnap = await api.getEnrollment(enrollmentId);
         if (enrollmentSnap.exists()) {
@@ -135,7 +129,6 @@ export async function showDocumentsView(enrollmentId) {
         setState('activeEnrollmentId', null);
     }
 
-    // Reseta os filtros para o estado inicial
     const toolbar = document.getElementById('documents-toolbar');
     if (toolbar) {
         toolbar.querySelector('#document-search-input').value = '';
@@ -146,7 +139,6 @@ export async function showDocumentsView(enrollmentId) {
         });
     }
 
-    // Carrega a lista de documentos inicial
     await renderDocumentsList(enrollmentId);
 }
 
@@ -169,9 +161,9 @@ export async function refreshDashboard() {
         const currentPeriod = periods[activePeriodIndex];
 
         renderSummaryCards(disciplines);
-        renderDisciplineCards(disciplines, activeEnrollment); // Passando o dado necessário
+        renderDisciplineCards(disciplines, activeEnrollment);
         renderWeeklyClasses(disciplines);
-        await renderInteractiveCalendar(disciplines, currentPeriod); // Chamada correta da função
+        await renderInteractiveCalendar(disciplines, currentPeriod);
         checkAndRenderNotifications();
     } catch (error) {
         console.error("Erro ao atualizar o dashboard:", error);
@@ -186,6 +178,12 @@ export async function renderPeriodNavigator() {
 
     if (dom.currentPeriodName && currentPeriod) {
         dom.currentPeriodName.textContent = currentPeriod.name;
+        const isClosed = currentPeriod.status === 'closed';
+        const navigatorContainer = dom.currentPeriodName.parentElement;
+        if (navigatorContainer) {
+            navigatorContainer.classList.toggle('opacity-50', isClosed);
+            navigatorContainer.title = isClosed ? 'Período encerrado' : '';
+        }
     }
 
     if (dom.prevPeriodBtn) dom.prevPeriodBtn.disabled = activePeriodIndex === 0;
@@ -215,7 +213,9 @@ function renderSummaryCards(disciplines) {
         { title: 'Status do Período', value: periodStatus, icon: 'check-circle' }
     ];
 
-    dom.summaryCardsContainer.innerHTML = summaryData.map(createSummaryCard).join('');
+    if (dom.summaryCardsContainer) {
+        dom.summaryCardsContainer.innerHTML = summaryData.map(createSummaryCard).join('');
+    }
 }
 
 function renderDisciplineCards(disciplines, enrollmentData) {
@@ -234,10 +234,6 @@ function renderDisciplineCards(disciplines, enrollmentData) {
     });
 }
 
-/**
- * Atualiza um único card de disciplina na tela com novos dados.
- * @param {object} disciplineData - Os dados atualizados da disciplina.
- */
 export function updateDisciplineCard(disciplineData) {
     const cardToReplace = document.querySelector(`#disciplines-list [data-id="${disciplineData.id}"]`);
     if (cardToReplace) {
@@ -254,7 +250,6 @@ export function updateDisciplineCard(disciplineData) {
     }
 }
 
-// --- RENDERIZAÇÃO DE CONTEÚDO ---
 export function renderUserEmail(email) {
     if(dom.userEmailDisplay) dom.userEmailDisplay.textContent = email;
 }
@@ -350,9 +345,8 @@ function renderPerformanceChartWithChartJS(discipline) {
     
     const ctx = canvas.getContext('2d');
     
-    // Gradiente para as barras
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, 'rgba(79, 70, 229, 0.7)'); // Cor primária com transparência
+    gradient.addColorStop(0, 'rgba(79, 70, 229, 0.7)');
     gradient.addColorStop(1, 'rgba(79, 70, 229, 0.1)');
 
     const labels = discipline.grades?.map(g => g.name) || [];
@@ -366,7 +360,7 @@ function renderPerformanceChartWithChartJS(discipline) {
                 label: 'Nota',
                 data: data,
                 backgroundColor: gradient,
-                borderColor: 'rgba(79, 70, 229, 1)', // Cor primária sólida
+                borderColor: 'rgba(79, 70, 229, 1)',
                 borderWidth: 2,
                 borderRadius: 6,
                 hoverBackgroundColor: 'rgba(79, 70, 229, 0.9)'
@@ -380,7 +374,7 @@ function renderPerformanceChartWithChartJS(discipline) {
                     beginAtZero: true,
                     max: 10,
                     grid: { 
-                        color: 'rgba(55, 65, 81, 0.4)', // Linhas de grade mais suaves
+                        color: 'rgba(55, 65, 81, 0.4)',
                         borderDash: [2, 4], 
                     },
                     ticks: { color: '#9ca3af', font: { weight: '600' } }
@@ -393,7 +387,7 @@ function renderPerformanceChartWithChartJS(discipline) {
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: 'rgba(31, 41, 55, 0.9)', // Cor de fundo do tooltip
+                    backgroundColor: 'rgba(31, 41, 55, 0.9)',
                     titleFont: { size: 14, weight: 'bold' },
                     bodyFont: { size: 12 },
                     padding: 10,
@@ -474,7 +468,7 @@ function renderEvaluationsList(discipline) {
     discipline.grades.forEach((grade, index) => {
         const gradeValue = grade.grade ?? '-';
         const evaluationEl = document.createElement('div');
-        evaluationEl.className = 'evaluation-item'; // Usaremos esta nova classe no CSS
+        evaluationEl.className = 'evaluation-item';
 
         evaluationEl.innerHTML = `
             <span class="evaluation-item-label" title="${grade.name}">${grade.name}</span>
@@ -494,7 +488,6 @@ export async function showDisciplineDashboard({ enrollmentId, disciplineId }) {
 
     showLoading();
 
-    // Garante que o estado da matrícula ativa e os períodos estejam corretos
     if (getState().activeEnrollmentId !== enrollmentId || !getState().activePeriodId) {
         setState('activeEnrollmentId', enrollmentId);
         const enrollment = await api.getEnrollment(enrollmentId);
@@ -515,7 +508,7 @@ export async function showDisciplineDashboard({ enrollmentId, disciplineId }) {
     dom.enrollmentsView.classList.add('hidden');
     dom.disciplineDashboardView.classList.remove('hidden');
 
-    const { activePeriodId } = getState();
+    const { activePeriodId, periods, activePeriodIndex } = getState();
     setState('activeDisciplineId', disciplineId);
 
     const enrollmentSnap = await api.getEnrollment(enrollmentId);
@@ -532,6 +525,10 @@ export async function showDisciplineDashboard({ enrollmentId, disciplineId }) {
         if (manageButton) {
             manageButton.dataset.periodId = activePeriodId;
             manageButton.dataset.disciplineId = disciplineId;
+            
+            // CORREÇÃO: Esconde o botão se o período estiver encerrado
+            const isPeriodClosed = periods[activePeriodIndex]?.status === 'closed';
+            manageButton.classList.toggle('hidden', isPeriodClosed);
         }
         
         renderStatCards(discipline, enrollmentData);
@@ -613,7 +610,6 @@ function renderStatCards(discipline, enrollmentData) {
         {
             label: 'Faltas',
             value: currentAbsences,
-            // ÍCONE CORRIGIDO ABAIXO
             icon: `<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>`,
             iconColor: 'bg-primary/10 text-primary'
         },
@@ -705,7 +701,11 @@ async function renderInteractiveCalendar(disciplines, period) {
     const { activeEnrollmentId, activePeriodId } = getState();
     const events = await api.getCalendarEvents(activeEnrollmentId, activePeriodId);
 
-    const calendar = new Calendar(calendarEl, {
+    if (calendarInstance) {
+        calendarInstance.destroy();
+    }
+
+    calendarInstance = new Calendar(calendarEl, {
         plugins: [dayGridPlugin, interactionPlugin],
         locale: 'pt-br',
         height: 'auto',
@@ -734,7 +734,7 @@ async function renderInteractiveCalendar(disciplines, period) {
             if (extended) extended.remove();
         }
     });
-    calendar.render();
+    calendarInstance.render();
 }
 
 export async function renderUpcomingEvents() {
@@ -914,11 +914,19 @@ export async function renderTodoList() {
     if (!dom.todoItemsList) return;
 
     const todos = await api.getTodosForToday();
-
-    dom.todoItemsList.innerHTML = '';
+    dom.todoItemsList.innerHTML = ''; // Limpa a lista antes de renderizar
 
     if (todos.length === 0) {
-        dom.todoItemsList.innerHTML = '<p class="text-sm text-subtle text-center">Nenhuma tarefa para hoje.</p>';
+        // CORREÇÃO: Adicionado um ID ao contêiner do estado de lista vazia
+        dom.todoItemsList.innerHTML = `
+            <div id="todo-empty-state" class="text-center p-6">
+                <div class="w-12 h-12 bg-bkg rounded-full flex items-center justify-center mx-auto text-subtle/70 border border-border">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                </div>
+                <h4 class="mt-4 font-bold text-secondary">Tudo em ordem!</h4>
+                <p class="mt-1 text-sm text-subtle">Nenhuma tarefa para hoje. Adicione uma abaixo.</p>
+            </div>
+        `;
         return;
     }
 
@@ -930,18 +938,21 @@ export async function renderTodoList() {
 
 export function createTodoItemElement(todo) {
     const todoItem = document.createElement('div');
-    todoItem.className = 'flex items-center gap-3 p-2 rounded-md hover:bg-bkg animate-fade-in-down';
+    const isCompleted = todo.completed;
+
+    todoItem.className = `flex items-center bg-surface border border-border p-3 rounded-lg transition-all duration-200 group ${isCompleted ? 'opacity-60' : ''}`;
+    
     todoItem.innerHTML = `
-        <input type="checkbox" id="todo-${todo.id}" data-action="toggle-todo" data-id="${todo.id}" class="h-5 w-5 rounded text-primary border-border focus:ring-primary flex-shrink-0" ${todo.completed ? 'checked' : ''}>
-        <label for="todo-${todo.id}" 
-               class="flex-grow text-secondary cursor-pointer ${todo.completed ? 'line-through text-subtle' : ''}"
-               data-action="edit-todo"
-               data-id="${todo.id}"
-               data-text="${todo.text}">
+        <button data-action="toggle-todo" data-id="${todo.id}" class="w-6 h-6 rounded-md flex-shrink-0 flex items-center justify-center border-2 transition-colors ${isCompleted ? 'bg-primary border-primary' : 'border-border group-hover:border-primary'}">
+            <svg class="w-4 h-4 text-white ${isCompleted ? 'block' : 'hidden'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+        </button>
+        <p class="todo-text flex-grow mx-4 text-secondary cursor-pointer ${isCompleted ? 'line-through text-subtle' : ''}" data-action="edit-todo" data-id="${todo.id}" data-text="${todo.text}">
             ${todo.text}
-        </label>
-        <button data-action="delete-todo" data-id="${todo.id}" class="p-1 rounded-full text-subtle hover:bg-danger/20 hover:text-danger flex-shrink-0">
-            <svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </p>
+        <button data-action="delete-todo" data-id="${todo.id}" class="p-1 rounded-full text-subtle opacity-0 group-hover:opacity-100 hover:bg-danger/20 hover:text-danger flex-shrink-0 transition-opacity">
+            <svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
     `;
     return todoItem;
@@ -991,38 +1002,23 @@ export async function renderChecklistContent() {
     dom.checklistContent.innerHTML = '';
 
     const { activeEnrollmentId } = getState();
-
     const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
     if (!enrollmentSnap.exists()) return;
+    
     const enrollmentData = enrollmentSnap.data();
     const passingGrade = enrollmentData.passingGrade || 7.0;
 
-    const curriculumSubjectsPromise = api.getCurriculumSubjects(activeEnrollmentId);
-    const allTakenDisciplinesPromise = api.getAllTakenDisciplines(activeEnrollmentId);
-    let [curriculumSubjects, allTakenDisciplines] = await Promise.all([curriculumSubjectsPromise, allTakenDisciplinesPromise]);
+    const [curriculumSubjects, allTakenDisciplines] = await Promise.all([
+        api.getCurriculumSubjects(activeEnrollmentId),
+        api.getAllTakenDisciplines(activeEnrollmentId)
+    ]);
     
-    const curriculumCodes = new Set(curriculumSubjects.map(s => s.code));
-    
-    const subjectsToSync = allTakenDisciplines.filter(d => d.code && !curriculumCodes.has(d.code));
-    if (subjectsToSync.length > 0) {
-        const syncPromises = subjectsToSync.map(d => {
-            const payload = { name: d.name, code: d.code, period: 0 };
-            return api.saveCurriculumSubject(payload, { enrollmentId: activeEnrollmentId });
-        });
-        await Promise.all(syncPromises);
-        curriculumSubjects = await api.getCurriculumSubjects(activeEnrollmentId);
-    }
-
     if (curriculumSubjects.length === 0) {
-        dom.checklistContent.innerHTML = `<div class="text-center p-8 bg-surface rounded-xl border border-border">
-            <h3 class="font-bold text-secondary">Nenhuma disciplina na sua grade</h3>
-            <p class="text-subtle text-sm mt-2">Comece adicionando as disciplinas do seu curso para acompanhar seu progresso.</p>
-        </div>`;
+        dom.checklistContent.innerHTML = `<div class="text-center p-8 bg-surface rounded-xl border border-border"><h3 class="font-bold text-secondary">Nenhuma disciplina na sua grade</h3><p class="text-subtle text-sm mt-2">Comece adicionando as disciplinas do seu curso para acompanhar seu progresso.</p></div>`;
         return;
     }
 
     const takenDisciplinesMap = new Map(allTakenDisciplines.map(d => [d.code, d]));
-
     const subjectsByPeriod = curriculumSubjects.reduce((acc, subject) => {
         const period = subject.period || 0;
         if (!acc[period]) acc[period] = [];
@@ -1030,19 +1026,39 @@ export async function renderChecklistContent() {
         return acc;
     }, {});
 
-    dom.checklistContent.innerHTML = Object.keys(subjectsByPeriod).sort((a,b) => a - b).map(periodNumber => {
+    dom.checklistContent.innerHTML = Object.keys(subjectsByPeriod).sort((a, b) => a - b).map(periodNumber => {
         const isUnsorted = periodNumber === "0";
         const periodTitle = isUnsorted ? "Disciplinas a Organizar" : `${periodNumber}º Período`;
         const titleColorClass = isUnsorted ? "text-danger" : "text-secondary";
+        const subjectsInPeriod = subjectsByPeriod[periodNumber];
         
+        let completedCount = 0;
+        subjectsInPeriod.forEach(subject => {
+            const takenDiscipline = takenDisciplinesMap.get(subject.code);
+            if (takenDiscipline) {
+                const averageGrade = parseFloat(calculateAverage(takenDiscipline));
+                const allGradesFilled = takenDiscipline.grades && takenDiscipline.grades.length > 0 && takenDiscipline.grades.every(g => g.grade !== null);
+                if (!isNaN(averageGrade) && allGradesFilled && averageGrade >= passingGrade) {
+                    completedCount++;
+                }
+            }
+        });
+
+        const progress = subjectsInPeriod.length > 0 ? (completedCount / subjectsInPeriod.length) * 100 : 0;
+
         return `
             <div class="mb-8">
-                <h3 class="text-xl font-bold ${titleColorClass} mb-4">${periodTitle}</h3>
-                <div class="bg-surface rounded-xl border border-border p-2 sm:p-4">
-                    ${subjectsByPeriod[periodNumber].map(subject => {
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold ${titleColorClass}">${periodTitle}</h3>
+                    <span class="text-sm font-semibold text-subtle">${completedCount} de ${subjectsInPeriod.length} concluídas</span>
+                </div>
+                <div class="w-full bg-bkg rounded-full h-2 mb-4 border border-border">
+                    <div class="progress-bar h-full" style="width: ${progress}%"></div>
+                </div>
+                <div class="space-y-2">
+                    ${subjectsInPeriod.map(subject => {
                         const takenDiscipline = takenDisciplinesMap.get(subject.code);
                         let isCompleted = false;
-                        
                         if (takenDiscipline) {
                             const averageGrade = parseFloat(calculateAverage(takenDiscipline));
                             const allGradesFilled = takenDiscipline.grades && takenDiscipline.grades.length > 0 && takenDiscipline.grades.every(g => g.grade !== null);
@@ -1052,24 +1068,25 @@ export async function renderChecklistContent() {
                         }
 
                         return `
-                        <div data-action="edit-curriculum-subject" data-id="${subject.id}" class="flex items-center justify-between p-3 rounded-md hover:bg-bkg cursor-pointer group">
-                            <div class="flex items-center">
-                                <div class="mr-4">
-                                    ${isCompleted
-                                        ? `<div class="w-6 h-6 rounded-full bg-success flex items-center justify-center text-white" title="Disciplina Aprovada"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg></div>`
-                                        : `<button data-action="mark-subject-completed" data-id='${subject.id}' data-name='${subject.name}' data-code='${subject.code}' class="w-6 h-6 rounded-full bg-bkg border border-border hover:bg-primary/20" title="Marcar como concluída"></button>`
-                                    }
-                                </div>
-                                <div>
+                        <div class="flex items-center justify-between p-3 rounded-lg bg-surface border border-border group">
+                            <div class="flex items-center gap-4">
+                                ${isCompleted
+                                    ? `<div class="w-6 h-6 rounded-full bg-success flex-shrink-0 flex items-center justify-center text-white" title="Disciplina Aprovada"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg></div>`
+                                    : `<button data-action="mark-subject-completed" data-id='${subject.id}' data-name='${subject.name}' data-code='${subject.code}' class="w-6 h-6 rounded-full bg-bkg border border-border hover:bg-primary/20 flex-shrink-0" title="Marcar como concluída"></button>`
+                                }
+                                <div class="${isCompleted ? 'opacity-60' : ''}">
                                     <p class="font-semibold text-secondary flex items-baseline">
                                         ${subject.name}
                                         <span class="ml-2 text-xs font-mono text-subtle">(${subject.code})</span>
                                     </p>
                                 </div>
                             </div>
-                            <div class="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div class="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                <button data-action="edit-curriculum-subject" data-id="${subject.id}" class="p-2 rounded-full text-subtle hover:bg-bkg" title="Editar disciplina na grade">
+                                    <svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+                                </button>
                                 <button data-action="view-curriculum-subject-details" data-id="${subject.id}" class="p-2 rounded-full text-subtle hover:bg-bkg" title="Ver detalhes">
-                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                    <svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                                 </button>
                             </div>
                         </div>
@@ -1243,7 +1260,6 @@ function updateEmptyState(icon, title, subtitle) {
     const titleEl = document.getElementById('documents-empty-state-title');
     const subtitleEl = document.getElementById('documents-empty-state-subtitle');
 
-    // Novo ícone (Heroicons - Document)
     const newIcon = `<svg class="w-16 h-16 mx-auto text-subtle/50" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>`;
     
     if(iconContainer) iconContainer.innerHTML = icon || newIcon;
@@ -1257,7 +1273,6 @@ export async function renderDocumentsList(enrollmentId) {
     const listContainer = dom.documentsList;
     if (!listContainer || !dom.documentsEmptyState) return;
     
-    // 1. Estado de Carregamento Centralizado
     listContainer.classList.add('hidden');
     const spinnerIcon = `<svg class="w-16 h-16 mx-auto text-primary animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
     updateEmptyState(spinnerIcon, 'A carregar documentos...', 'Por favor, aguarde.');
@@ -1266,16 +1281,13 @@ export async function renderDocumentsList(enrollmentId) {
         const documents = await api.getDocuments(enrollmentId);
         const totalDocumentsCount = documents.length;
 
-        // Obter valores dos filtros
         const searchTerm = document.getElementById('document-search-input')?.value.toLowerCase() || '';
-        const typeFilter = document.querySelector('[data-filter-key="type"] .selected-value')?.textContent || 'Todos os Tipos';
-        const sortOrder = document.querySelector('[data-filter-key="sort"] [data-action="select-dropdown-item"].selected')?.dataset.value || 'createdAt_desc';
+        const typeFilter = document.querySelector('[data-filter-key="type"] .filter-value')?.value || 'all';
+        const sortOrder = document.querySelector('[data-filter-key="sort"] .filter-value')?.value || 'createdAt_desc';
         
-        // 2. Lógica de Mensagens de Estado Vazio
         if (totalDocumentsCount === 0) {
             const emptyIcon = `<svg class="w-16 h-16 mx-auto text-subtle/50" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>`;
             const title = "Biblioteca Vazia";
-            // Usa o 'enrollmentId' para decidir qual mensagem mostrar
             const subtitle = enrollmentId 
                 ? "Ainda não foram adicionados documentos a esta matrícula."
                 : "Ainda não foram adicionados documentos à biblioteca geral.";
@@ -1283,10 +1295,9 @@ export async function renderDocumentsList(enrollmentId) {
             return;
         }
 
-        // 3. Aplicar Filtros e Ordenação
         const filteredDocuments = documents.filter(doc => {
             const matchesSearch = searchTerm ? doc.title.toLowerCase().includes(searchTerm) || (doc.tags && doc.tags.some(tag => tag.toLowerCase().includes(searchTerm))) : true;
-            const matchesType = typeFilter !== 'Todos os Tipos' ? doc.type === typeFilter : true;
+            const matchesType = typeFilter !== 'all' ? doc.type === typeFilter : true;
             return matchesSearch && matchesType;
         });
 
@@ -1296,7 +1307,7 @@ export async function renderDocumentsList(enrollmentId) {
             if (sortField === 'createdAt') {
                 valA = a.createdAt?.toDate() || new Date(0);
                 valB = b.createdAt?.toDate() || new Date(0);
-            } else { // title
+            } else {
                 valA = a.title.toLowerCase();
                 valB = b.title.toLowerCase();
             }
@@ -1306,7 +1317,6 @@ export async function renderDocumentsList(enrollmentId) {
             return 0;
         });
 
-        // 4. Renderizar Resultados ou Mensagem de "Nenhum Encontrado"
         if (filteredDocuments.length === 0) {
             const noResultsIcon = `<svg class="w-16 h-16 mx-auto text-subtle/50" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>`;
             updateEmptyState(noResultsIcon, "Nenhum Documento Encontrado", "Tente ajustar seus filtros de pesquisa.");

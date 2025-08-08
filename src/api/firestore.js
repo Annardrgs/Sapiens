@@ -726,14 +726,15 @@ export async function cleanupOldTodos() {
     const userId = getCurrentUserId();
     if (!userId) return;
 
-    // Pega a data de hoje no formato 'YYYY-MM-DD'
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    // CORREÇÃO: Usa a mesma função 'getTodayDateString' que a criação de tarefas usa.
+    // Isso garante que a data de "hoje" seja sempre baseada no fuso horário do usuário,
+    // evitando que tarefas do dia corrente sejam apagadas à noite.
+    const todayStr = getTodayDateString();
 
     try {
         const todosRef = collection(db, 'users', userId, 'todos');
         
-        // Cria uma query para buscar todos os documentos com data ANTERIOR a hoje
+        // A query agora compara corretamente a data da tarefa com a data local do usuário.
         const q = query(todosRef, where("date", "<", todayStr));
         
         const snapshot = await getDocs(q);
@@ -743,7 +744,6 @@ export async function cleanupOldTodos() {
             return;
         }
 
-        // Usa um batch para deletar todos os documentos encontrados de uma vez
         const batch = writeBatch(db);
         snapshot.docs.forEach(doc => {
             batch.delete(doc.ref);
@@ -754,6 +754,5 @@ export async function cleanupOldTodos() {
 
     } catch (error) {
         console.error("Erro ao limpar tarefas antigas:", error);
-        // Não notificamos o usuário aqui para não ser intrusivo, apenas logamos o erro.
     }
 }
