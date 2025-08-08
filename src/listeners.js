@@ -13,6 +13,8 @@ import { toggleTheme } from './ui/theme.js';
 import { notify } from './ui/notifications.js';
 import { calculateAverage } from './components/card.js';
 import { navigate } from './main.js';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import 'pdfjs-dist/legacy/build/pdf.worker.mjs';
 
 // --- INICIALIZAÇÃO DOS LISTENERS ---
 
@@ -847,45 +849,72 @@ async function handlePeriodOptionsFormSubmit(e) {
             payload.calendarUrl = firestoreApi.deleteFieldValue();
         }
 
+        // Primeiro, salva os detalhes do período (datas e a URL do arquivo)
         await firestoreApi.updatePeriodDetails(activeEnrollmentId, activePeriodId, payload);
         
         if (calendarMarkedForDeletion) {
             setState('calendarMarkedForDeletion', false);
         }
 
-        if (payload.calendarUrl && typeof payload.calendarUrl === 'string') {
-            notify.info("Calendário salvo. Enviando para análise da IA...");
-            
-            // CORREÇÃO: Usamos um caminho relativo em vez de uma URL fixa.
-            const vercelFunctionUrl = '/api/process-calendar'; 
+        // Se um NOVO arquivo foi enviado, agora vamos processá-lo
+        if (file && payload.calendarUrl) {
+            notify.info("Calendário salvo. Lendo o arquivo para análise da IA...");
 
-            const response = await fetch(vercelFunctionUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fileUrl: payload.calendarUrl }),
-            });
+            // LÓGICA MOVIDA PARA O FRONTEND
+            const reader = new FileReader();
+            reader.readAsArrayBuffer(file);
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Erro na IA');
-            }
+            reader.onload = async (e) => {
+                const pdfBuffer = e.target.result;
+                let fullText = '';
 
-            const { events } = await response.json();
+                try {
+                    const pdfData = await pdfjsLib.getDocument({ data: pdfBuffer }).promise;
+                    for (let i = 1; i <= pdfData.numPages; i++) {
+                        const page = await pdfData.getPage(i);
+                        const textContent = await page.getTextContent();
+                        fullText += textContent.items.map(item => item.str).join(' ');
+                    }
 
-            if (events && events.length > 0) {
-                const batch = firestoreApi.createBatch();
-                events.forEach(event => {
-                    firestoreApi.addEventToBatch(batch, event, { enrollmentId: activeEnrollmentId, periodId: activePeriodId });
-                });
-                await firestoreApi.commitBatch(batch);
-                notify.success(`${events.length} eventos foram criados com sucesso!`);
-            } else {
-                notify.info("Nenhum evento relevante encontrado pela IA.");
-            }
-        } else {
-            notify.success("Alterações salvas com sucesso!");
+                    if (fullText.length < 50) {
+                        throw new Error("Não foi possível extrair texto suficiente do PDF.");
+                    }
+
+                    // Agora chamamos a API simplificada, enviando o TEXTO
+                    const response = await fetch('/api/process-calendar', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: fullText }), // Enviando o texto extraído
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.details || 'Erro na análise da IA');
+                    }
+
+                    const { events } = await response.json();
+                    if (events && events.length > 0) {
+                        const batch = firestoreApi.createBatch();
+                        events.forEach(event => {
+                            firestoreApi.addEventToBatch(batch, event, { enrollmentId: activeEnrollmentId, periodId: activePeriodId });
+                        });
+                        await firestoreApi.commitBatch(batch);
+                        notify.success(`${events.length} eventos foram criados com sucesso pela IA!`);
+                    } else {
+                        notify.info("Nenhum evento relevante encontrado pela IA.");
+                    }
+                    
+                    // Atualiza o dashboard para mostrar os novos eventos
+                    await view.showDashboardView(activeEnrollmentId);
+
+                } catch (readError) {
+                    console.error("Erro ao ler PDF ou chamar IA:", readError);
+                    notify.error(`Falha na análise: ${readError.message}`);
+                }
+            };
         }
 
+        notify.success("Alterações salvas com sucesso!");
         modals.hidePeriodOptionsModal();
         await view.showDashboardView(activeEnrollmentId);
 

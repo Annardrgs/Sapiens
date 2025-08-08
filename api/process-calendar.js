@@ -1,21 +1,20 @@
-import axios from 'axios';
-// ADICIONAR: Importa a nova biblioteca pdfjs-dist
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+// Salve este conteúdo no seu arquivo /api/process-calendar.js
+
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // A chave de API será configurada como uma Variável de Ambiente na Vercel
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Lista de origens permitidas
+// Lista de origens permitidas (pode manter como está)
 const allowedOrigins = [
   'http://localhost:5173',
-  'http://localhost:3000', // Adicionado para vercel dev
+  'http://localhost:3000',
   'https://sapiens-rdrgs.web.app',
-  'https://sapiens-git-wip-rdrgs-projects-team.vercel.app' // URL do seu deploy
+  'https://sapiens-git-wip-rdrgs-projects-team.vercel.app'
 ];
 
 export default async function handler(req, res) {
-  // Lógica de CORS
+  // Lógica de CORS (pode manter como está)
   const origin = req.headers.origin;
   if (allowedOrigins.includes(origin) || (origin && origin.endsWith('.vercel.app'))) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -32,31 +31,20 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { fileUrl } = req.body;
+    // MUDANÇA: Recebemos o 'text' diretamente, não mais a 'fileUrl'
+    const { text } = req.body;
 
-    if (!fileUrl) {
-      return res.status(400).json({ error: "O parâmetro 'fileUrl' é obrigatório." });
+    if (!text) {
+      return res.status(400).json({ error: "O parâmetro 'text' é obrigatório." });
     }
-
-    const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
-    const pdfBuffer = response.data;
-
-    // --- CÓDIGO DE LEITURA DO PDF SUBSTITUÍDO ---
-    const pdfData = await pdfjsLib.getDocument({ data: pdfBuffer }).promise;
-    let fullText = '';
-    for (let i = 1; i <= pdfData.numPages; i++) {
-        const page = await pdfData.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => item.str).join(' ');
-        fullText += pageText + '\n';
-    }
-    const text = fullText;
-    // --- FIM DA SUBSTITUIÇÃO ---
+    
+    // --- SEÇÃO DE LEITURA DO PDF FOI REMOVIDA DAQUI ---
 
     if (!text || text.length < 50) {
-      return res.status(400).json({ error: "Não foi possível extrair texto do PDF." });
+      return res.status(400).json({ error: "O texto extraído do PDF é muito curto." });
     }
 
+    // O restante do código que chama a IA do Gemini permanece IGUAL
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
     const prompt = `
       Você é um assistente especialista em calendários acadêmicos.
@@ -84,7 +72,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error("Erro na função serverless:", error);
-    // Retorna uma mensagem de erro mais detalhada para depuração
     return res.status(500).json({ 
         error: "Ocorreu um erro interno ao processar o calendário.",
         details: error.message 
