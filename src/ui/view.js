@@ -15,6 +15,7 @@ import { navigate } from '../main.js';
 import { selectDropdownItem } from './modals.js';
 
 let calendarInstance = null;
+let fullCalendarInstance = null;
 let performanceChart = null;
 let sortableInstances = { enrollments: null, disciplines: null };
 let performanceChartInstance = null;
@@ -27,6 +28,7 @@ function hideAllViews() {
     if (dom.gradesReportView) dom.gradesReportView.classList.add('hidden');
     if (dom.courseChecklistView) dom.courseChecklistView.classList.add('hidden');
     if (dom.documentsView) dom.documentsView.classList.add('hidden');
+    if (dom.calendarView) dom.calendarView.classList.add('hidden');
 }
 
 export function showAuthScreen() {
@@ -40,17 +42,6 @@ export function showAppScreen() {
     dom.appContainer.classList.remove('hidden');
     const loadingOverlay = document.getElementById('loading-overlay');
     if (loadingOverlay) loadingOverlay.classList.add('hidden');
-}
-
-export async function showEnrollmentsView() {
-    // CORREÇÃO: Reseta o ID da matrícula ativa ao voltar para a tela principal.
-    setState('activeEnrollmentId', null);
-
-    hideAllViews();
-    dom.enrollmentsView.classList.remove('hidden');
-    await renderEnrollments();
-    await renderTodoList();
-    await renderUpcomingEvents();
 }
 
 export async function showDashboardView(enrollmentId) {
@@ -109,6 +100,175 @@ export async function showDashboardView(enrollmentId) {
     } finally {
         showLoading(false);
     }
+}
+
+// --- NOVA FUNÇÃO PARA RENDERIZAR O CALENDÁRIO GRANDE ---
+
+export async function showEnrollmentsView() {
+    // CORREÇÃO: Reseta o ID da matrícula ativa ao voltar para a tela principal.
+    setState('activeEnrollmentId', null);
+
+    hideAllViews();
+    dom.enrollmentsView.classList.remove('hidden');
+    await renderEnrollments();
+    await renderTodoList();
+    await renderUpcomingEvents();
+}
+
+export async function showCalendarView(enrollmentId) {
+    hideAllViews();
+    setState('activeEnrollmentId', enrollmentId);
+    if (!dom.calendarView) return;
+    dom.calendarView.classList.remove('hidden');
+    showLoading(true);
+
+    try {
+        const { activePeriodId } = getState();
+        const enrollmentSnap = await api.getEnrollment(enrollmentId);
+        if (enrollmentSnap.exists()) {
+            const enrollment = enrollmentSnap.data();
+            if (dom.calendarViewTitle) {
+                dom.calendarViewTitle.textContent = "Calendário Acadêmico";
+            }
+            if (dom.calendarViewSubtitle) {
+                dom.calendarViewSubtitle.textContent = `${enrollment.course} - ${enrollment.institution}`;
+            }
+        }
+
+        const events = await api.getCalendarEvents(enrollmentId, activePeriodId);
+        
+        // Nova função para renderizar filtros e conteúdo
+        renderCalendarFiltersAndEvents(events);
+
+    } catch (error) {
+        console.error("Erro ao mostrar a tela do calendário:", error);
+        notify.error("Não foi possível carregar o calendário.");
+    } finally {
+        showLoading(false);
+    }
+}
+
+function renderCalendarFiltersAndEvents(allEvents) {
+    const legendContainer = dom.calendarLegendContainer;
+    if (!legendContainer) return;
+
+    // Extrai categorias únicas para os filtros, incluindo uma opção "Todos"
+    const categories = ['Todos', ...new Set(allEvents.map(e => e.category).filter(Boolean))];
+    
+    // Cria o HTML dos botões de filtro
+    const filtersHTML = categories.map((category, index) => `
+        <button data-action="filter-calendar" data-category="${category}" 
+                class="filter-btn whitespace-nowrap px-4 py-2 text-sm font-semibold rounded-full transition-colors duration-200 
+                       ${index === 0 ? 'bg-primary text-bkg' : 'bg-surface text-subtle hover:bg-bkg'}">
+            ${category}
+        </button>
+    `).join('');
+
+    // Insere os filtros e a legenda no container
+    legendContainer.innerHTML = `
+        <div class="mb-4">
+            <h3 class="text-xl font-bold text-secondary mb-3">Filtros</h3>
+            <div class="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                ${filtersHTML}
+            </div>
+        </div>
+        <div id="legend-content" class="h-[calc(70vh-80px)] overflow-y-auto custom-scrollbar pr-2"></div>
+    `;
+
+    // Função para aplicar o filtro e re-renderizar
+    const applyFilter = (category) => {
+        const filteredEvents = category === 'Todos' 
+            ? allEvents 
+            : allEvents.filter(event => event.category === category);
+        
+        renderFullCalendar(dom.fullCalendarContainer, filteredEvents);
+        renderCalendarLegend(document.getElementById('legend-content'), filteredEvents);
+    };
+
+    // Adiciona os event listeners aos botões de filtro
+    legendContainer.querySelectorAll('[data-action="filter-calendar"]').forEach(button => {
+        button.addEventListener('click', () => {
+            legendContainer.querySelector('.filter-btn.bg-primary')?.classList.replace('bg-primary', 'bg-surface');
+            legendContainer.querySelector('.filter-btn.text-bkg')?.classList.replace('text-bkg', 'text-subtle');
+            button.classList.replace('bg-surface', 'bg-primary');
+            button.classList.replace('text-subtle', 'text-bkg');
+            applyFilter(button.dataset.category);
+        });
+    });
+
+    // Renderização inicial com todos os eventos
+    applyFilter('Todos');
+}
+
+function renderFullCalendar(container, events) {
+    if (!container) return;
+    container.innerHTML = '';
+    if (fullCalendarInstance) {
+        fullCalendarInstance.destroy();
+    }
+    fullCalendarInstance = new Calendar(container, {
+        plugins: [dayGridPlugin, interactionPlugin],
+        locale: 'pt-br',
+        height: '100%',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,dayGridWeek'
+        },
+        buttonText: { today: 'Hoje', month: 'Mês', week: 'Semana' },
+        events: events,
+        eventClick: (info) => modals.showEventModal(info.event.id),
+        eventDisplay: 'block', // Melhora a visualização de múltiplos eventos
+        dayMaxEvents: true, // Adiciona um link "+X eventos" se não couber
+    });
+    fullCalendarInstance.render();
+}
+
+function renderCalendarLegend(container, events) {
+    if (!container) return;
+
+    if (events.length === 0) {
+        container.innerHTML = `<p class="text-subtle text-center p-4">Nenhum evento encontrado para este filtro.</p>`;
+        return;
+    }
+
+    const eventsByDate = events.reduce((acc, event) => {
+        const date = event.start;
+        if (!acc[date]) {
+            acc[date] = [];
+        }
+        acc[date].push(event);
+        return acc;
+    }, {});
+
+    const sortedDates = Object.keys(eventsByDate).sort();
+
+    container.innerHTML = sortedDates.map(dateStr => {
+        const date = new Date(dateStr.replace(/-/g, '/') + ' 00:00:00');
+        const dayLabel = date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+        
+        const eventsHtml = eventsByDate[dateStr].map(event => {
+            const isAI = event.isAiGenerated;
+            return `
+            <div class="flex items-center gap-3 p-3 rounded-lg hover:bg-bkg transition-colors duration-200">
+                <span class="w-1.5 h-10 rounded-full flex-shrink-0" style="background-color: ${event.backgroundColor};"></span>
+                <div>
+                    <p class="font-semibold text-secondary leading-tight">${event.title}</p>
+                    <p class="text-xs text-subtle flex items-center gap-1.5">
+                        ${event.category || 'Evento'}
+                        ${isAI ? `<span class="text-primary font-bold">(IA)</span>` : ''}
+                    </p>
+                </div>
+            </div>
+        `}).join('');
+
+        return `
+            <div class="mb-4">
+                <h4 class="font-bold text-secondary border-b border-border pb-2 mb-3">${dayLabel}</h4>
+                <div class="space-y-2">${eventsHtml}</div>
+            </div>
+        `;
+    }).join('');
 }
 
 export async function showDocumentsView(enrollmentId) {

@@ -14,6 +14,7 @@ export function initializeDOMElements() {
     enrollmentsView: document.getElementById('enrollments-view'),
     dashboardView: document.getElementById('dashboard-view'),
     documentsView: document.getElementById('documents-view'),
+    calendarView: document.getElementById('calendar-view'), // <-- ADICIONADO
 
     // --- Autenticação ---
     authForm: document.getElementById('auth-form'),
@@ -48,6 +49,12 @@ export function initializeDOMElements() {
     calendarContainer: document.getElementById('calendar-container'),
     addDisciplineBtn: document.getElementById('add-discipline-btn'),
     disciplinesList: document.getElementById('disciplines-list'),
+
+    // --- Tela do Calendário Expandido --- ADICIONADO
+    calendarViewTitle: document.getElementById('calendar-view-title'),
+    calendarViewSubtitle: document.getElementById('calendar-view-subtitle'),
+    fullCalendarContainer: document.getElementById('full-calendar-container'),
+    calendarLegendContainer: document.getElementById('calendar-legend-container'),
     
     // --- Elementos do Navegador de Período ---
     newPeriodBtn: document.getElementById('new-period-btn'),

@@ -13,6 +13,8 @@ import { toggleTheme } from './ui/theme.js';
 import { notify } from './ui/notifications.js';
 import { calculateAverage } from './components/card.js';
 import { navigate } from './main.js';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import 'pdfjs-dist/legacy/build/pdf.worker.mjs';
 
 // --- INICIALIZAÇÃO DOS LISTENERS ---
 
@@ -278,6 +280,12 @@ async function handleAppContainerClick(e) {
                 break;
             case 'pin-todo':
                 if (id) handlePinTodo(id, actionTarget);
+                break;
+            case 'expand-calendar':
+                if (activeEnrollmentId) navigate(`/calendar?enrollmentId=${activeEnrollmentId}`);
+                break;
+            case 'back-to-dashboard-from-calendar':
+                if (activeEnrollmentId) navigate(`/dashboard?enrollmentId=${activeEnrollmentId}`);
                 break;
             case 'view-documents': if (activeEnrollmentId) navigate(`/documents?enrollmentId=${activeEnrollmentId}`); else navigate('/documents'); break;
             case 'view-checklist': if (activeEnrollmentId) navigate(`/checklist?enrollmentId=${activeEnrollmentId}`); break;
@@ -829,7 +837,7 @@ async function switchPeriod(direction) {
 
 async function handlePeriodOptionsFormSubmit(e) {
     e.preventDefault();
-    const { activeEnrollmentId, activePeriodId } = getState();
+    const { activeEnrollmentId, activePeriodId, calendarMarkedForDeletion } = getState();
     const fileInput = dom.periodOptionsForm.querySelector('#period-calendar-file');
     const file = fileInput.files[0];
     const payload = {
@@ -837,20 +845,103 @@ async function handlePeriodOptionsFormSubmit(e) {
         endDate: dom.periodOptionsForm.querySelector('#period-end-date').value,
     };
     const submitButton = dom.periodOptionsForm.querySelector('button[type="submit"]');
+
     try {
-        if(submitButton) { submitButton.textContent = 'Salvando...'; submitButton.disabled = true; }
+        if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Salvando...'; }
+
         if (file) {
             payload.calendarUrl = await firestoreApi.uploadPeriodCalendar(file);
+        } else if (calendarMarkedForDeletion) {
+            payload.calendarUrl = firestoreApi.deleteFieldValue();
         }
+
         await firestoreApi.updatePeriodDetails(activeEnrollmentId, activePeriodId, payload);
+        
+        if (calendarMarkedForDeletion) {
+            setState('calendarMarkedForDeletion', false);
+        }
+
+        if (file && payload.calendarUrl) {
+            notify.info("Calendário salvo. Lendo e enviando para análise...");
+
+            const reader = new FileReader();
+            reader.readAsArrayBuffer(file);
+
+            reader.onload = async (e) => {
+                const pdfBuffer = e.target.result;
+                let fullText = '';
+
+                try {
+                    const pdfData = await pdfjsLib.getDocument({ data: pdfBuffer }).promise;
+                    for (let i = 1; i <= pdfData.numPages; i++) {
+                        const page = await pdfData.getPage(i);
+                        const textContent = await page.getTextContent();
+                        fullText += textContent.items.map(item => item.str).join(' ');
+                    }
+
+                    if (fullText.length < 50) throw new Error("Não foi possível extrair texto suficiente do PDF.");
+
+                    // **LÓGICA DE FETCH PARA RECEBER STREAMING**
+                    const response = await fetch('/api/process-calendar', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: fullText }),
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.details || 'Erro na API');
+                    }
+
+                    // Lê a resposta como um stream
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let aiResponseText = '';
+                    
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        aiResponseText += decoder.decode(value);
+                    }
+                    // **FIM DA LÓGICA DE STREAMING**
+
+                    const jsonStringMatch = aiResponseText.match(/\[[\s\S]*\]/);
+                    if (!jsonStringMatch) {
+                        throw new Error("A IA não retornou um JSON válido.");
+                    }
+                    
+                    const events = JSON.parse(jsonStringMatch[0]);
+
+                    if (events && events.length > 0) {
+                        const batch = firestoreApi.createBatch();
+                        events.forEach(event => {
+                            firestoreApi.addEventToBatch(batch, event, { enrollmentId: activeEnrollmentId, periodId: activePeriodId });
+                        });
+                        await firestoreApi.commitBatch(batch);
+                        notify.success(`${events.length} eventos foram criados com sucesso!`);
+                    } else {
+                        notify.info("Nenhum evento relevante encontrado pela IA.");
+                    }
+                    
+                    await view.showDashboardView(activeEnrollmentId);
+
+                } catch (readError) {
+                    console.error("Erro ao ler PDF ou chamar IA:", readError);
+                    notify.error(`Falha na análise: ${readError.message}`);
+                }
+            };
+        }
+
+        notify.success("Alterações salvas com sucesso!");
         modals.hidePeriodOptionsModal();
         await view.showDashboardView(activeEnrollmentId);
-        notify.success("Opções do período salvas.");
+
     } catch (error) {
         console.error("Erro ao salvar opções do período:", error);
-        notify.error("Falha ao salvar opções.");
+        notify.error(`Falha ao salvar: ${error.message}`);
+        setState('calendarMarkedForDeletion', false);
     } finally {
-        if(submitButton) { submitButton.textContent = 'Salvar Alterações'; submitButton.disabled = false; }
+        if (submitButton) { submitButton.disabled = false; submitButton.textContent = 'Salvar Alterações'; }
     }
 }
 

@@ -1,0 +1,20 @@
+{
+    "functions": {
+        "api/**/*.js": {
+        "maxDuration": 300
+        }
+    },
+    "build": {
+        "env": {
+        "canvas_version": "2.11.2" 
+        }
+    },
+    "headers": [
+        {
+        "source": "/(.*)",
+        "headers": [
+            { "key": "Permissions-Policy", "value": "interest-cohort=()" }
+        ]
+        }
+    ]
+}

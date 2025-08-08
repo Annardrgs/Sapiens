@@ -5,7 +5,7 @@
 import { db, auth } from '../firebase.js';
 import {
   collection, query, orderBy, getDocs, getDoc, doc, addDoc, updateDoc,
-  deleteDoc, writeBatch, serverTimestamp, increment, runTransaction, where,
+  deleteDoc, writeBatch, serverTimestamp, increment, runTransaction, where, deleteField,
 } from 'firebase/firestore';
 import { cloudinaryConfig } from '../firebase.js';
 
@@ -766,4 +766,34 @@ export function updateTodo(todoId, payload) {
     if (!userId) throw new Error("Usuário não autenticado.");
     const todoRef = doc(db, 'users', userId, 'todos', todoId);
     return updateDoc(todoRef, payload);
+}
+
+export function createBatch() {
+    return writeBatch(db);
+}
+
+export function commitBatch(batch) {
+    return batch.commit();
+}
+
+export function addEventToBatch(batch, eventData, { enrollmentId, periodId }) {
+    const userId = getCurrentUserId();
+    if (!userId) return;
+    
+    const eventRef = doc(collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId, 'events'));
+    
+    const payload = {
+        title: eventData.title,
+        date: eventData.date,
+        category: eventData.category || "Evento Acadêmico",
+        color: '#A0DD01',
+        reminder: "1d",
+        allDay: true,
+        isAiGenerated: true
+    };
+    batch.set(eventRef, payload);
+}
+
+export function deleteFieldValue() {
+    return deleteField();
 }

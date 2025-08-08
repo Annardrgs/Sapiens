@@ -18,7 +18,8 @@ import {
   showDisciplineDashboard,
   showGradesReportView,
   showCourseChecklistView,
-  showDocumentsView
+  showDocumentsView,
+  showCalendarView // <-- ADICIONADO
 } from './ui/view.js';
 import { initializeTheme } from './ui/theme.js';
 import { initializeDOMElements } from './ui/dom.js';
@@ -37,10 +38,11 @@ const routes = {
   '/grades': showGradesReportView,
   '/checklist': showCourseChecklistView,
   '/documents': showDocumentsView,
+  '/calendar': showCalendarView,
 };
 
 async function handleRouteChange() {
-    pomodoro.updateFloatingTimerVisibility(); // Adicionado para controlar o timer flutuante
+    pomodoro.updateFloatingTimerVisibility();
     const path = window.location.pathname;
     const params = new URLSearchParams(window.location.search);
     
@@ -50,12 +52,11 @@ async function handleRouteChange() {
     const disciplineId = params.get('disciplineId');
 
     if (auth.currentUser) {
-        if (path === '/dashboard' && enrollmentId) {
+        // ATUALIZADO PARA INCLUIR A NOVA ROTA
+        if ((path === '/dashboard' || path === '/grades' || path === '/checklist' || path === '/documents' || path === '/calendar') && enrollmentId) {
             await routeAction(enrollmentId);
         } else if (path === '/discipline' && enrollmentId && disciplineId) {
             await routeAction({ enrollmentId, disciplineId });
-        } else if ((path === '/grades' || path === '/checklist' || path === '/documents') && enrollmentId) {
-            await routeAction(enrollmentId);
         } else {
             await routeAction();
         }
@@ -70,12 +71,23 @@ export function navigate(path) {
 // --- FLUXO DE INICIALIZAÇÃO ---
 
 document.addEventListener('DOMContentLoaded', () => {
+    console.log("[DEBUG] DOM carregado. Iniciando Sapiens...");
     injectHTML();
     initializeDOMElements();
     initializeAuthListeners();
     initializeTheme();
+    console.log("[DEBUG] Módulos principais inicializados.");
 
+    console.log("[DEBUG] Configurando o listener de autenticação (onAuthStateChanged)...");
+    
     onAuthStateChanged(auth, async (user) => {
+      console.log("[DEBUG] Callback de autenticação disparado. Status do usuário:", user ? "Logado" : "Deslogado");
+
+      const loadingOverlay = document.getElementById('loading-overlay');
+      if (loadingOverlay) {
+          loadingOverlay.classList.add('hidden');
+      }
+
       try {
         if (user) {
           setState('user', user);
@@ -99,8 +111,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (error) {
         console.error("Erro crítico durante a inicialização:", error);
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) loadingOverlay.classList.add('hidden');
         notify.error("Ocorreu um erro inesperado. Por favor, recarregue a página.");
       }
     });
