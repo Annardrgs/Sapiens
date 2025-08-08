@@ -5,7 +5,7 @@
 import { db, auth } from '../firebase.js';
 import {
   collection, query, orderBy, getDocs, getDoc, doc, addDoc, updateDoc,
-  deleteDoc, writeBatch, serverTimestamp, increment, runTransaction, where,
+  deleteDoc, writeBatch, serverTimestamp, increment, runTransaction, where, deleteField,
 } from 'firebase/firestore';
 import { cloudinaryConfig } from '../firebase.js';
 
@@ -791,4 +791,8 @@ export function addEventToBatch(batch, eventData, { enrollmentId, periodId }) {
         allDay: true,
     };
     batch.set(eventRef, payload);
+}
+
+export function deleteFieldValue() {
+    return deleteField();
 }
