@@ -104,8 +104,11 @@ export async function showDashboardView(enrollmentId) {
 
 // --- NOVA FUNÇÃO PARA RENDERIZAR O CALENDÁRIO GRANDE ---
 
+export function getFullCalendarInstance() {
+    return fullCalendarInstance;
+}
+
 export async function showEnrollmentsView() {
-    // CORREÇÃO: Reseta o ID da matrícula ativa ao voltar para a tela principal.
     setState('activeEnrollmentId', null);
 
     hideAllViews();
@@ -123,22 +126,39 @@ export async function showCalendarView(enrollmentId) {
     showLoading(true);
 
     try {
-        const { activePeriodId } = getState();
+        let { periods } = getState();
         const enrollmentSnap = await api.getEnrollment(enrollmentId);
-        if (enrollmentSnap.exists()) {
-            const enrollment = enrollmentSnap.data();
-            if (dom.calendarViewTitle) {
-                dom.calendarViewTitle.textContent = "Calendário Acadêmico";
-            }
-            if (dom.calendarViewSubtitle) {
-                dom.calendarViewSubtitle.textContent = `${enrollment.course} - ${enrollment.institution}`;
-            }
+        if (!enrollmentSnap.exists()) {
+            navigate('/');
+            return;
+        }
+        const enrollment = { id: enrollmentSnap.id, ...enrollmentSnap.data() };
+
+        if (!periods || periods.length === 0) {
+            periods = await api.getPeriods(enrollmentId);
+            setState('periods', periods);
         }
 
-        const events = await api.getCalendarEvents(enrollmentId, activePeriodId);
+        let activePeriodIndex = periods.findIndex(p => p.id === enrollment.activePeriodId);
+        if (activePeriodIndex === -1 && periods.length > 0) {
+            activePeriodIndex = 0;
+        }
+        setState('activePeriodIndex', activePeriodIndex);
         
-        // Nova função para renderizar filtros e conteúdo
-        renderCalendarFiltersAndEvents(events);
+        const activePeriodId = getState().activePeriodId;
+
+        dom.calendarViewTitle.textContent = "Calendário Acadêmico";
+        dom.calendarViewSubtitle.textContent = `${enrollment.course} - ${enrollment.institution}`;
+
+        const [events, disciplines] = await Promise.all([
+            api.getCalendarEvents(enrollmentId, activePeriodId),
+            api.getDisciplines(enrollmentId, activePeriodId)
+        ]);
+        
+        setState('calendarEvents', events);
+        
+        renderCalendarFilters(disciplines, events);
+        renderFullCalendar(dom.fullCalendarContainer, events);
 
     } catch (error) {
         console.error("Erro ao mostrar a tela do calendário:", error);
@@ -148,96 +168,234 @@ export async function showCalendarView(enrollmentId) {
     }
 }
 
-function renderCalendarFiltersAndEvents(allEvents) {
-    const legendContainer = dom.calendarLegendContainer;
-    if (!legendContainer) return;
+function renderCalendarFilters(disciplines, events) {
+    const filtersContainer = document.getElementById('calendar-filters-container');
+    if (!filtersContainer) return;
 
-    // Extrai categorias únicas para os filtros, incluindo uma opção "Todos"
-    const categories = ['Todos', ...new Set(allEvents.map(e => e.category).filter(Boolean))];
-    
-    // Cria o HTML dos botões de filtro
-    const filtersHTML = categories.map((category, index) => `
-        <button data-action="filter-calendar" data-category="${category}" 
-                class="filter-btn whitespace-nowrap px-4 py-2 text-sm font-semibold rounded-full transition-colors duration-200 
-                       ${index === 0 ? 'bg-primary text-bkg' : 'bg-surface text-subtle hover:bg-bkg'}">
-            ${category}
-        </button>
-    `).join('');
+    const disciplineOptions = disciplines.map(d => 
+        `<li data-action="select-dropdown-item" data-value="${d.id}">${d.name}</li>`
+    ).join('');
 
-    // Insere os filtros e a legenda no container
-    legendContainer.innerHTML = `
-        <div class="mb-4">
-            <h3 class="text-xl font-bold text-secondary mb-3">Filtros</h3>
-            <div class="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                ${filtersHTML}
+    const uniqueCategories = [...new Set(events.map(e => e.category).filter(Boolean))];
+    const categoryOptions = uniqueCategories.map(c => 
+        `<li data-action="select-dropdown-item" data-value="${c}">${c}</li>`
+    ).join('');
+
+    filtersContainer.innerHTML = `
+        <div>
+            <label class="block text-sm font-medium text-subtle mb-1">Origem</label>
+            <div class="relative" data-dropdown-container data-filter="origin">
+                <input type="hidden" id="calendar-origin-filter" value="all">
+                <button type="button" data-action="toggle-dropdown" class="custom-dropdown-button">
+                    <span class="selected-value">Todos</span>
+                    <svg class="w-5 h-5 text-subtle ml-auto flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>
+                </button>
+                <div data-dropdown-panel class="custom-dropdown-panel hidden">
+                    <ul class="custom-dropdown-list">
+                        <li data-action="select-dropdown-item" data-value="all" class="selected">Todos</li>
+                        <li data-action="select-dropdown-item" data-value="manual">Meus Eventos</li>
+                        <li data-action="select-dropdown-item" data-value="ai">Calendário (IA)</li>
+                    </ul>
+                </div>
             </div>
         </div>
-        <div id="legend-content" class="h-[calc(70vh-80px)] overflow-y-auto custom-scrollbar pr-2"></div>
+        <div>
+            <label class="block text-sm font-medium text-subtle mb-1">Tipo de Evento</label>
+            <div class="relative" data-dropdown-container data-filter="type">
+                <input type="hidden" id="calendar-type-filter" value="all">
+                <button type="button" data-action="toggle-dropdown" class="custom-dropdown-button">
+                    <span class="selected-value">Todos os Tipos</span>
+                    <svg class="w-5 h-5 text-subtle ml-auto flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>
+                </button>
+                <div data-dropdown-panel class="custom-dropdown-panel hidden">
+                    <ul class="custom-dropdown-list">
+                        <li data-action="select-dropdown-item" data-value="all" class="selected">Todos os Tipos</li>
+                        ${categoryOptions}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-subtle mb-1">Disciplina</label>
+            <div class="relative" data-dropdown-container data-filter="discipline">
+                <input type="hidden" id="calendar-discipline-filter" value="all">
+                <button type="button" data-action="toggle-dropdown" class="custom-dropdown-button">
+                    <span class="selected-value">Todas as Disciplinas</span>
+                    <svg class="w-5 h-5 text-subtle ml-auto flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>
+                </button>
+                <div data-dropdown-panel class="custom-dropdown-panel hidden">
+                    <ul class="custom-dropdown-list">
+                        <li data-action="select-dropdown-item" data-value="all" class="selected">Todas as Disciplinas</li>
+                        ${disciplineOptions}
+                    </ul>
+                </div>
+            </div>
+        </div>
     `;
-
-    // Função para aplicar o filtro e re-renderizar
-    const applyFilter = (category) => {
-        const filteredEvents = category === 'Todos' 
-            ? allEvents 
-            : allEvents.filter(event => event.category === category);
-        
-        renderFullCalendar(dom.fullCalendarContainer, filteredEvents);
-        renderCalendarLegend(document.getElementById('legend-content'), filteredEvents);
-    };
-
-    // Adiciona os event listeners aos botões de filtro
-    legendContainer.querySelectorAll('[data-action="filter-calendar"]').forEach(button => {
-        button.addEventListener('click', () => {
-            legendContainer.querySelector('.filter-btn.bg-primary')?.classList.replace('bg-primary', 'bg-surface');
-            legendContainer.querySelector('.filter-btn.text-bkg')?.classList.replace('text-bkg', 'text-subtle');
-            button.classList.replace('bg-surface', 'bg-primary');
-            button.classList.replace('text-subtle', 'text-bkg');
-            applyFilter(button.dataset.category);
-        });
-    });
-
-    // Renderização inicial com todos os eventos
-    applyFilter('Todos');
 }
 
-function renderFullCalendar(container, events) {
+let calendarEventsCache = [];
+
+export function applyCalendarFilters() {
+    if (!fullCalendarInstance) return;
+
+    const allEvents = getState().calendarEvents || [];
+    
+    const originFilter = document.getElementById('calendar-origin-filter')?.value || 'all';
+    const typeFilter = document.getElementById('calendar-type-filter')?.value || 'all';
+    const disciplineFilter = document.getElementById('calendar-discipline-filter')?.value || 'all';
+
+    const filteredEvents = allEvents.filter(event => {
+        const originMatch = originFilter === 'all' ? true : originFilter === 'ai' ? event.isAiGenerated === true : !event.isAiGenerated;
+        const typeMatch = typeFilter === 'all' || event.category === typeFilter;
+        const disciplineMatch = disciplineFilter === 'all' || event.relatedDisciplineId === disciplineFilter;
+        return originMatch && typeMatch && disciplineMatch;
+    });
+
+    fullCalendarInstance.setOption('events', filteredEvents);
+}
+
+
+function updateLegend() {
+    if (!fullCalendarInstance) return;
+
+    const view = fullCalendarInstance.view;
+    const visibleStartDate = view.activeStart;
+    const visibleEndDate = view.activeEnd;
+
+    const currentCalendarEvents = fullCalendarInstance.getEvents()
+        .filter(event => event.display !== 'none')
+        .map(event => ({
+            id: event.id,
+            title: event.title,
+            start: event.startStr.substring(0, 10),
+            backgroundColor: event.backgroundColor,
+            ...event.extendedProps
+        }));
+
+    const visibleEvents = currentCalendarEvents.filter(event => {
+        const eventDate = new Date(event.start + 'T00:00:00');
+        return eventDate >= visibleStartDate && eventDate < visibleEndDate;
+    });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const upcomingVisibleEvents = visibleEvents.filter(event => {
+        const eventDate = new Date(event.start + 'T00:00:00');
+        return eventDate >= today;
+    });
+
+    renderCalendarLegend(dom.calendarLegendContainer, upcomingVisibleEvents);
+}
+
+function updateCalendarAndLegend() {
+    if (!fullCalendarInstance) return;
+
+    const allEvents = getState().calendarEvents || [];
+    
+    // 1. Aplica os filtros dos dropdowns
+    const originFilter = document.getElementById('calendar-origin-filter')?.value || 'all';
+    const typeFilter = document.getElementById('calendar-type-filter')?.value || 'all';
+    const disciplineFilter = document.getElementById('calendar-discipline-filter')?.value || 'all';
+
+    const filteredEvents = allEvents.filter(event => {
+        const originMatch = originFilter === 'all' ? true : originFilter === 'ai' ? event.isAiGenerated === true : !event.isAiGenerated;
+        const typeMatch = typeFilter === 'all' || event.category === typeFilter;
+        const disciplineMatch = disciplineFilter === 'all' || event.relatedDisciplineId === disciplineFilter;
+        return originMatch && typeMatch && disciplineMatch;
+    });
+
+    // 2. Atualiza o calendário principal
+    fullCalendarInstance.removeAllEvents();
+    fullCalendarInstance.addEventSource(filteredEvents);
+
+    // 3. Filtra pelos eventos no intervalo de datas visível no calendário
+    const view = fullCalendarInstance.view;
+    const visibleStartDate = view.activeStart;
+    const visibleEndDate = view.activeEnd;
+
+    const visibleEvents = filteredEvents.filter(event => {
+        const eventDate = new Date(event.start + 'T00:00:00');
+        return eventDate >= visibleStartDate && eventDate < visibleEndDate;
+    });
+
+    // --- MELHORIA 2: Filtra novamente para mostrar apenas a partir de hoje ---
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Zera a hora para comparar apenas a data
+
+    const upcomingVisibleEvents = visibleEvents.filter(event => {
+        const eventDate = new Date(event.start + 'T00:00:00');
+        return eventDate >= today;
+    });
+
+    // 4. Renderiza a legenda com os eventos futuros e visíveis
+    renderCalendarLegend(dom.calendarLegendContainer, upcomingVisibleEvents);
+}
+
+/**
+ * Renderiza a instância principal do FullCalendar na tela.
+ * @param {HTMLElement} container - O elemento do DOM onde o calendário será renderizado.
+ * @param {Array} initialEvents - A lista inicial de eventos a ser exibida.
+ */
+function renderFullCalendar(container, initialEvents) {
     if (!container) return;
-    container.innerHTML = '';
     if (fullCalendarInstance) {
         fullCalendarInstance.destroy();
     }
+
     fullCalendarInstance = new Calendar(container, {
         plugins: [dayGridPlugin, interactionPlugin],
         locale: 'pt-br',
-        height: '100%',
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',
             right: 'dayGridMonth,dayGridWeek'
         },
-        buttonText: { today: 'Hoje', month: 'Mês', week: 'Semana' },
-        events: events,
+        buttonText: {
+            today: 'Hoje',
+            month: 'Mês',
+            week: 'Semana'
+        },
+        events: initialEvents,
         eventClick: (info) => modals.showEventModal(info.event.id),
-        eventDisplay: 'block', // Melhora a visualização de múltiplos eventos
-        dayMaxEvents: true, // Adiciona um link "+X eventos" se não couber
+        dayMaxEvents: 2,
+        datesSet: () => {
+            updateLegend();
+        },
+
+        // --- INÍCIO DA CORREÇÃO FINAL DE ALTURA ---
+        // A opção 'height' global foi removida.
+        // Usamos o objeto 'views' para aplicar a regra correta para cada modo.
+        views: {
+            // Para a visão MENSAL, usamos height: '100%' para que ela se estique
+            // e preencha todo o espaço, eliminando o espaço vazio inferior.
+            dayGridMonth: {
+                height: '100%'
+            },
+            // Para a visão SEMANAL, usamos height: 'auto' para que a altura
+            // se ajuste ao conteúdo, eliminando o scroll vertical.
+            dayGridWeek: {
+                height: 'auto'
+            }
+        }
+        // --- FIM DA CORREÇÃO ---
     });
+
     fullCalendarInstance.render();
 }
+
 
 function renderCalendarLegend(container, events) {
     if (!container) return;
 
     if (events.length === 0) {
-        container.innerHTML = `<p class="text-subtle text-center p-4">Nenhum evento encontrado para este filtro.</p>`;
+        container.innerHTML = `<p class="text-subtle text-center p-4">Nenhum evento futuro para exibir.</p>`;
         return;
     }
 
     const eventsByDate = events.reduce((acc, event) => {
-        const date = event.start;
-        if (!acc[date]) {
-            acc[date] = [];
-        }
-        acc[date].push(event);
+        (acc[event.start] = acc[event.start] || []).push(event);
         return acc;
     }, {});
 
@@ -250,15 +408,20 @@ function renderCalendarLegend(container, events) {
         const eventsHtml = eventsByDate[dateStr].map(event => {
             const isAI = event.isAiGenerated;
             return `
-            <div class="flex items-center gap-3 p-3 rounded-lg hover:bg-bkg transition-colors duration-200">
-                <span class="w-1.5 h-10 rounded-full flex-shrink-0" style="background-color: ${event.backgroundColor};"></span>
-                <div>
-                    <p class="font-semibold text-secondary leading-tight">${event.title}</p>
-                    <p class="text-xs text-subtle flex items-center gap-1.5">
-                        ${event.category || 'Evento'}
-                        ${isAI ? `<span class="text-primary font-bold">(IA)</span>` : ''}
-                    </p>
+            <div data-action="edit-event" data-id="${event.id}" class="flex items-center justify-between gap-3 p-3 rounded-lg hover:bg-bkg transition-colors duration-200 cursor-pointer group">
+                <div class="flex items-center gap-3 flex-grow overflow-hidden">
+                    <span class="w-1.5 h-10 rounded-full flex-shrink-0" style="background-color: ${event.backgroundColor};"></span>
+                    <div class="flex-grow">
+                        <p class="font-semibold text-secondary whitespace-normal line-clamp-2" title="${event.title}">${event.title}</p>
+                        <p class="text-xs text-subtle flex items-center gap-1.5 pt-1">
+                            ${event.category || 'Evento'}
+                            ${isAI ? `<span class="text-primary font-bold">(IA)</span>` : ''}
+                        </p>
+                    </div>
                 </div>
+                <button data-action="delete-event-from-legend" data-id="${event.id}" title="Excluir Evento" class="p-1 rounded-full text-subtle opacity-0 group-hover:opacity-100 hover:bg-danger/10 hover:text-danger transition-opacity flex-shrink-0">
+                    <svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
             </div>
         `}).join('');
 

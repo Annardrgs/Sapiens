@@ -157,14 +157,29 @@ const mainHTML = `
             <p id="calendar-view-subtitle" class="text-subtle"></p>
           </div>
         </div>
-        <div class="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-8 mt-4">
-          <div id="full-calendar-container" class="lg:col-span-2 bg-surface p-4 rounded-xl shadow-lg border border-border"></div>
-          <div class="lg:col-span-1">
-            <h3 class="text-2xl font-bold text-secondary mb-4">Legenda de Eventos</h3>
-            <div id="calendar-legend-container" class="bg-surface p-4 rounded-xl shadow-lg border border-border h-[70vh] overflow-y-auto custom-scrollbar"></div>
-          </div>
+
+        <div class="flex-grow grid grid-cols-1 lg:grid-cols-5 gap-6 mt-4">
+          
+          <div id="full-calendar-container" class="lg:col-span-3 bg-surface p-4 rounded-xl shadow-lg border border-border">
+            </div>
+          
+          <div class="lg:col-span-2 flex flex-col gap-6">
+            
+            <div class="bg-surface p-4 rounded-xl shadow-lg border border-border flex-shrink-0">
+                <h3 class="text-xl font-bold text-secondary mb-4">Filtros</h3>
+                <div id="calendar-filters-container" class="space-y-4"></div>
+            </div>
+
+            <div class="bg-surface p-4 rounded-xl shadow-lg border border-border flex flex-col flex-grow min-h-0">
+                <h3 class="text-xl font-bold text-secondary mb-2 flex-shrink-0">Eventos na Tela</h3>
+                <div id="calendar-legend-container" class="flex-grow overflow-y-auto custom-scrollbar -mr-2 pr-2">
+                    </div>
+            </div>
+
+            </div>
+
         </div>
-      </div>
+        </div>
 
       <div id="discipline-dashboard-view" class="hidden flex-grow flex flex-col">
         <div class="dashboard-header flex-shrink-0">
