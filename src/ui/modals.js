@@ -365,7 +365,6 @@ export async function showEventModal(eventId = null, dateStr = null) {
     dom.addEventForm.reset();
     const { activeEnrollmentId, activePeriodId } = getState();
 
-    // CORREÇÃO: Popula a lista <ul> em vez do <select>
     const disciplineList = dom.addEventForm.querySelector('#event-discipline-list');
     const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
     disciplineList.innerHTML = `<li data-action="select-dropdown-item" data-value="none" class="selected">Nenhuma matéria relacionada</li>`;
@@ -380,6 +379,28 @@ export async function showEventModal(eventId = null, dateStr = null) {
     const titleEl = dom.addEventModal.querySelector('#event-modal-title');
     const deleteBtn = dom.addEventModal.querySelector('#delete-event-btn');
     
+    // **INÍCIO DA CORREÇÃO**
+    // A função renderEventColorPalette foi movida para ser chamada em ambos os casos (novo/edição)
+    // para garantir que a paleta de cores sempre seja renderizada.
+    function renderEventColorPalette(selectedColor) {
+        const paletteContainer = dom.addEventForm.querySelector('#event-color-palette');
+        const colorInput = dom.addEventForm.querySelector('#event-color-input');
+        if (!paletteContainer || !colorInput) return;
+    
+        const colors = ['#d946ef', '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#0ea5e9', '#6366f1'];
+        paletteContainer.innerHTML = '';
+        colors.forEach(color => {
+            const swatch = document.createElement('div');
+            swatch.className = 'color-swatch';
+            swatch.style.backgroundColor = color;
+            swatch.dataset.color = color;
+            if (color === selectedColor) swatch.classList.add('selected');
+            paletteContainer.appendChild(swatch);
+        });
+        colorInput.value = selectedColor;
+    }
+    // **FIM DA CORREÇÃO**
+
     if (eventId) {
         if (titleEl) titleEl.textContent = 'Editar Evento';
         if (deleteBtn) deleteBtn.classList.remove('hidden');
@@ -390,19 +411,29 @@ export async function showEventModal(eventId = null, dateStr = null) {
             dom.addEventForm.querySelector('#event-id').value = eventId;
             dom.addEventForm.querySelector('#event-title').value = data.title || '';
             dom.addEventForm.querySelector('#event-date').value = data.date || '';
-            // Simula o clique para atualizar o dropdown customizado
-            selectDropdownItem(disciplineList.querySelector(`[data-value="${data.relatedDisciplineId || 'none'}"]`));
-            selectDropdownItem(dom.addEventForm.querySelector(`[data-value="${data.category || 'Prova'}"]`));
-            selectDropdownItem(dom.addEventForm.querySelector(`[data-value="${data.reminder || 'none'}"]`));
+
+            const disciplineItem = disciplineList.querySelector(`[data-value="${data.relatedDisciplineId || 'none'}"]`);
+            if (disciplineItem) selectDropdownItem(disciplineItem);
+
+            const categoryItem = dom.addEventForm.querySelector(`#event-category-list [data-value="${data.category || 'Prova'}"]`);
+            if (categoryItem) selectDropdownItem(categoryItem);
+
+            const reminderItem = dom.addEventForm.querySelector(`#event-reminder-list [data-value="${data.reminder || 'none'}"]`);
+            if (reminderItem) selectDropdownItem(reminderItem);
+
             renderEventColorPalette(data.color || '#d946ef');
         }
     } else {
         if (titleEl) titleEl.textContent = 'Novo Evento';
         if (deleteBtn) deleteBtn.classList.add('hidden');
         dom.addEventForm.querySelector('#event-date').value = dateStr || new Date().toISOString().split('T')[0];
-        // Reseta dropdowns para o padrão
-        selectDropdownItem(dom.addEventForm.querySelector(`[data-value="Prova"]`));
-        selectDropdownItem(dom.addEventForm.querySelector(`[data-value="none"]`));
+        
+        const defaultCategory = dom.addEventForm.querySelector('#event-category-list [data-value="Prova"]');
+        if (defaultCategory) selectDropdownItem(defaultCategory);
+
+        const defaultReminder = dom.addEventForm.querySelector('#event-reminder-list [data-value="none"]');
+        if (defaultReminder) selectDropdownItem(defaultReminder);
+        
         renderEventColorPalette('#d946ef');
     }
 
@@ -661,6 +692,14 @@ export function toggleDropdown(container) {
 }
 
 export function selectDropdownItem(itemElement) {
+    // **INÍCIO DA CORREÇÃO**
+    // Adiciona uma verificação para garantir que o elemento não seja nulo.
+    // Isso impede o erro "Cannot read properties of null (reading 'closest')".
+    if (!itemElement) {
+        return; 
+    }
+    // **FIM DA CORREÇÃO**
+
     const container = itemElement.closest('[data-dropdown-container]');
     if (!container) return;
 

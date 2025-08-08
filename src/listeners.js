@@ -281,6 +281,12 @@ async function handleAppContainerClick(e) {
             case 'pin-todo':
                 if (id) handlePinTodo(id, actionTarget);
                 break;
+            case 'expand-calendar':
+                if (activeEnrollmentId) navigate(`/calendar?enrollmentId=${activeEnrollmentId}`);
+                break;
+            case 'back-to-dashboard-from-calendar':
+                if (activeEnrollmentId) navigate(`/dashboard?enrollmentId=${activeEnrollmentId}`);
+                break;
             case 'view-documents': if (activeEnrollmentId) navigate(`/documents?enrollmentId=${activeEnrollmentId}`); else navigate('/documents'); break;
             case 'view-checklist': if (activeEnrollmentId) navigate(`/checklist?enrollmentId=${activeEnrollmentId}`); break;
             case 'view-grades-report': if (activeEnrollmentId) navigate(`/grades?enrollmentId=${activeEnrollmentId}`); break;

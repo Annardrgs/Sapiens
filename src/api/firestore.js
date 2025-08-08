@@ -785,10 +785,11 @@ export function addEventToBatch(batch, eventData, { enrollmentId, periodId }) {
     const payload = {
         title: eventData.title,
         date: eventData.date,
-        category: eventData.category || "Evento",
-        color: eventData.category === "Feriado" ? "#ef4444" : "#14b8a6",
+        category: eventData.category || "Evento Acadêmico",
+        color: '#A0DD01',
         reminder: "1d",
         allDay: true,
+        isAiGenerated: true
     };
     batch.set(eventRef, payload);
 }

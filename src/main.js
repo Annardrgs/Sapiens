@@ -18,7 +18,8 @@ import {
   showDisciplineDashboard,
   showGradesReportView,
   showCourseChecklistView,
-  showDocumentsView
+  showDocumentsView,
+  showCalendarView // <-- ADICIONADO
 } from './ui/view.js';
 import { initializeTheme } from './ui/theme.js';
 import { initializeDOMElements } from './ui/dom.js';
@@ -37,10 +38,11 @@ const routes = {
   '/grades': showGradesReportView,
   '/checklist': showCourseChecklistView,
   '/documents': showDocumentsView,
+  '/calendar': showCalendarView,
 };
 
 async function handleRouteChange() {
-    pomodoro.updateFloatingTimerVisibility(); // Adicionado para controlar o timer flutuante
+    pomodoro.updateFloatingTimerVisibility();
     const path = window.location.pathname;
     const params = new URLSearchParams(window.location.search);
     
@@ -50,12 +52,11 @@ async function handleRouteChange() {
     const disciplineId = params.get('disciplineId');
 
     if (auth.currentUser) {
-        if (path === '/dashboard' && enrollmentId) {
+        // ATUALIZADO PARA INCLUIR A NOVA ROTA
+        if ((path === '/dashboard' || path === '/grades' || path === '/checklist' || path === '/documents' || path === '/calendar') && enrollmentId) {
             await routeAction(enrollmentId);
         } else if (path === '/discipline' && enrollmentId && disciplineId) {
             await routeAction({ enrollmentId, disciplineId });
-        } else if ((path === '/grades' || path === '/checklist' || path === '/documents') && enrollmentId) {
-            await routeAction(enrollmentId);
         } else {
             await routeAction();
         }
@@ -77,11 +78,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeTheme();
     console.log("[DEBUG] Módulos principais inicializados.");
 
-    // PONTO DE VERIFICAÇÃO 2: Confirma que o listener de autenticação está sendo configurado.
     console.log("[DEBUG] Configurando o listener de autenticação (onAuthStateChanged)...");
     
     onAuthStateChanged(auth, async (user) => {
-      // PONTO DE VERIFICAÇÃO 3: Se esta mensagem aparecer, o Firebase se comunicou com sucesso.
       console.log("[DEBUG] Callback de autenticação disparado. Status do usuário:", user ? "Logado" : "Deslogado");
 
       const loadingOverlay = document.getElementById('loading-overlay');
