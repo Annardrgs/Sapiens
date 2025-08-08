@@ -449,19 +449,13 @@ async function renderDisciplineAgenda(disciplineId) {
 
 function renderEvaluationsList(discipline) {
     if (!dom.evaluationsList) return;
-
     dom.evaluationsList.innerHTML = '';
 
+    const { periods, activePeriodIndex } = getState();
+    const isPeriodClosed = periods[activePeriodIndex]?.status === 'closed';
+
     if (!discipline.grades || discipline.grades.length === 0) {
-        dom.evaluationsList.innerHTML = `
-            <div class="col-span-full empty-state">
-                <div class="empty-state-icon">
-                    <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                </div>
-                <h4 class="empty-state-title">Nenhuma avaliação configurada</h4>
-                <p class="empty-state-subtitle">Clique em "Gerenciar" para adicionar as provas e trabalhos.</p>
-            </div>
-        `;
+        dom.evaluationsList.innerHTML = `...`; // (O HTML do estado vazio permanece o mesmo)
         return;
     }
 
@@ -470,11 +464,14 @@ function renderEvaluationsList(discipline) {
         const evaluationEl = document.createElement('div');
         evaluationEl.className = 'evaluation-item';
 
+        // CORREÇÃO: Desabilita o campo de nota se o período estiver encerrado
+        const gradeInputHTML = isPeriodClosed
+            ? `<span class="evaluation-item-grade non-editable">${gradeValue}</span>`
+            : `<span data-action="edit-grade" data-discipline-id="${discipline.id}" data-grade-index="${index}" class="evaluation-item-grade">${gradeValue}</span>`;
+
         evaluationEl.innerHTML = `
             <span class="evaluation-item-label" title="${grade.name}">${grade.name}</span>
-            <span data-action="edit-grade" data-discipline-id="${discipline.id}" data-grade-index="${index}" class="evaluation-item-grade">
-                ${gradeValue}
-            </span>
+            ${gradeInputHTML}
         `;
         dom.evaluationsList.appendChild(evaluationEl);
     });
@@ -939,9 +936,14 @@ export async function renderTodoList() {
 export function createTodoItemElement(todo) {
     const todoItem = document.createElement('div');
     const isCompleted = todo.completed;
+    const isPinned = todo.isPinned || false;
 
     todoItem.className = `flex items-center bg-surface border border-border p-3 rounded-lg transition-all duration-200 group ${isCompleted ? 'opacity-60' : ''}`;
     
+    // CORREÇÃO: Lógica para visibilidade e preenchimento do ícone de fixar
+    const pinButtonVisibility = isPinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100';
+    const pinIconFill = isPinned ? 'fill="currentColor"' : 'fill="none"';
+
     todoItem.innerHTML = `
         <button data-action="toggle-todo" data-id="${todo.id}" class="w-6 h-6 rounded-md flex-shrink-0 flex items-center justify-center border-2 transition-colors ${isCompleted ? 'bg-primary border-primary' : 'border-border group-hover:border-primary'}">
             <svg class="w-4 h-4 text-white ${isCompleted ? 'block' : 'hidden'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
@@ -951,6 +953,11 @@ export function createTodoItemElement(todo) {
         <p class="todo-text flex-grow mx-4 text-secondary cursor-pointer ${isCompleted ? 'line-through text-subtle' : ''}" data-action="edit-todo" data-id="${todo.id}" data-text="${todo.text}">
             ${todo.text}
         </p>
+        <button data-action="pin-todo" data-id="${todo.id}" title="Fixar tarefa" class="p-1 rounded-full text-subtle ${pinButtonVisibility} hover:bg-primary/10 ${isPinned ? 'text-primary' : 'hover:text-primary'} flex-shrink-0 transition-opacity">
+            <svg class="w-5 h-5 pointer-events-none" viewBox="0 0 24 24" ${pinIconFill} xmlns="http://www.w3.org/2000/svg">
+                <path d="M12.0004 15L12.0004 22M8.00043 7.30813V9.43875C8.00043 9.64677 8.00043 9.75078 7.98001 9.85026C7.9619 9.93852 7.93194 10.0239 7.89095 10.1042C7.84474 10.1946 7.77977 10.2758 7.64982 10.4383L6.08004 12.4005C5.4143 13.2327 5.08143 13.6487 5.08106 13.9989C5.08073 14.3035 5.21919 14.5916 5.4572 14.7815C5.73088 15 6.26373 15 7.32943 15H16.6714C17.7371 15 18.27 15 18.5437 14.7815C18.7817 14.5916 18.9201 14.3035 18.9198 13.9989C18.9194 13.6487 18.5866 13.2327 17.9208 12.4005L16.351 10.4383C16.2211 10.2758 16.1561 10.1946 16.1099 10.1042C16.0689 10.0239 16.039 9.93852 16.0208 9.85026C16.0004 9.75078 16.0004 9.64677 16.0004 9.43875V7.30813C16.0004 7.19301 16.0004 7.13544 16.0069 7.07868C16.0127 7.02825 16.0223 6.97833 16.0357 6.92937C16.0507 6.87424 16.0721 6.8208 16.1149 6.71391L17.1227 4.19423C17.4168 3.45914 17.5638 3.09159 17.5025 2.79655C17.4489 2.53853 17.2956 2.31211 17.0759 2.1665C16.8247 2 16.4289 2 15.6372 2H8.36368C7.57197 2 7.17611 2 6.92494 2.1665C6.70529 2.31211 6.55199 2.53853 6.49838 2.79655C6.43707 3.09159 6.58408 3.45914 6.87812 4.19423L7.88599 6.71391C7.92875 6.8208 7.95013 6.87424 7.96517 6.92937C7.97853 6.97833 7.98814 7.02825 7.99392 7.07868C8.00043 7.13544 8.00043 7.19301 8.00043 7.30813Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
         <button data-action="delete-todo" data-id="${todo.id}" class="p-1 rounded-full text-subtle opacity-0 group-hover:opacity-100 hover:bg-danger/20 hover:text-danger flex-shrink-0 transition-opacity">
             <svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>

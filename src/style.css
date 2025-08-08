@@ -285,3 +285,7 @@
   .stat-card-lg-label {
     @apply text-sm text-subtle;
   }
+
+  .evaluation-item-grade.non-editable {
+  @apply cursor-not-allowed opacity-70;
+}

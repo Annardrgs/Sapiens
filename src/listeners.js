@@ -77,12 +77,13 @@ async function handleEventFormSubmit(e) {
     const form = dom.addEventForm;
     const eventId = form.querySelector('#event-id').value;
 
+    // CORREÇÃO: Lê o valor dos inputs escondidos dos dropdowns customizados
     const payload = {
         title: form.querySelector('#event-title').value,
         date: form.querySelector('#event-date').value,
-        category: form.querySelector('#event-category').value,
-        relatedDisciplineId: form.querySelector('#event-discipline').value,
-        reminder: form.querySelector('#event-reminder').value,
+        category: form.querySelector('#event-category-value').value,
+        relatedDisciplineId: form.querySelector('#event-discipline-value').value,
+        reminder: form.querySelector('#event-reminder-value').value,
         color: form.querySelector('#event-color-input').value,
     };
 
@@ -94,12 +95,9 @@ async function handleEventFormSubmit(e) {
         }
         modals.hideEventModal();
         
-        // Lógica de atualização corrigida
         if (dom.disciplineDashboardView && !dom.disciplineDashboardView.classList.contains('hidden')) {
-            // Se estivermos na tela da disciplina, atualiza a própria tela
             view.showDisciplineDashboard({ enrollmentId: activeEnrollmentId, disciplineId: activeDisciplineId });
         } else {
-            // Caso contrário, atualiza o dashboard do curso
             view.refreshDashboard();
         }
 
@@ -199,6 +197,43 @@ export function initializeAppListeners() {
             });
         }
     }
+
+    const calendarFileInput = document.getElementById('period-calendar-file');
+    if (calendarFileInput) {
+        calendarFileInput.addEventListener('change', handleCalendarFileChange);
+    }
+
+    const removeCalendarBtn = document.getElementById('remove-calendar-btn');
+    if (removeCalendarBtn) {
+        removeCalendarBtn.addEventListener('click', handleRemoveCalendarFile);
+    }
+}
+
+function handlePinTodo(id, pinButton) {
+    const isPinned = !pinButton.classList.contains('text-primary');
+    const svgIcon = pinButton.querySelector('svg');
+
+    firestoreApi.updateTodoPinnedStatus(id, isPinned)
+        .then(() => {
+            // Atualiza a cor do botão (e do ícone via currentColor)
+            pinButton.classList.toggle('text-primary', isPinned);
+            
+            // Atualiza o preenchimento do ícone
+            if (svgIcon) {
+                svgIcon.setAttribute('fill', isPinned ? 'currentColor' : 'none');
+            }
+            
+            // Atualiza a visibilidade do botão
+            pinButton.classList.toggle('opacity-100', isPinned);
+            pinButton.classList.toggle('opacity-0', !isPinned);
+            pinButton.classList.toggle('group-hover:opacity-100', !isPinned);
+
+            reorderTodoListDOM(); // Reordena para mover o item fixado para o topo
+        })
+        .catch(err => {
+            console.error("Erro ao fixar tarefa:", err);
+            notify.error("Não foi possível fixar a tarefa.");
+        });
 }
 
 // --- HANDLERS (LÓGICA DOS EVENTOS) ---
@@ -233,6 +268,16 @@ async function handleAppContainerClick(e) {
                     modals.showAbsenceHistoryModal(id, name);
                     view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, id);
                 }
+                break;
+            case 'manage-evaluations':
+                const disciplineId = actionTarget.dataset.disciplineId;
+                const periodId = actionTarget.dataset.periodId;
+                if (disciplineId && periodId) {
+                    modals.showConfigGradesModal(disciplineId, periodId);
+                }
+                break;
+            case 'pin-todo':
+                if (id) handlePinTodo(id, actionTarget);
                 break;
             case 'view-documents': if (activeEnrollmentId) navigate(`/documents?enrollmentId=${activeEnrollmentId}`); else navigate('/documents'); break;
             case 'view-checklist': if (activeEnrollmentId) navigate(`/checklist?enrollmentId=${activeEnrollmentId}`); break;
@@ -329,26 +374,62 @@ function handleCancelAction() {
     modals.hideConfirmModal(); // Fecha o modal depois
 }
 
+function reorderTodoListDOM() {
+    if (!dom.todoItemsList) return;
+    const items = Array.from(dom.todoItemsList.children);
+    
+    // Separa os itens fixados, pendentes e concluídos
+    const pinned = items.filter(item => item.querySelector('[data-action="pin-todo"].text-primary'));
+    const completed = items.filter(item => item.querySelector('[data-action="toggle-todo"].bg-primary') && !item.querySelector('[data-action="pin-todo"].text-primary'));
+    const pending = items.filter(item => !item.querySelector('[data-action="toggle-todo"].bg-primary') && !item.querySelector('[data-action="pin-todo"].text-primary'));
+
+    // Limpa a lista e adiciona em ordem: fixados, pendentes, concluídos
+    dom.todoItemsList.innerHTML = '';
+    pinned.forEach(item => dom.todoItemsList.appendChild(item));
+    pending.forEach(item => dom.todoItemsList.appendChild(item));
+    completed.forEach(item => dom.todoItemsList.appendChild(item));
+}
+
 function handleToggleTodo(id, buttonElement) {
     const todoItemElement = buttonElement.closest('.group');
     const checkIcon = buttonElement.querySelector('svg');
-    // CORREÇÃO: Seleciona o texto pela classe '.todo-text' para evitar erros
     const label = todoItemElement.querySelector('.todo-text');
-    
-    const isCompleted = !buttonElement.classList.contains('bg-primary');
+    const pinButton = todoItemElement.querySelector('[data-action="pin-todo"]');
 
-    firestoreApi.updateTodoStatus(id, isCompleted)
+    const isBecomingCompleted = !buttonElement.classList.contains('bg-primary');
+    const isCurrentlyPinned = pinButton && pinButton.classList.contains('text-primary');
+
+    // Monta o payload para a atualização no banco de dados
+    const payload = {
+        completed: isBecomingCompleted
+    };
+
+    // CORREÇÃO: Se a tarefa está sendo concluída E está fixada, desfixa ela.
+    if (isBecomingCompleted && isCurrentlyPinned) {
+        payload.isPinned = false;
+    }
+
+    firestoreApi.updateTodo(id, payload)
         .then(() => {
-            todoItemElement.classList.toggle('opacity-60', isCompleted);
-            buttonElement.classList.toggle('bg-primary', isCompleted);
-            buttonElement.classList.toggle('border-primary', isCompleted);
-            if (checkIcon) {
-                checkIcon.classList.toggle('hidden', !isCompleted);
-            }
+            // Atualiza a UI do checkbox
+            todoItemElement.classList.toggle('opacity-60', isBecomingCompleted);
+            buttonElement.classList.toggle('bg-primary', isBecomingCompleted);
+            buttonElement.classList.toggle('border-primary', isBecomingCompleted);
+            if (checkIcon) checkIcon.classList.toggle('hidden', !isBecomingCompleted);
             if (label) {
-                label.classList.toggle('line-through', isCompleted);
-                label.classList.toggle('text-subtle', isCompleted);
+                label.classList.toggle('line-through', isBecomingCompleted);
+                label.classList.toggle('text-subtle', isBecomingCompleted);
             }
+
+            // Atualiza a UI do ícone de fixar, se ele foi alterado
+            if (isBecomingCompleted && isCurrentlyPinned && pinButton) {
+                const pinIcon = pinButton.querySelector('svg');
+                pinButton.classList.remove('text-primary', 'opacity-100');
+                pinButton.classList.add('opacity-0', 'group-hover:opacity-100');
+                if (pinIcon) pinIcon.setAttribute('fill', 'none');
+            }
+
+            reorderTodoListDOM();
         })
         .catch(err => {
             console.error("Erro ao atualizar tarefa:", err);
@@ -818,19 +899,14 @@ async function handleTodoFormSubmit(e) {
     try {
         const docRef = await firestoreApi.addTodo(taskText);
         
-        // CORREÇÃO: Remove o contêiner do estado de 'lista vazia' pelo ID
         const emptyState = document.getElementById('todo-empty-state');
-        if (emptyState) {
-            emptyState.remove();
-        }
+        if (emptyState) emptyState.remove();
 
-        const newTodo = {
-            id: docRef.id,
-            text: taskText,
-            completed: false
-        };
+        const newTodo = { id: docRef.id, text: taskText, completed: false };
         const todoElement = view.createTodoItemElement(newTodo);
-        dom.todoItemsList.appendChild(todoElement);
+
+        // CORREÇÃO: Adiciona a nova tarefa no início da lista
+        dom.todoItemsList.prepend(todoElement);
         dom.addTodoForm.reset();
     } catch (error) {
         console.error("Erro ao adicionar tarefa:", error);
