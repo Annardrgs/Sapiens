@@ -18,6 +18,7 @@ const state = {
     },
 
     disciplines: [],
+    calendarEvents: [],
     
     editingEnrollmentId: null,
     editingDisciplineId: null,

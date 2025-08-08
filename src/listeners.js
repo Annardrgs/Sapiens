@@ -13,6 +13,7 @@ import { toggleTheme } from './ui/theme.js';
 import { notify } from './ui/notifications.js';
 import { calculateAverage } from './components/card.js';
 import { navigate } from './main.js';
+import { getFullCalendarInstance } from './ui/view.js';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import 'pdfjs-dist/legacy/build/pdf.worker.mjs';
 
@@ -287,6 +288,36 @@ async function handleAppContainerClick(e) {
             case 'back-to-dashboard-from-calendar':
                 if (activeEnrollmentId) navigate(`/dashboard?enrollmentId=${activeEnrollmentId}`);
                 break;
+
+            case 'edit-event':
+                if (id) modals.showEventModal(id);
+                break;
+            case 'delete-event-from-legend':
+                if (id) {
+                    modals.showConfirmModal({
+                        title: 'Excluir Evento',
+                        message: 'Tem certeza que deseja excluir este evento? Esta ação não pode ser desfeita.',
+                        confirmText: 'Excluir',
+                        onConfirm: async () => {
+                            try {
+                                await firestoreApi.deleteCalendarEvent(id, { enrollmentId: activeEnrollmentId, periodId: activePeriodId });
+
+                                // Atualização otimizada da UI
+                                actionTarget.closest('[data-action="edit-event"]').remove();
+                                const calendarEvent = getFullCalendarInstance()?.getEventById(id);
+                                if (calendarEvent) {
+                                    calendarEvent.remove();
+                                }
+                                
+                                notify.success('Evento excluído!');
+                            } catch (error) {
+                                console.error("Erro ao excluir evento:", error);
+                                notify.error('Falha ao excluir o evento.');
+                            }
+                        }
+                    });
+                }
+                break;
             case 'view-documents': if (activeEnrollmentId) navigate(`/documents?enrollmentId=${activeEnrollmentId}`); else navigate('/documents'); break;
             case 'view-checklist': if (activeEnrollmentId) navigate(`/checklist?enrollmentId=${activeEnrollmentId}`); break;
             case 'view-grades-report': if (activeEnrollmentId) navigate(`/grades?enrollmentId=${activeEnrollmentId}`); break;
@@ -303,7 +334,15 @@ async function handleAppContainerClick(e) {
             case 'toggle-dropdown': modals.toggleDropdown(actionTarget.closest('[data-dropdown-container]')); break;
             case 'select-dropdown-item':
                 modals.selectDropdownItem(actionTarget);
-                if (actionTarget.closest('[data-filter-key]')) view.renderDocumentsList(activeEnrollment ? activeEnrollment.id : null);
+                
+                if (actionTarget.closest('[data-filter-key="type"]') || actionTarget.closest('[data-filter-key="sort"]')) {
+                    view.renderDocumentsList(getState().activeEnrollmentId);
+                }
+                
+                // --- LÓGICA DE FILTRO ATUALIZADA ---
+                if (actionTarget.closest('[data-filter="origin"]') || actionTarget.closest('[data-filter="type"]') || actionTarget.closest('[data-filter="discipline"]')) {
+                    view.applyCalendarFilters();
+                }
                 break;
             case 'delete-todo': if (id) handleDeleteTodo(id, actionTarget.closest('.flex')); break;
             case 'mark-subject-completed':
