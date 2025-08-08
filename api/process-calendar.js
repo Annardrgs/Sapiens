@@ -45,7 +45,7 @@ export default async function handler(req, res) {
     }
 
     // O restante do código que chama a IA do Gemini permanece IGUAL
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
     const prompt = `
       Você é um assistente especialista em calendários acadêmicos.
       Analise o seguinte texto e identifique eventos importantes para um estudante, como Início e Fim do Período, Feriados, Matrículas, Trancamentos, Provas, etc.
