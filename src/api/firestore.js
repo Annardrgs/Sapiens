@@ -767,3 +767,28 @@ export function updateTodo(todoId, payload) {
     const todoRef = doc(db, 'users', userId, 'todos', todoId);
     return updateDoc(todoRef, payload);
 }
+
+export function createBatch() {
+    return writeBatch(db);
+}
+
+export function commitBatch(batch) {
+    return batch.commit();
+}
+
+export function addEventToBatch(batch, eventData, { enrollmentId, periodId }) {
+    const userId = getCurrentUserId();
+    if (!userId) return;
+    
+    const eventRef = doc(collection(db, 'users', userId, 'enrollments', enrollmentId, 'periods', periodId, 'events'));
+    
+    const payload = {
+        title: eventData.title,
+        date: eventData.date,
+        category: eventData.category || "Evento",
+        color: eventData.category === "Feriado" ? "#ef4444" : "#14b8a6",
+        reminder: "1d",
+        allDay: true,
+    };
+    batch.set(eventRef, payload);
+}

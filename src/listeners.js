@@ -837,20 +837,57 @@ async function handlePeriodOptionsFormSubmit(e) {
         endDate: dom.periodOptionsForm.querySelector('#period-end-date').value,
     };
     const submitButton = dom.periodOptionsForm.querySelector('button[type="submit"]');
+
     try {
-        if(submitButton) { submitButton.textContent = 'Salvando...'; submitButton.disabled = true; }
+        if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Salvando...'; }
+
         if (file) {
             payload.calendarUrl = await firestoreApi.uploadPeriodCalendar(file);
         }
         await firestoreApi.updatePeriodDetails(activeEnrollmentId, activePeriodId, payload);
+        
+        if (payload.calendarUrl) {
+            notify.info("Calendário salvo. Enviando para análise da IA...");
+            
+            // CORREÇÃO: Substitua o placeholder pela sua URL real da Vercel
+            const vercelFunctionUrl = 'https://SEU-DOMINIO.vercel.app/api/process-calendar'; 
+
+            const response = await fetch(vercelFunctionUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileUrl: payload.calendarUrl }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Erro na IA');
+            }
+
+            const { events } = await response.json();
+
+            if (events && events.length > 0) {
+                const batch = firestoreApi.createBatch();
+                events.forEach(event => {
+                    firestoreApi.addEventToBatch(batch, event, { enrollmentId: activeEnrollmentId, periodId: activePeriodId });
+                });
+                await firestoreApi.commitBatch(batch);
+                notify.success(`${events.length} eventos foram criados com sucesso!`);
+            } else {
+                notify.info("Nenhum evento relevante encontrado pela IA.");
+            }
+
+        } else {
+            notify.success("Opções do período salvas.");
+        }
+
         modals.hidePeriodOptionsModal();
         await view.showDashboardView(activeEnrollmentId);
-        notify.success("Opções do período salvas.");
+
     } catch (error) {
         console.error("Erro ao salvar opções do período:", error);
-        notify.error("Falha ao salvar opções.");
+        notify.error(`Falha ao salvar: ${error.message}`);
     } finally {
-        if(submitButton) { submitButton.textContent = 'Salvar Alterações'; submitButton.disabled = false; }
+        if (submitButton) { submitButton.disabled = false; submitButton.textContent = 'Salvar Alterações'; }
     }
 }
 

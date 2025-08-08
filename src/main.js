@@ -75,11 +75,25 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeAuthListeners();
     initializeTheme();
 
+    document.addEventListener('DOMContentLoaded', () => {
+    injectHTML();
+    initializeDOMElements();
+    initializeAuthListeners();
+    initializeTheme();
+
     onAuthStateChanged(auth, async (user) => {
+      // CORREÇÃO: Remove a tela de loading AQUI.
+      // Isso garante que o loading suma assim que o Firebase responder,
+      // não importa se o usuário está logado ou não.
+      const loadingOverlay = document.getElementById('loading-overlay');
+      if (loadingOverlay) {
+          loadingOverlay.classList.add('hidden');
+      }
+
       try {
         if (user) {
           setState('user', user);
-          showAppScreen();
+          showAppScreen(); // A função showAppScreen já tenta esconder o loading, mas agora garantimos isso antes.
           await firestoreApi.cleanupOldTodos();
           
           if (!window.appListenersInitialized) {
@@ -99,11 +113,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (error) {
         console.error("Erro crítico durante a inicialização:", error);
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) loadingOverlay.classList.add('hidden');
         notify.error("Ocorreu um erro inesperado. Por favor, recarregue a página.");
       }
     });
 
     window.addEventListener('popstate', handleRouteChange);
+    });
 });
