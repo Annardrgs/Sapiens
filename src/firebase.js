@@ -15,9 +15,6 @@ const firebaseConfig = {
     measurementId: import.meta.env.VITE_MEASUREMENT_ID
 };
 
-// PONTO DE VERIFICAÇÃO 1: Mostra a configuração que o Firebase está tentando usar.
-console.log("[DEBUG] Configuração do Firebase que será usada:", firebaseConfig);
-
 export const cloudinaryConfig = {
     cloudName: import.meta.env.VITE_CLOUDINARY_CLOUD_NAME,
     uploadPreset: import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET,
