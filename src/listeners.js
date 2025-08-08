@@ -841,31 +841,47 @@ async function handlePeriodOptionsFormSubmit(e) {
     try {
         if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Salvando...'; }
 
-        // Se um novo arquivo foi selecionado, faz o upload.
         if (file) {
             payload.calendarUrl = await firestoreApi.uploadPeriodCalendar(file);
-            setState('calendarMarkedForDeletion', false); // Garante que a flag de deleção seja resetada
-        } 
-        // CORREÇÃO: Se não há arquivo novo E o calendário foi marcado para deleção...
-        else if (calendarMarkedForDeletion) {
-            // ...adiciona uma instrução ao payload para remover o campo do Firestore.
+        } else if (calendarMarkedForDeletion) {
             payload.calendarUrl = firestoreApi.deleteFieldValue();
         }
 
-        // Atualiza os detalhes no Firestore com o novo payload
         await firestoreApi.updatePeriodDetails(activeEnrollmentId, activePeriodId, payload);
         
-        // Reseta o estado de deleção após a operação ser concluída com sucesso
         if (calendarMarkedForDeletion) {
             setState('calendarMarkedForDeletion', false);
         }
 
-        // A lógica da IA continua a mesma: só é chamada se um novo URL foi gerado
         if (payload.calendarUrl && typeof payload.calendarUrl === 'string') {
             notify.info("Calendário salvo. Enviando para análise da IA...");
-            const vercelFunctionUrl = 'https://sapiens-eta.vercel.app/api/process-calendar'; 
-            const response = await fetch(vercelFunctionUrl, { /* ... (código fetch existente) */ });
-            // ... (restante da lógica da IA)
+            
+            // CORREÇÃO: Usamos um caminho relativo em vez de uma URL fixa.
+            const vercelFunctionUrl = '/api/process-calendar'; 
+
+            const response = await fetch(vercelFunctionUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileUrl: payload.calendarUrl }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Erro na IA');
+            }
+
+            const { events } = await response.json();
+
+            if (events && events.length > 0) {
+                const batch = firestoreApi.createBatch();
+                events.forEach(event => {
+                    firestoreApi.addEventToBatch(batch, event, { enrollmentId: activeEnrollmentId, periodId: activePeriodId });
+                });
+                await firestoreApi.commitBatch(batch);
+                notify.success(`${events.length} eventos foram criados com sucesso!`);
+            } else {
+                notify.info("Nenhum evento relevante encontrado pela IA.");
+            }
         } else {
             notify.success("Alterações salvas com sucesso!");
         }
@@ -876,7 +892,7 @@ async function handlePeriodOptionsFormSubmit(e) {
     } catch (error) {
         console.error("Erro ao salvar opções do período:", error);
         notify.error(`Falha ao salvar: ${error.message}`);
-        setState('calendarMarkedForDeletion', false); // Reseta em caso de erro também
+        setState('calendarMarkedForDeletion', false);
     } finally {
         if (submitButton) { submitButton.disabled = false; submitButton.textContent = 'Salvar Alterações'; }
     }
