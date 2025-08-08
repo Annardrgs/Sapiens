@@ -5,13 +5,27 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 // A chave de API será configurada como uma Variável de Ambiente na Vercel
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+// CORREÇÃO: Lista de origens permitidas (seu app local e na Vercel)
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://sapiens-rdrgs.web.app',
+  'https://sapiens-eta.vercel.app',
+  'https://sapiens-git-wip-rdrgs-projects-8f261bad.vercel.app' // A URL do seu log de erro
+];
+
 // Esta é a função principal que será executada
 module.exports = async (req, res) => {
-  // Configuração para permitir que seu app no Firebase chame esta API (CORS)
-  res.setHeader("Access-Control-Allow-Origin", "https://sapiens-rdrgs.web.app");
+  // CORREÇÃO: Lógica de CORS aprimorada
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
+  // O navegador envia uma requisição "pre-flight" OPTIONS primeiro.
+  // Se for, apenas respondemos OK para o navegador prosseguir.
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
