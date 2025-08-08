@@ -70,21 +70,20 @@ export function navigate(path) {
 // --- FLUXO DE INICIALIZAÇÃO ---
 
 document.addEventListener('DOMContentLoaded', () => {
+    console.log("[DEBUG] DOM carregado. Iniciando Sapiens...");
     injectHTML();
     initializeDOMElements();
     initializeAuthListeners();
     initializeTheme();
+    console.log("[DEBUG] Módulos principais inicializados.");
 
-    document.addEventListener('DOMContentLoaded', () => {
-    injectHTML();
-    initializeDOMElements();
-    initializeAuthListeners();
-    initializeTheme();
-
+    // PONTO DE VERIFICAÇÃO 2: Confirma que o listener de autenticação está sendo configurado.
+    console.log("[DEBUG] Configurando o listener de autenticação (onAuthStateChanged)...");
+    
     onAuthStateChanged(auth, async (user) => {
-      // CORREÇÃO: Remove a tela de loading AQUI.
-      // Isso garante que o loading suma assim que o Firebase responder,
-      // não importa se o usuário está logado ou não.
+      // PONTO DE VERIFICAÇÃO 3: Se esta mensagem aparecer, o Firebase se comunicou com sucesso.
+      console.log("[DEBUG] Callback de autenticação disparado. Status do usuário:", user ? "Logado" : "Deslogado");
+
       const loadingOverlay = document.getElementById('loading-overlay');
       if (loadingOverlay) {
           loadingOverlay.classList.add('hidden');
@@ -93,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         if (user) {
           setState('user', user);
-          showAppScreen(); // A função showAppScreen já tenta esconder o loading, mas agora garantimos isso antes.
+          showAppScreen();
           await firestoreApi.cleanupOldTodos();
           
           if (!window.appListenersInitialized) {
@@ -118,5 +117,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     window.addEventListener('popstate', handleRouteChange);
-    });
 });

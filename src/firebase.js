@@ -2,6 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getFunctions } from "firebase/functions";
 
 // Lê as variáveis de ambiente do arquivo .env
 const firebaseConfig = {
@@ -14,6 +15,9 @@ const firebaseConfig = {
     measurementId: import.meta.env.VITE_MEASUREMENT_ID
 };
 
+// PONTO DE VERIFICAÇÃO 1: Mostra a configuração que o Firebase está tentando usar.
+console.log("[DEBUG] Configuração do Firebase que será usada:", firebaseConfig);
+
 export const cloudinaryConfig = {
     cloudName: import.meta.env.VITE_CLOUDINARY_CLOUD_NAME,
     uploadPreset: import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET,
@@ -24,3 +28,4 @@ export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+export const functions = getFunctions(app);
