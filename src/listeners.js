@@ -71,207 +71,9 @@ function handleRemoveCalendarFile() {
     setState('calendarMarkedForDeletion', true);
 }
 
-export function initializeAuthListeners() {
-    if (dom.authForm) dom.authForm.addEventListener('submit', handleAuthFormSubmit);
-    if (dom.authPrompt) dom.authPrompt.addEventListener('click', (e) => {
-        if (e.target.id === 'switch-to-signup-btn') setState('authMode', 'signup');
-        else if (e.target.id === 'switch-to-login-btn') setState('authMode', 'login');
-        view.updateAuthView();
-    });
-    const authToggleBtn = dom.authScreen?.querySelector('[data-toggle-password]');
-    if(authToggleBtn) authToggleBtn.addEventListener('click', () => view.togglePasswordVisibility(dom.authPasswordInput));
-}
-
-export function initializeAppListeners() {
-    document.body.addEventListener('click', handleAppContainerClick);
-    if (dom.logoutBtn) dom.logoutBtn.addEventListener('click', authApi.logOut);
-    if (dom.themeToggleBtn) dom.themeToggleBtn.addEventListener('click', toggleTheme);
-    document.addEventListener('click', handleOutsideClick, true);
-
-    if (dom.exportPdfBtn) dom.exportPdfBtn.addEventListener('click', handleExportPdf);
-
-    // Formulários
-    if (dom.addEnrollmentForm) dom.addEnrollmentForm.addEventListener('submit', handleEnrollmentFormSubmit);
-    if (dom.addDisciplineForm) dom.addDisciplineForm.addEventListener('submit', handleDisciplineFormSubmit);
-    if (dom.addPeriodForm) dom.addPeriodForm.addEventListener('submit', handlePeriodFormSubmit);
-    if (dom.addAbsenceForm) dom.addAbsenceForm.addEventListener('submit', handleAbsenceFormSubmit);
-    if (dom.configGradesForm) dom.configGradesForm.addEventListener('submit', handleConfigGradesSubmit);
-    if (dom.addTodoForm) dom.addTodoForm.addEventListener('submit', handleTodoFormSubmit);
-    
-    // Pomodoro Timer
-    if (dom.startPomodoroBtn) dom.startPomodoroBtn.addEventListener('click', () => modals.showPomodoroSettingsModal());
-    if (dom.pausePomodoroBtn) dom.pausePomodoroBtn.addEventListener('click', pomodoro.togglePause);
-    if (dom.stopPomodoroBtn) dom.stopPomodoroBtn.addEventListener('click', pomodoro.stopTimer);
-    if (dom.closeStudyHistoryModalBtn) dom.closeStudyHistoryModalBtn.addEventListener('click', pomodoro.hideHistoryModal);
-    if (dom.pomodoroSettingsForm) dom.pomodoroSettingsForm.addEventListener('submit', handlePomodoroSettingsSubmit);
-    if (dom.cancelPomodoroSettingsBtn) dom.cancelPomodoroSettingsBtn.addEventListener('click', modals.hidePomodoroSettingsModal);
-    if (dom.studyHistoryList) dom.studyHistoryList.addEventListener('click', handleDeleteStudySession);
-
-
-    const deleteBtn = dom.addEventModal.querySelector('#delete-event-btn');
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', handleDeleteEvent);
-    }
-    if (dom.addEventForm) {
-        dom.addEventForm.addEventListener('submit', handleEventFormSubmit);
-        const disciplineSelect = dom.addEventForm.querySelector('#event-discipline');
-    if (disciplineSelect) {
-        disciplineSelect.addEventListener('change', e => {
-            const selectedOption = e.target.options[e.target.selectedIndex];
-            const color = selectedOption.dataset.color;
-            
-            if (e.target.value !== 'none' && color) {
-                e.target.style.borderLeft = `5px solid ${color}`;
-            } else {
-                e.target.style.borderLeft = 'none';
-            }
-        });
-    }
-    }
-    const palette = dom.addEventForm.querySelector('#event-color-palette');
-    if (palette) {
-        palette.addEventListener('click', e => {
-            const swatch = e.target.closest('.color-swatch');
-            if (!swatch) return;
-            palette.querySelector('.selected')?.classList.remove('selected');
-            swatch.classList.add('selected');
-            dom.addEventForm.querySelector('#event-color-input').value = swatch.dataset.color;
-        });
-    }
-
-    if (dom.notificationBellBtn) {
-        dom.notificationBellBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            dom.notificationPanel.classList.toggle('hidden');
-        });
-    }
-    
-    if (dom.periodOptionsForm) dom.periodOptionsForm.addEventListener('submit', handlePeriodOptionsFormSubmit);
-    
-    if (dom.confirmModalConfirmBtn) dom.confirmModalConfirmBtn.addEventListener('click', handleConfirmAction);
-    if (dom.confirmModalCancelBtn) dom.confirmModalCancelBtn.addEventListener('click', modals.hideConfirmModal);
-
-    if (dom.endPeriodBtn) dom.endPeriodBtn.addEventListener('click', handleEndPeriod);
-    if (dom.reopenPeriodBtn) dom.reopenPeriodBtn.addEventListener('click', handleReopenPeriod);
-    if (dom.deletePeriodBtn) dom.deletePeriodBtn.addEventListener('click', handleDeletePeriod);
-
-    if (dom.backToMainDashboardBtn) dom.backToMainDashboardBtn.addEventListener('click', () => {
-        const { activeEnrollmentId } = getState();
-        if (activeEnrollmentId) {
-            dom.disciplineDashboardView.classList.add('hidden');
-            dom.dashboardView.classList.remove('hidden');
-        } else {
-            view.showEnrollmentsView();
-        }
-    });
-
-    if (dom.disciplineDashConfigGradesBtn) {
-        dom.disciplineDashConfigGradesBtn.addEventListener('click', (e) => {
-            const { id } = e.currentTarget.dataset;
-            modals.showConfigGradesModal(id);
-        });
-    }
-
-    const agendaToggle = document.getElementById('agenda-view-toggle');
-    if (agendaToggle) {
-        agendaToggle.addEventListener('click', e => {
-            const button = e.target.closest('.agenda-view-btn');
-            if (!button) return;
-
-            const currentActive = agendaToggle.querySelector('.active');
-            if (currentActive) {
-                currentActive.classList.remove('active');
-            }
-            button.classList.add('active');
-
-            const viewType = button.dataset.view;
-
-            if (viewType === 'classes') {
-                const { disciplines } = getState();
-                view.renderWeeklyClasses(disciplines);
-            } else {
-                view.renderAllEvents();
-            }
-        });
-    }
-
-    if (dom.addDisciplineModal) {
-        dom.addDisciplineModal.querySelector('#add-schedule-btn').addEventListener('click', modals.addScheduleField);
-        const palette = dom.addDisciplineModal.querySelector('#discipline-color-palette');
-        if (palette) {
-            palette.addEventListener('click', e => {
-                const swatch = e.target.closest('.color-swatch');
-                if (!swatch) return;
-                
-                palette.querySelector('.selected')?.classList.remove('selected');
-                swatch.classList.add('selected');
-                
-                dom.addDisciplineForm.querySelector('#discipline-color-input').value = swatch.dataset.color;
-            });
-        }
-    }
-
-    dom.addDisciplineModal.addEventListener('change', e => {
-        if (e.target.matches('[name="schedule-start"], [name="schedule-end"]')) {
-            const scheduleField = e.target.closest('.schedule-field');
-            const firstScheduleField = dom.addDisciplineModal.querySelector('.schedule-field');
-
-            if (scheduleField && scheduleField === firstScheduleField) {
-                const startTime = scheduleField.querySelector('[name="schedule-start"]').value;
-                const endTime = scheduleField.querySelector('[name="schedule-end"]').value;
-                
-                const hoursInput = dom.addDisciplineForm.querySelector('#discipline-hours-per-class');
-                if (hoursInput) {
-                    hoursInput.value = calculateHoursDifference(startTime, endTime);
-                }
-            }
-        }
-    });
-
-    if (dom.configGradesForm) {
-        dom.configGradesForm.querySelector('#grade-calculation-rule').addEventListener('change', modals.renderGradeFields);
-        dom.addGradeFieldBtn.addEventListener('click', modals.addGradeField);
-        dom.gradesContainer.addEventListener('input', modals.updateWeightsSum);
-    }
-
-    if (dom.disciplinesList) dom.disciplinesList.addEventListener('input', handleGradeInput);
-    if (dom.absenceHistoryList) dom.absenceHistoryList.addEventListener('click', handleAbsenceHistoryListClick);
-    
-    if (dom.cancelEnrollmentBtn) dom.cancelEnrollmentBtn.addEventListener('click', modals.hideEnrollmentModal);
-    if (dom.cancelDisciplineBtn) dom.cancelDisciplineBtn.addEventListener('click', modals.hideDisciplineModal);
-    if (dom.cancelPeriodBtn) dom.cancelPeriodBtn.addEventListener('click', modals.hidePeriodModal);
-    if (dom.cancelAbsenceBtn) dom.cancelAbsenceBtn.addEventListener('click', modals.hideAbsenceModal);
-    if (dom.closeAbsenceHistoryBtn) dom.closeAbsenceHistoryBtn.addEventListener('click', modals.hideAbsenceHistoryModal);
-    if (dom.cancelConfigGradesBtn) dom.cancelConfigGradesBtn.addEventListener('click', modals.hideConfigGradesModal);
-    if (dom.cancelEventBtn) dom.cancelEventBtn.addEventListener('click', modals.hideEventModal);
-    if (dom.periodOptionsModal) dom.periodOptionsModal.querySelector('[data-action="cancel"]')?.addEventListener('click', modals.hidePeriodOptionsModal);
-    if (dom.closePdfViewerBtn) dom.closePdfViewerBtn.addEventListener('click', modals.hidePdfViewerModal);
-
-    const calendarFileInput = document.getElementById('period-calendar-file');
-    if (calendarFileInput) calendarFileInput.addEventListener('change', handleCalendarFileChange);
-
-    const removeCalendarBtn = document.getElementById('remove-calendar-btn');
-    if (removeCalendarBtn) removeCalendarBtn.addEventListener('click', handleRemoveCalendarFile);
-
-    if (dom.addCurriculumSubjectForm) dom.addCurriculumSubjectForm.addEventListener('submit', handleCurriculumSubjectFormSubmit);
-    if (dom.cancelCurriculumSubjectBtn) dom.cancelCurriculumSubjectBtn.addEventListener('click', modals.hideCurriculumSubjectModal);
-    if (dom.markAsCompletedForm) dom.markAsCompletedForm.addEventListener('submit', handleMarkAsCompletedSubmit);
-    if (dom.cancelMarkAsCompletedBtn) dom.cancelMarkAsCompletedBtn.addEventListener('click', modals.hideMarkAsCompletedModal);
-
-    // Listener para mostrar/esconder o campo de código equivalente
-    const isEquivalentCheckbox = document.getElementById('completed-is-equivalent');
-    if (isEquivalentCheckbox) {
-        isEquivalentCheckbox.addEventListener('change', (e) => {
-            dom.equivalentCodeContainer.classList.toggle('hidden', !e.target.checked);
-        });
-    }
-
-    if (dom.closeCurriculumSubjectDetailsBtn) dom.closeCurriculumSubjectDetailsBtn.addEventListener('click', modals.hideCurriculumSubjectDetailsModal);
-}
-
 async function handleEventFormSubmit(e) {
     e.preventDefault();
-    const { activeEnrollmentId, activePeriodId } = getState();
+    const { activeEnrollmentId, activePeriodId, activeDisciplineId } = getState();
     const form = dom.addEventForm;
     const eventId = form.querySelector('#event-id').value;
 
@@ -291,8 +93,17 @@ async function handleEventFormSubmit(e) {
             await firestoreApi.saveCalendarEvent(payload, { enrollmentId: activeEnrollmentId, periodId: activePeriodId });
         }
         modals.hideEventModal();
-        view.refreshDashboard();
-        notify.success("Evento salvo com sucesso!")
+        
+        // Lógica de atualização corrigida
+        if (dom.disciplineDashboardView && !dom.disciplineDashboardView.classList.contains('hidden')) {
+            // Se estivermos na tela da disciplina, atualiza a própria tela
+            view.showDisciplineDashboard({ enrollmentId: activeEnrollmentId, disciplineId: activeDisciplineId });
+        } else {
+            // Caso contrário, atualiza o dashboard do curso
+            view.refreshDashboard();
+        }
+
+        notify.success("Evento salvo com sucesso!");
         view.checkAndRenderNotifications();
     } catch (error) {
         console.error("Erro ao salvar evento:", error);
@@ -301,72 +112,166 @@ async function handleEventFormSubmit(e) {
 }
 
 // --- HANDLERS (LÓGICA DOS EVENTOS) ---
+export function initializeAuthListeners() {
+    if (dom.authForm) dom.authForm.addEventListener('submit', handleAuthFormSubmit);
+    if (dom.authPrompt) dom.authPrompt.addEventListener('click', (e) => {
+        if (e.target.id === 'switch-to-signup-btn') setState('authMode', 'signup');
+        else if (e.target.id === 'switch-to-login-btn') setState('authMode', 'login');
+        view.updateAuthView();
+    });
+    const authToggleBtn = dom.authScreen?.querySelector('[data-toggle-password]');
+    if(authToggleBtn) authToggleBtn.addEventListener('click', () => view.togglePasswordVisibility(dom.authPasswordInput));
+}
+
+export function initializeAppListeners() {
+    document.body.addEventListener('click', handleAppContainerClick);
+    if (dom.logoutBtn) dom.logoutBtn.addEventListener('click', authApi.logOut);
+    if (dom.themeToggleBtn) dom.themeToggleBtn.addEventListener('click', toggleTheme);
+    document.addEventListener('click', handleOutsideClick, true);
+
+    if (dom.exportPdfBtn) dom.exportPdfBtn.addEventListener('click', handleExportPdf);
+    if (dom.closeAbsenceHistoryBtn) dom.closeAbsenceHistoryBtn.addEventListener('click', modals.hideAbsenceHistoryModal);
+
+    // Formulários
+    if (dom.addEnrollmentForm) dom.addEnrollmentForm.addEventListener('submit', handleEnrollmentFormSubmit);
+    if (dom.addDisciplineForm) {
+        dom.addDisciplineForm.addEventListener('submit', handleDisciplineFormSubmit);
+        // Listener para cálculo automático de horas
+        dom.addDisciplineForm.addEventListener('input', handleScheduleTimeChange);
+    }
+    if (dom.addPeriodForm) dom.addPeriodForm.addEventListener('submit', handlePeriodFormSubmit);
+    if (dom.addAbsenceForm) dom.addAbsenceForm.addEventListener('submit', handleAbsenceFormSubmit);
+    if (dom.configGradesForm) dom.configGradesForm.addEventListener('submit', handleConfigGradesSubmit);
+    if (dom.addTodoForm) dom.addTodoForm.addEventListener('submit', handleTodoFormSubmit);
+    if (dom.addEventForm) dom.addEventForm.addEventListener('submit', handleEventFormSubmit);
+    if (dom.periodOptionsForm) dom.periodOptionsForm.addEventListener('submit', handlePeriodOptionsFormSubmit);
+    if (dom.addCurriculumSubjectForm) dom.addCurriculumSubjectForm.addEventListener('submit', handleCurriculumSubjectFormSubmit);
+    if (dom.markAsCompletedForm) dom.markAsCompletedForm.addEventListener('submit', handleMarkAsCompletedSubmit);
+    if (dom.addDocumentForm) dom.addDocumentForm.addEventListener('submit', handleDocumentFormSubmit);
+    
+    // Pomodoro Timer
+    if (dom.startPomodoroBtn) dom.startPomodoroBtn.addEventListener('click', () => modals.showPomodoroSettingsModal());
+    if (dom.pausePomodoroBtn) dom.pausePomodoroBtn.addEventListener('click', pomodoro.togglePause);
+    if (dom.stopPomodoroBtn) dom.stopPomodoroBtn.addEventListener('click', pomodoro.stopTimer);
+    if (dom.closeStudyHistoryModalBtn) dom.closeStudyHistoryModalBtn.addEventListener('click', pomodoro.hideHistoryModal);
+    if (dom.pomodoroSettingsForm) dom.pomodoroSettingsForm.addEventListener('submit', handlePomodoroSettingsSubmit);
+    if (dom.floatingPausePomodoroBtn) dom.floatingPausePomodoroBtn.addEventListener('click', pomodoro.togglePause);
+    if (dom.floatingStopPomodoroBtn) dom.floatingStopPomodoroBtn.addEventListener('click', pomodoro.stopTimer);
+
+    // Outros
+    if (dom.addEventModal) {
+        const deleteBtn = dom.addEventModal.querySelector('#delete-event-btn');
+        if (deleteBtn) deleteBtn.addEventListener('click', handleDeleteEvent);
+    }
+
+    if (dom.notificationBellBtn) dom.notificationBellBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dom.notificationPanel.classList.toggle('hidden');
+    });
+    
+    if (dom.confirmModalConfirmBtn) dom.confirmModalConfirmBtn.addEventListener('click', handleConfirmAction);
+    if (dom.confirmModalCancelBtn) dom.confirmModalCancelBtn.addEventListener('click', handleCancelAction);
+
+    const agendaToggle = document.getElementById('agenda-view-toggle');
+    if (agendaToggle) agendaToggle.addEventListener('click', e => {
+        const button = e.target.closest('.agenda-view-btn');
+        if (!button) return;
+        agendaToggle.querySelector('.active')?.classList.remove('active');
+        button.classList.add('active');
+        if (button.dataset.view === 'classes') view.renderWeeklyClasses(getState().disciplines);
+        else view.renderAllEvents();
+    });
+
+    if (dom.disciplinesList) dom.disciplinesList.addEventListener('input', handleGradeInput);
+    if (dom.absenceHistoryList) dom.absenceHistoryList.addEventListener('click', handleAbsenceHistoryListClick);
+    if (dom.studyHistoryList) dom.studyHistoryList.addEventListener('click', handleDeleteStudySession);
+
+    const documentsToolbar = document.getElementById('documents-toolbar');
+    if (documentsToolbar) {
+        const searchInput = documentsToolbar.querySelector('#document-search-input');
+        if (searchInput) {
+            let debounceTimer;
+            searchInput.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    view.renderDocumentsList(getState().activeEnrollmentId);
+                }, 300);
+            });
+        }
+    }
+}
+
+// --- HANDLERS (LÓGICA DOS EVENTOS) ---
 async function handleAppContainerClick(e) {
     const target = e.target;
     const actionTarget = target.closest('[data-action]');
 
+    if (target.closest('.color-swatch')) {
+        const colorSwatch = target.closest('.color-swatch');
+        const palette = colorSwatch.parentElement;
+        const colorInput = palette.nextElementSibling;
+        if (colorInput && colorInput.type === 'hidden') {
+            palette.querySelector('.selected')?.classList.remove('selected');
+            colorSwatch.classList.add('selected');
+            colorInput.value = colorSwatch.dataset.color;
+        }
+        return;
+    }
+
     if (actionTarget) {
-        const action = actionTarget.dataset.action;
-        const id = actionTarget.dataset.id;
-        const { activeEnrollmentId } = getState();
-        
         e.stopPropagation();
+        const action = actionTarget.dataset.action;
+        const id = actionTarget.dataset.id || actionTarget.dataset.disciplineId;
+        const name = actionTarget.dataset.name;
+        let { activeEnrollmentId, activePeriodId, activeEnrollment } = getState();
 
         switch (action) {
-            // **CORREÇÃO APLICADA AQUI**
-            case 'toggle-mute':
-                pomodoro.toggleMute();
-                break;
-
-            // Ações de Navegação
-            case 'view-grades-report': 
-                if (activeEnrollmentId) navigate(`/grades?enrollmentId=${activeEnrollmentId}`);
-                break;
-            case 'view-checklist': 
-                if (activeEnrollmentId) navigate(`/checklist?enrollmentId=${activeEnrollmentId}`);
-                break;
-            case 'back-to-main-dashboard':
-            case 'back-to-main-dashboard-from-report':
-            case 'back-to-main-dashboard-from-checklist':
-                if (activeEnrollmentId) navigate(`/dashboard?enrollmentId=${activeEnrollmentId}`);
-                break;
-            case 'view-discipline-details': 
-                if (activeEnrollmentId) navigate(`/discipline?enrollmentId=${activeEnrollmentId}&disciplineId=${id}`);
-                break;
-            
-            // Ações do Dashboard da Disciplina
-            case 'add-absence': modals.showAbsenceModal(id, actionTarget.dataset.name); break;
-            case 'history-absence': {
-                const { activePeriodId } = getState();
-                modals.showAbsenceHistoryModal(id, actionTarget.dataset.name);
-                view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, id);
-                break;
-            }
-            case 'manage-evaluations': {
-                const { disciplineId, periodId } = actionTarget.dataset;
-                if (disciplineId && periodId) {
-                    modals.showConfigGradesModal(disciplineId, periodId);
-                } else {
-                    notify.error('Não foi possível abrir o gerenciador de avaliações.');
+            case 'manage-evaluations': if (id) modals.showConfigGradesModal(id, activePeriodId); break;
+            case 'add-absence': if (id && name) modals.showAbsenceModal(id, name); break;
+            case 'history-absence':
+                if (id && name) {
+                    modals.showAbsenceHistoryModal(id, name);
+                    view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, id);
                 }
                 break;
-            }
-            
-            // Outras ações
+            case 'view-documents': if (activeEnrollmentId) navigate(`/documents?enrollmentId=${activeEnrollmentId}`); else navigate('/documents'); break;
+            case 'view-checklist': if (activeEnrollmentId) navigate(`/checklist?enrollmentId=${activeEnrollmentId}`); break;
+            case 'view-grades-report': if (activeEnrollmentId) navigate(`/grades?enrollmentId=${activeEnrollmentId}`); break;
+            case 'view-discipline-details': if (id && activeEnrollmentId) view.showDisciplineDashboard({ enrollmentId: activeEnrollmentId, disciplineId: id }); break;
+            case 'back-to-dashboard': if (activeEnrollmentId) navigate(`/dashboard?enrollmentId=${activeEnrollmentId}`); break;
+            case 'back-from-documents': if (activeEnrollmentId) navigate(`/dashboard?enrollmentId=${activeEnrollmentId}`); else navigate('/'); break;
+            case 'edit-enrollment': if (id) modals.showEnrollmentModal(id); break;
+            case 'delete-enrollment': if (id) handleDeleteEnrollment(id); break;
+            case 'edit-discipline': if (id) modals.showDisciplineModal(id); break;
+            case 'delete-discipline': if (id) handleDeleteDiscipline(id); break;
             case 'add-new-event': modals.showEventModal(); break;
+            case 'toggle-mute': pomodoro.toggleMute(); break;
             case 'view-study-history': pomodoro.showHistoryModal(); break;
-            case 'toggle-todo':
-                await firestoreApi.updateTodoStatus(id, actionTarget.checked);
-                await view.renderTodoList();
+            case 'toggle-dropdown': modals.toggleDropdown(actionTarget.closest('[data-dropdown-container]')); break;
+            case 'select-dropdown-item':
+                modals.selectDropdownItem(actionTarget);
+                if (actionTarget.closest('[data-filter-key]')) view.renderDocumentsList(activeEnrollment ? activeEnrollment.id : null);
                 break;
-            case 'delete-todo':
-                await firestoreApi.deleteTodo(id);
-                await view.renderTodoList();
+            case 'delete-todo': if (id) handleDeleteTodo(id, actionTarget.closest('.flex')); break;
+            case 'mark-subject-completed':
+                if (id) {
+                    const subjects = await firestoreApi.getCurriculumSubjects(activeEnrollmentId);
+                    const subjectData = subjects.find(s => s.id === id);
+                    if (subjectData) modals.showMarkAsCompletedModal(subjectData);
+                    else notify.error("Disciplina da grade não encontrada.");
+                }
                 break;
-            case 'edit-enrollment': modals.showEnrollmentModal(id); break;
-            case 'delete-enrollment': handleDeleteEnrollment(id); break;
-            case 'edit-discipline': modals.showDisciplineModal(id); break;
-            case 'delete-discipline': handleDeleteDiscipline(id); break;
+            case 'edit-curriculum-subject': if (id) modals.showCurriculumSubjectModal(id); break;
+            case 'view-curriculum-subject-details': if (id) modals.showCurriculumSubjectDetailsModal(id); break;
+            case 'toggle-todo': if (id) handleToggleTodo(id, actionTarget); break;
+            case 'cancel': modals.hidePeriodOptionsModal(); break;
+            case 'delete-document': if(id) handleDeleteDocument(id); break;
+            case 'edit-todo':
+                if (id) handleEditTodo(id, actionTarget);
+                break;
+            case 'toggle-todo': 
+                if (id) handleToggleTodo(id, actionTarget); 
+                break;
         }
         return;
     }
@@ -374,19 +279,98 @@ async function handleAppContainerClick(e) {
     const button = target.closest('button');
     if (button && button.id) {
         switch (button.id) {
-            case 'add-enrollment-btn': modals.showEnrollmentModal(); return;
-            case 'add-discipline-btn': modals.showDisciplineModal(); return;
-            case 'new-period-btn': modals.showPeriodModal(); return;
-            case 'manage-period-btn': modals.showPeriodOptionsModal(); return;
-            case 'back-to-enrollments-btn': navigate('/'); return;
-            case 'prev-period-btn': switchPeriod('prev'); return;
-            case 'next-period-btn': switchPeriod('next'); return;
+            case 'add-enrollment-btn': modals.showEnrollmentModal(); break;
+            case 'add-discipline-btn': modals.showDisciplineModal(); break;
+            case 'add-document-btn': modals.showDocumentModal(); break;
+            case 'new-period-btn': modals.showPeriodModal(); break;
+            case 'back-to-enrollments-btn': navigate('/'); break;
+            case 'prev-period-btn': switchPeriod('prev'); break;
+            case 'next-period-btn': switchPeriod('next'); break;
+            case 'cancel-period-btn': modals.hidePeriodModal(); break;
+            case 'cancel-pomodoro-settings-btn': modals.hidePomodoroSettingsModal(); break;
+            case 'manage-period-btn': modals.showPeriodOptionsModal(); break;
+            case 'cancel-event-btn': modals.hideEventModal(); break;
+            case 'cancel-enrollment-btn': modals.hideEnrollmentModal(); break;
+            case 'cancel-mark-as-completed-btn': modals.hideMarkAsCompletedModal(); break;
+            case 'close-curriculum-subject-details-btn': modals.hideCurriculumSubjectDetailsModal(); break;
+            case 'cancel-curriculum-subject-btn': modals.hideCurriculumSubjectModal(); break;
+            case 'cancel-document-btn': modals.hideDocumentModal(); break;
+            case 'add-curriculum-subject-btn': modals.showCurriculumSubjectModal(); break;
+            case 'reopen-period-btn': handleReopenPeriod(); break;
+            case 'add-schedule-btn': modals.addScheduleField(); break;
+            case 'cancel-discipline-btn': modals.hideDisciplineModal(); break;
+            case 'end-period-btn': handleEndPeriod(); break;
+            case 'delete-period-btn': handleDeletePeriod(); break;
+            case 'close-pdf-viewer-btn': modals.hidePdfViewerModal(); break;
         }
     }
 
     const enrollmentCard = target.closest('#enrollments-list [data-id]');
-    if (enrollmentCard) {
-        navigate(`/dashboard?enrollmentId=${enrollmentCard.dataset.id}`);
+    if (enrollmentCard) navigate(`/dashboard?enrollmentId=${enrollmentCard.dataset.id}`);
+}
+
+function handleDeleteTodo(id, element) {
+    console.log(`%c[DEBUG] handleDeleteTodo fired for ID: ${id}`, 'color: green');
+    firestoreApi.deleteTodo(id).then(() => {
+        element.remove();
+        notify.success("Tarefa removida.");
+    }).catch(err => notify.error("Erro ao remover tarefa."));
+}
+
+function handleCancelAction() {
+    const onCancel = getState().onCancelAction;
+    if (typeof onCancel === 'function') {
+        try {
+            onCancel(); // Executa a ação de cancelamento (ex: isPaused = false)
+        } catch (error) {
+            console.error("Erro ao executar ação de cancelamento:", error);
+        }
+    }
+    modals.hideConfirmModal(); // Fecha o modal depois
+}
+
+function handleToggleTodo(id, buttonElement) {
+    const todoItemElement = buttonElement.closest('.group');
+    const checkIcon = buttonElement.querySelector('svg');
+    // CORREÇÃO: Seleciona o texto pela classe '.todo-text' para evitar erros
+    const label = todoItemElement.querySelector('.todo-text');
+    
+    const isCompleted = !buttonElement.classList.contains('bg-primary');
+
+    firestoreApi.updateTodoStatus(id, isCompleted)
+        .then(() => {
+            todoItemElement.classList.toggle('opacity-60', isCompleted);
+            buttonElement.classList.toggle('bg-primary', isCompleted);
+            buttonElement.classList.toggle('border-primary', isCompleted);
+            if (checkIcon) {
+                checkIcon.classList.toggle('hidden', !isCompleted);
+            }
+            if (label) {
+                label.classList.toggle('line-through', isCompleted);
+                label.classList.toggle('text-subtle', isCompleted);
+            }
+        })
+        .catch(err => {
+            console.error("Erro ao atualizar tarefa:", err);
+            notify.error("Não foi possível atualizar a tarefa.");
+        });
+}
+
+function handleEditTodo(id, textElement) {
+    const currentText = textElement.dataset.text;
+    const newText = prompt("Editar tarefa:", currentText);
+
+    if (newText && newText.trim() !== currentText) {
+        firestoreApi.updateTodoText(id, newText.trim())
+            .then(() => {
+                textElement.textContent = newText.trim();
+                textElement.dataset.text = newText.trim();
+                notify.success("Tarefa atualizada.");
+            })
+            .catch(err => {
+                console.error("Erro ao editar tarefa:", err);
+                notify.error("Não foi possível editar a tarefa.");
+            });
     }
 }
 
@@ -610,21 +594,48 @@ async function handleDisciplineFormSubmit(e) {
     }
 }
 
-function calculateHoursDifference(startTime, endTime) {
-    if (!startTime || !endTime) {
-        return '';
-    }
+async function handleDeleteDocument(docId) {
+    modals.showConfirmModal({
+        title: 'Excluir Documento',
+        message: 'Tem certeza que deseja excluir este documento? Esta ação não pode ser desfeita.',
+        confirmText: 'Excluir',
+        onConfirm: async () => {
+            try {
+                await firestoreApi.deleteDocument(docId);
+                notify.success('Documento excluído.');
+                await view.renderDocumentsList(getState().activeEnrollmentId);
+            } catch (error) {
+                notify.error('Falha ao excluir o documento.');
+                console.error("Erro ao excluir documento:", error);
+            }
+        }
+    });
+}
+
+async function handleScheduleTimeChange(e) {
+    if (e.target.name !== 'schedule-start' && e.target.name !== 'schedule-end') return;
     
+    const scheduleField = e.target.parentElement;
+    const startTime = scheduleField.querySelector('[name="schedule-start"]').value;
+    const endTime = scheduleField.querySelector('[name="schedule-end"]').value;
+
+    const hours = calculateHoursDifference(startTime, endTime);
+    
+    if (hours !== null) {
+        const hoursPerClassInput = dom.addDisciplineForm.querySelector('#discipline-hours-per-class');
+        if (hoursPerClassInput) {
+            hoursPerClassInput.value = hours;
+        }
+    }
+}
+
+function calculateHoursDifference(startTime, endTime) {
+    if (!startTime || !endTime) return null;
     const start = new Date(`1970-01-01T${startTime}:00`);
     const end = new Date(`1970-01-01T${endTime}:00`);
-
-    if (end <= start) {
-        return '';
-    }
-
+    if (isNaN(start) || isNaN(end) || end <= start) return null;
     const diffMilliseconds = end - start;
     const diffHours = diffMilliseconds / (1000 * 60 * 60);
-    
     return diffHours;
 }
 
@@ -714,6 +725,11 @@ function handleOutsideClick(e) {
             dom.notificationPanel.classList.add('hidden');
         }
     }
+    document.querySelectorAll('[data-dropdown-panel]:not(.hidden)').forEach(panel => {
+        if (!panel.closest('[data-dropdown-container]').contains(e.target)) {
+            panel.classList.add('hidden');
+        }
+    });
 }
 
 async function switchPeriod(direction) {
@@ -801,10 +817,13 @@ async function handleTodoFormSubmit(e) {
 
     try {
         const docRef = await firestoreApi.addTodo(taskText);
-        const placeholder = dom.todoItemsList.querySelector('p');
-        if (placeholder) {
-            placeholder.remove();
+        
+        // CORREÇÃO: Remove o contêiner do estado de 'lista vazia' pelo ID
+        const emptyState = document.getElementById('todo-empty-state');
+        if (emptyState) {
+            emptyState.remove();
         }
+
         const newTodo = {
             id: docRef.id,
             text: taskText,
@@ -1004,12 +1023,11 @@ async function handlePomodoroSettingsSubmit(e) {
     const form = dom.pomodoroSettingsForm;
     const studyTime = form.querySelector('#pomodoro-study-time').value;
     const breakTime = form.querySelector('#pomodoro-break-time').value;
-    const disciplineSelect = form.querySelector('#pomodoro-discipline');
-    const disciplineId = disciplineSelect.value;
-    const disciplineName = disciplineSelect.options[disciplineSelect.selectedIndex].text;
-    const ambientSoundKey = form.querySelector('#pomodoro-sound').value;
+    const disciplineValue = form.querySelector('#pomodoro-discipline-value').value;
+    const disciplineName = form.querySelector('[data-dropdown-container] .selected-value').textContent;
+    const ambientSoundKey = form.querySelector('#pomodoro-sound-value').value;
     
-    const selectedDiscipline = disciplineId === 'none' ? null : { id: disciplineId, name: disciplineName };
+    const selectedDiscipline = disciplineValue === 'none' ? null : { id: disciplineValue, name: disciplineName };
 
     pomodoro.startTimer(parseInt(studyTime), parseInt(breakTime), selectedDiscipline, ambientSoundKey);
     modals.hidePomodoroSettingsModal();
@@ -1036,4 +1054,62 @@ function handleDeleteStudySession(e) {
             }
         }
     });
+}
+
+async function handleDocumentFormSubmit(e) {
+    e.preventDefault();
+    const form = dom.addDocumentForm;
+    const submitButton = form.querySelector('button[type="submit"]');
+    const fileInput = form.querySelector('#document-file');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        return notify.error("Por favor, selecione um arquivo.");
+    }
+
+    submitButton.disabled = true;
+    submitButton.textContent = 'Enviando...';
+    notify.info('Enviando arquivo, por favor aguarde...');
+
+    try {
+        let { activeEnrollmentId } = getState();
+        const uploadResult = await firestoreApi.uploadFileToCloudinary(file);
+
+        const selectedDisciplineItem = form.querySelector('#modal-discipline-list .selected');
+        const disciplineId = selectedDisciplineItem ? selectedDisciplineItem.dataset.value : 'none';
+        
+        // CORREÇÃO: Garantir que periodId seja null se nenhuma disciplina for selecionada
+        const periodId = (disciplineId !== 'none' && selectedDisciplineItem) 
+            ? selectedDisciplineItem.dataset.periodId 
+            : null;
+        
+        if (disciplineId !== 'none' && selectedDisciplineItem && selectedDisciplineItem.dataset.enrollmentId) {
+            activeEnrollmentId = selectedDisciplineItem.dataset.enrollmentId;
+        }
+
+        const payload = {
+            title: form.querySelector('#document-title').value,
+            type: form.querySelector('#document-type-value').value,
+            tags: form.querySelector('#document-tags').value.split(',').map(tag => tag.trim()).filter(Boolean),
+            fileUrl: uploadResult.url,
+            filePublicId: uploadResult.publicId,
+            fileType: file.type,
+            enrollmentId: activeEnrollmentId,
+            disciplineId: disciplineId === 'none' ? null : disciplineId,
+            periodId: periodId, // <<< Agora será `null` em vez de `undefined`
+        };
+
+        await firestoreApi.saveDocument(payload);
+        
+        notify.success("Documento salvo com sucesso!");
+        modals.hideDocumentModal();
+        await view.renderDocumentsList(getState().activeEnrollmentId);
+
+    } catch (error) {
+        console.error("Erro ao salvar documento:", error);
+        notify.error(`Falha ao salvar: ${error.message}`);
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Salvar';
+    }
 }

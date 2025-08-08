@@ -620,3 +620,139 @@ export async function getAllUpcomingEvents() {
 
     return allEvents;
 }
+
+// --- FUNÇÕES DE DOCUMENTOS ---
+
+/**
+ * Salva os metadados de um documento na coleção principal de documentos do usuário.
+ * @param {object} payload Os dados do documento.
+ * @param {string|null} documentId (Opcional) ID do documento para edição.
+ */
+export async function saveDocument(payload, documentId = null) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+    
+    // CAMINHO CORRETO E FINAL: Salva sempre na coleção 'documents' do usuário.
+    const collectionPath = `users/${userId}/documents`;
+    const collectionRef = collection(db, collectionPath);
+
+    if (documentId) {
+        return updateDoc(doc(collectionRef, documentId), payload);
+    } else {
+        return addDoc(collectionRef, { ...payload, userId, createdAt: serverTimestamp() });
+    }
+}
+
+/**
+ * Busca documentos. Se um enrollmentId for fornecido, filtra por ele.
+ * Se não, busca todos os documentos do usuário.
+ * @param {string|null} enrollmentId (Opcional) ID da matrícula para filtrar.
+ */
+export async function getDocuments(enrollmentId = null) {
+    const userId = getCurrentUserId();
+    if (!userId) return [];
+
+    // CAMINHO CORRETO E FINAL: Busca sempre na coleção 'documents' do usuário.
+    const collectionRef = collection(db, 'users', userId, 'documents');
+    let q;
+
+    if (enrollmentId) {
+        // Busca apenas os documentos da matrícula específica
+        q = query(collectionRef, where('enrollmentId', '==', enrollmentId), orderBy('createdAt', 'desc'));
+    } else {
+        // Busca TODOS os documentos do usuário (para a biblioteca geral)
+        q = query(collectionRef, orderBy('createdAt', 'desc'));
+    }
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+/**
+ * Deleta um documento da coleção principal.
+ * @param {string} documentId ID do documento no Firestore.
+ */
+export async function deleteDocument(documentId) {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("Usuário não autenticado.");
+
+    // O caminho agora está correto para a nova estrutura.
+    const docRef = doc(db, `users/${userId}/documents`, documentId);
+    
+    // Apenas deleta o registro do banco de dados.
+    await deleteDoc(docRef);
+}
+
+/**
+ * Faz o upload de um arquivo para o Cloudinary de forma genérica.
+ * @param {File} file O arquivo a ser enviado.
+ * @returns {Promise<object>} Um objeto com a URL segura e o tipo de recurso.
+ */
+export async function uploadFileToCloudinary(file) {
+    const { cloudName, uploadPreset } = cloudinaryConfig;
+    if (!cloudName || !uploadPreset) {
+        throw new Error("Configuração do Cloudinary não encontrada. Verifique seu arquivo .env.");
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
+    formData.append('resource_type', 'auto');
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/upload`, {
+        method: 'POST',
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        // Log detalhado do erro no console para depuração
+        console.error("ERRO DETALHADO DO CLOUDINARY:", errorData);
+        throw new Error(`Falha no upload para o Cloudinary: ${errorData.error.message}`);
+    }
+
+    const data = await response.json();
+    return {
+        url: data.secure_url,
+        publicId: data.public_id, // Adicione esta linha
+        resourceType: data.resource_type
+    };
+}
+
+/**
+ * Apaga todos os TODOs do usuário que são de dias anteriores ao dia atual.
+ */
+export async function cleanupOldTodos() {
+    const userId = getCurrentUserId();
+    if (!userId) return;
+
+    // CORREÇÃO: Usa a mesma função 'getTodayDateString' que a criação de tarefas usa.
+    // Isso garante que a data de "hoje" seja sempre baseada no fuso horário do usuário,
+    // evitando que tarefas do dia corrente sejam apagadas à noite.
+    const todayStr = getTodayDateString();
+
+    try {
+        const todosRef = collection(db, 'users', userId, 'todos');
+        
+        // A query agora compara corretamente a data da tarefa com a data local do usuário.
+        const q = query(todosRef, where("date", "<", todayStr));
+        
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+            console.log("Nenhuma tarefa antiga para limpar.");
+            return;
+        }
+
+        const batch = writeBatch(db);
+        snapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+
+        await batch.commit();
+        console.log(`${snapshot.size} tarefas antigas foram removidas com sucesso.`);
+
+    } catch (error) {
+        console.error("Erro ao limpar tarefas antigas:", error);
+    }
+}

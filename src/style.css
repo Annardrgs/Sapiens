@@ -14,6 +14,7 @@
   --color-success: #10b981;
   --color-danger: #ef4444;
   --color-warning: #f59e0b; 
+  --color-subtle-rgb: 107, 114, 128;
 }
 
 .dark {
@@ -27,6 +28,7 @@
   --color-success: #34d399;
   --color-danger: #f87171;
   --color-warning: #f59e0b;
+  --color-subtle-rgb: 156, 163, 175;
 }
 
 @layer components {
@@ -52,9 +54,67 @@
   .dark .custom-select {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor' class='w-5 h-5'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd' fill='white' /%3E%3C/svg%3E");
   }
+
+  .custom-dropdown-button {
+      @apply w-full flex items-center text-left px-4 py-3 bg-bkg text-secondary border border-border rounded-md;
+  }
+
+  .custom-dropdown-panel {
+      @apply absolute w-full mt-1 bg-surface border border-border rounded-md shadow-lg z-50;
+  }
+
+  .custom-dropdown-list {
+      @apply max-h-48 overflow-y-auto p-1 custom-scrollbar;
+  }
+
+  .custom-dropdown-list li {
+      @apply p-2 rounded-md cursor-pointer hover:bg-bkg;
+  }
+
+    .custom-dropdown-list li.selected {
+      @apply bg-primary text-bkg font-semibold;
+  }
+
   /* Adicionando classe de z-index maior */
   .z-60 {
     z-index: 60;
+  }
+
+  .empty-state {
+    @apply text-center p-6;
+  }
+  .empty-state-icon {
+    @apply w-12 h-12 bg-bkg rounded-full flex items-center justify-center mx-auto text-subtle/70 border border-border;
+  }
+  .empty-state-title {
+    @apply mt-4 font-bold text-secondary;
+  }
+  .empty-state-subtitle {
+    @apply mt-1 text-sm text-subtle;
+  }
+
+  /* Gradiente e animação para a barra de progresso */
+  .progress-bar {
+    @apply h-full rounded-full transition-all duration-500 bg-gradient-to-r from-primary to-blue-400;
+  }
+
+    .ui-card {
+    @apply bg-surface border border-border rounded-xl shadow-md p-6;
+  }
+
+  /* Cabeçalho padrão para os cards */
+  .card-header {
+    @apply text-xl font-bold text-secondary;
+  }
+
+    .evaluation-item {
+    @apply bg-bkg p-3 rounded-lg border border-border text-center flex flex-col gap-1;
+  }
+  .evaluation-item-label {
+    @apply text-xs font-bold text-subtle uppercase truncate;
+  }
+  .evaluation-item-grade {
+    @apply font-bold text-2xl text-primary cursor-pointer hover:opacity-75 p-1 -m-1 rounded-md transition-opacity;
   }
 }
 
@@ -64,16 +124,19 @@
     width: 8px;
   }
   .custom-scrollbar::-webkit-scrollbar-track {
-    background-color: var(--color-bkg);
+    background-color: transparent;
     border-radius: 10px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: var(--color-primary);
+    background-color: var(--color-subtle);
     border-radius: 10px;
+    border: 2px solid var(--color-surface);
+  }
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
     border: 2px solid var(--color-bkg);
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: var(--color-primary-hover);
+    background-color: var(--color-secondary);
   }
 }
 
@@ -154,3 +217,71 @@
 .agenda-view-btn.active {
   @apply bg-surface text-secondary shadow-sm;
 }
+
+.history-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+.history-scrollbar::-webkit-scrollbar-track {
+    background-color: var(--color-surface);
+    border-radius: 10px;
+}
+.history-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--color-subtle);
+    border-radius: 10px;
+    border: 2px solid var(--color-surface);
+}
+.history-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-secondary);
+}
+
+#floating-pomodoro {
+     position: fixed;
+     bottom: 20px;
+     left: 20px;
+     background-color: var(--bg-secondary);
+     color: var(--text-primary);
+     border: 1px solid var(--border-color);
+     border-radius: 8px;
+     width: 150px; /* Aumenta a largura */
+     height: auto; /* A altura se ajustará ao conteúdo */
+     padding: 15px; /* Adiciona espaçamento interno */
+     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+     display: flex;
+     flex-direction: column;
+     align-items: center;
+     justify-content: center;
+     z-index: 1000;
+     font-size: 1.2em; /* Aumenta o tamanho da fonte */
+ }
+
+ #floating-pomodoro-timer {
+     font-size: 1.5em; /* Aumenta o tamanho da fonte do timer */
+     margin-bottom: 10px;
+ }
+
+ #floating-pomodoro button {
+     background-color: var(--primary-color);
+     color: var(--button-text-color);
+     border: none;
+     padding: 8px 15px;
+     border-radius: 6px;
+     cursor: pointer;
+     font-size: 1em;
+ }
+
+ #floating-pomodoro button:hover {
+     background-color: var(--primary-color-hover);
+ }
+
+  .stat-card-lg {
+    @apply bg-surface border border-border rounded-xl p-4 flex items-center gap-4;
+  }
+  .stat-card-lg-icon {
+    @apply w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-lg;
+  }
+  .stat-card-lg-value {
+    @apply text-3xl font-bold text-secondary;
+  }
+  .stat-card-lg-label {
+    @apply text-sm text-subtle;
+  }

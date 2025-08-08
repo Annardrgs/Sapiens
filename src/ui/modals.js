@@ -18,12 +18,40 @@ export function addScheduleField(schedule = {}) {
     if (!dom.addDisciplineForm) return;
     const container = dom.addDisciplineForm.querySelector('#schedules-container');
     if (!container) return;
+
     const field = document.createElement('div');
     field.className = 'schedule-field grid grid-cols-[1fr,auto,auto,auto] gap-2 items-center animate-fade-in';
-    field.innerHTML = `<select name="schedule-day" class="w-full px-3 py-2 bg-bkg text-secondary border border-border rounded-md custom-select"><option value="Seg">Segunda</option><option value="Ter">Terça</option><option value="Qua">Quarta</option><option value="Qui">Quinta</option><option value="Sex">Sexta</option><option value="Sab">Sábado</option><option value="Dom">Domingo</option></select><input type="time" name="schedule-start" required class="px-3 py-2 bg-bkg text-secondary border border-border rounded-md"><input type="time" name="schedule-end" required class="px-3 py-2 bg-bkg text-secondary border border-border rounded-md"><button type="button" class="remove-schedule-btn text-danger p-2 rounded-full hover:bg-danger/10"><svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>`;
-    field.querySelector('[name="schedule-day"]').value = schedule.day || 'Seg';
-    field.querySelector('[name="schedule-start"]').value = schedule.startTime || '';
-    field.querySelector('[name="schedule-end"]').value = schedule.endTime || '';
+    
+    // Lista de dias da semana para o dropdown
+    const days = [
+        { value: 'Seg', text: 'Segunda' }, { value: 'Ter', text: 'Terça' },
+        { value: 'Qua', text: 'Quarta' }, { value: 'Qui', text: 'Quinta' },
+        { value: 'Sex', text: 'Sexta' }, { value: 'Sab', text: 'Sábado' },
+        { value: 'Dom', text: 'Domingo' }
+    ];
+    const selectedDay = schedule.day || 'Seg';
+    const selectedDayText = days.find(d => d.value === selectedDay)?.text || 'Segunda';
+
+    field.innerHTML = `
+        <div class="relative" data-dropdown-container>
+            <input type="hidden" name="schedule-day" value="${selectedDay}">
+            <button type="button" data-action="toggle-dropdown" class="custom-dropdown-button">
+                <span class="selected-value truncate">${selectedDayText}</span>
+                <svg class="w-5 h-5 text-subtle ml-auto flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9"></path></svg>
+            </button>
+            <div data-dropdown-panel class="custom-dropdown-panel hidden">
+                <ul class="custom-dropdown-list">
+                    ${days.map(day => `<li data-action="select-dropdown-item" data-value="${day.value}" class="${day.value === selectedDay ? 'selected' : ''}">${day.text}</li>`).join('')}
+                </ul>
+            </div>
+        </div>
+        <input type="time" name="schedule-start" required class="px-3 py-2 bg-bkg text-secondary border border-border rounded-md" value="${schedule.startTime || ''}">
+        <input type="time" name="schedule-end" required class="px-3 py-2 bg-bkg text-secondary border border-border rounded-md" value="${schedule.endTime || ''}">
+        <button type="button" class="remove-schedule-btn text-danger p-2 rounded-full hover:bg-danger/10">
+            <svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+        </button>
+    `;
+    
     field.querySelector('.remove-schedule-btn').addEventListener('click', () => field.remove());
     container.appendChild(field);
 }
@@ -337,15 +365,16 @@ export async function showEventModal(eventId = null, dateStr = null) {
     dom.addEventForm.reset();
     const { activeEnrollmentId, activePeriodId } = getState();
 
-    const disciplineSelect = dom.addEventForm.querySelector('#event-discipline');
+    // CORREÇÃO: Popula a lista <ul> em vez do <select>
+    const disciplineList = dom.addEventForm.querySelector('#event-discipline-list');
     const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
-    disciplineSelect.innerHTML = `<option value="none">Nenhuma matéria relacionada</option>`;
+    disciplineList.innerHTML = `<li data-action="select-dropdown-item" data-value="none" class="selected">Nenhuma matéria relacionada</li>`;
     disciplines.forEach(d => {
-        const option = document.createElement('option');
-        option.value = d.id;
-        option.textContent = d.name;
-        option.dataset.color = d.color || '#6b7280';
-        disciplineSelect.appendChild(option);
+        const li = document.createElement('li');
+        li.dataset.action = 'select-dropdown-item';
+        li.dataset.value = d.id;
+        li.textContent = d.name;
+        disciplineList.appendChild(li);
     });
 
     const titleEl = dom.addEventModal.querySelector('#event-modal-title');
@@ -361,25 +390,30 @@ export async function showEventModal(eventId = null, dateStr = null) {
             dom.addEventForm.querySelector('#event-id').value = eventId;
             dom.addEventForm.querySelector('#event-title').value = data.title || '';
             dom.addEventForm.querySelector('#event-date').value = data.date || '';
-            dom.addEventForm.querySelector('#event-category').value = data.category || 'Prova';
-            dom.addEventForm.querySelector('#event-discipline').value = data.relatedDisciplineId || 'none';
-            dom.addEventForm.querySelector('#event-reminder').value = data.reminder || 'none';
+            // Simula o clique para atualizar o dropdown customizado
+            selectDropdownItem(disciplineList.querySelector(`[data-value="${data.relatedDisciplineId || 'none'}"]`));
+            selectDropdownItem(dom.addEventForm.querySelector(`[data-value="${data.category || 'Prova'}"]`));
+            selectDropdownItem(dom.addEventForm.querySelector(`[data-value="${data.reminder || 'none'}"]`));
             renderEventColorPalette(data.color || '#d946ef');
         }
     } else {
         if (titleEl) titleEl.textContent = 'Novo Evento';
         if (deleteBtn) deleteBtn.classList.add('hidden');
         dom.addEventForm.querySelector('#event-date').value = dateStr || new Date().toISOString().split('T')[0];
+        // Reseta dropdowns para o padrão
+        selectDropdownItem(dom.addEventForm.querySelector(`[data-value="Prova"]`));
+        selectDropdownItem(dom.addEventForm.querySelector(`[data-value="none"]`));
         renderEventColorPalette('#d946ef');
     }
 
     showModal(dom.addEventModal);
 }
 
-export function showConfirmModal({ title, message, confirmText, confirmClass = 'bg-danger', onConfirm }) {
+export function showConfirmModal({ title, message, confirmText, confirmClass = 'bg-danger', onConfirm, onCancel }) {
     if (!dom.confirmModal || !dom.confirmModalTitle || !dom.confirmModalMessage || !dom.confirmModalConfirmBtn) return;
     
     setState('onConfirmAction', onConfirm);
+    setState('onCancelAction', onCancel || null);
 
     dom.confirmModalTitle.textContent = title;
     dom.confirmModalMessage.textContent = message;
@@ -395,11 +429,13 @@ export async function showPomodoroSettingsModal() {
     if (!dom.pomodoroSettingsModal) return;
 
     let { activeEnrollmentId, activePeriodId } = getState();
-    const disciplineSelect = dom.pomodoroSettingsForm.querySelector('#pomodoro-discipline');
+    const disciplineList = dom.pomodoroSettingsForm.querySelector('#pomodoro-discipline-list');
     
-    disciplineSelect.innerHTML = `<option value="none">Nenhuma disciplina</option>`;
+    // CORREÇÃO: Verificar se disciplineList existe antes de modificar
+    if (disciplineList) {
+        disciplineList.innerHTML = `<li data-action="select-dropdown-item" data-value="none">Nenhuma disciplina</li>`;
+    }
     
-    // Se não houver matrícula ativa (está na tela principal), pega a primeira da lista
     if (!activeEnrollmentId) {
         const enrollments = await api.getEnrollments();
         if (enrollments.length > 0) {
@@ -409,17 +445,29 @@ export async function showPomodoroSettingsModal() {
         }
     }
     
-    if (activeEnrollmentId && activePeriodId) {
+    if (activeEnrollmentId && activePeriodId && disciplineList) {
         const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
         disciplines.forEach(d => {
-            const option = new Option(d.name, d.id);
-            disciplineSelect.appendChild(option);
+            const li = document.createElement('li');
+            li.dataset.action = 'select-dropdown-item';
+            li.dataset.value = d.id;
+            li.textContent = d.name;
+            disciplineList.appendChild(li);
         });
     }
 
     dom.pomodoroSettingsForm.reset();
     dom.pomodoroSettingsForm.querySelector('#pomodoro-study-time').value = 25;
     dom.pomodoroSettingsForm.querySelector('#pomodoro-break-time').value = 5;
+    
+    // Resetar dropdowns para o valor padrão
+    document.querySelectorAll('#pomodoro-settings-modal [data-dropdown-container]').forEach(container => {
+        const firstItem = container.querySelector('li');
+        if (firstItem) {
+            selectDropdownItem(firstItem);
+        }
+    });
+
     showModal(dom.pomodoroSettingsModal);
 }
 
@@ -439,6 +487,7 @@ export function hidePomodoroSettingsModal() { hideModal(dom.pomodoroSettingsModa
 export function hideConfirmModal() {
     setState('itemToDelete', null);
     setState('onConfirmAction', null);
+    setState('onCancelAction', null);
     hideModal(dom.confirmModal);
 }
 
@@ -474,20 +523,28 @@ export async function showMarkAsCompletedModal(subject) {
 
     dom.markAsCompletedTitle.textContent = `Concluir "${subject.name}"`;
 
-    const periodSelect = form.querySelector('#completed-in-period');
+    // CORREÇÃO: Popula a lista <ul> em vez do <select>
+    const periodList = form.querySelector('#completed-in-period-list');
     const { periods } = getState();
-    periodSelect.innerHTML = '<option value="">Selecione o período</option>';
+    periodList.innerHTML = '<li data-action="select-dropdown-item" data-value="" class="selected">Selecione o período</li>';
     
     periods.forEach(p => {
-        const option = new Option(p.name, p.id);
-        periodSelect.appendChild(option);
+        const li = document.createElement('li');
+        li.dataset.action = 'select-dropdown-item';
+        li.dataset.value = p.id;
+        li.textContent = p.name;
+        periodList.appendChild(li);
     });
 
-    const createNewOption = new Option('+ Criar novo período...', '--create-new--');
-    periodSelect.add(createNewOption);
+    const createNewLi = document.createElement('li');
+    createNewLi.dataset.action = 'select-dropdown-item';
+    createNewLi.dataset.value = '--create-new--';
+    createNewLi.textContent = '+ Criar novo período...';
+    periodList.appendChild(createNewLi);
 
-    periodSelect.addEventListener('change', (e) => {
-        if (e.target.value === '--create-new--') {
+    periodList.addEventListener('click', (e) => {
+        const item = e.target.closest('[data-action="select-dropdown-item"]');
+        if (item && item.dataset.value === '--create-new--') {
             setState('returnToCompleteSubjectModal', true);
             setState('subjectDataForReturn', subject);
             hideMarkAsCompletedModal();
@@ -593,3 +650,93 @@ export async function showCurriculumSubjectDetailsModal(subjectId) {
 }
 
 export function hideCurriculumSubjectDetailsModal() { hideModal(dom.curriculumSubjectDetailsModal); }
+
+// --- FUNÇÕES DO DROPDOWN PERSONALIZADO ---
+
+export function toggleDropdown(container) {
+    const panel = container.querySelector('[data-dropdown-panel]');
+    if (panel) {
+        panel.classList.toggle('hidden');
+    }
+}
+
+export function selectDropdownItem(itemElement) {
+    const container = itemElement.closest('[data-dropdown-container]');
+    if (!container) return;
+
+    const value = itemElement.dataset.value;
+    const text = itemElement.textContent;
+
+    const hiddenInput = container.querySelector('input[type="hidden"]');
+    const selectedValueSpan = container.querySelector('.selected-value');
+    const panel = container.querySelector('[data-dropdown-panel]');
+    
+    if (hiddenInput) hiddenInput.value = value;
+    if (selectedValueSpan) selectedValueSpan.textContent = text;
+    
+    // Atualiza o item selecionado na lista
+    const list = container.querySelector('.custom-dropdown-list');
+    if (list) {
+        list.querySelector('.selected')?.classList.remove('selected');
+        itemElement.classList.add('selected');
+    }
+
+    if (panel) panel.classList.add('hidden');
+}
+
+export async function showDocumentModal(documentId = null) {
+    if (!dom.addDocumentModal) return;
+    const form = dom.addDocumentForm;
+    form.reset();
+    setState('editingDocumentId', documentId);
+
+    // Reseta os dropdowns customizados para o valor padrão
+    form.querySelectorAll('[data-dropdown-container]').forEach(container => {
+        const firstItem = container.querySelector('li');
+        if (firstItem) selectDropdownItem(firstItem);
+    });
+
+    const { activeEnrollmentId } = getState();
+    const disciplineList = document.getElementById('modal-discipline-list');
+    disciplineList.innerHTML = '<li data-action="select-dropdown-item" data-value="none" class="selected">Nenhuma</li>'; // Opção padrão
+
+    try {
+        const enrollments = activeEnrollmentId ? [getState().activeEnrollment] : await api.getEnrollments();
+        if (!enrollments || enrollments.length === 0) {
+            // Se não houver matrículas, não há o que carregar.
+            showModal(dom.addDocumentModal);
+            return;
+        }
+
+        for (const enrollment of enrollments) {
+            if (!enrollment || !enrollment.id) continue;
+            
+            const periods = await api.getPeriods(enrollment.id);
+            const activePeriod = periods.find(p => p.id === enrollment.activePeriodId) || periods[0];
+
+            if (activePeriod) {
+                const disciplines = await api.getDisciplines(enrollment.id, activePeriod.id);
+                disciplines.forEach(d => {
+                    const li = document.createElement('li');
+                    li.dataset.action = 'select-dropdown-item';
+                    li.dataset.value = d.id;
+                    li.dataset.enrollmentId = enrollment.id; // Guarda o ID da matrícula
+                    li.dataset.periodId = activePeriod.id;
+                    // Adiciona o nome do curso para diferenciar na visão geral
+                    li.textContent = activeEnrollmentId ? d.name : `${d.name} (${enrollment.course})`;
+                    disciplineList.appendChild(li);
+                });
+            }
+        }
+    } catch (error) {
+        console.error("Erro ao carregar disciplinas para o modal:", error);
+        notify.error("Não foi possível carregar as disciplinas.");
+    }
+    
+    showModal(dom.addDocumentModal);
+}
+
+
+export function hideDocumentModal() {
+    hideModal(dom.addDocumentModal);
+}

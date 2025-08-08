@@ -4,7 +4,7 @@
 import { dom } from './dom.js';
 import * as api from '../api/firestore.js';
 import { getState, setState } from '../store/state.js';
-import { createEnrollmentCard, createDisciplineCard, createAbsenceHistoryItem, calculateAverage } from '../components/card.js';
+import { createEnrollmentCard, createDisciplineCard, createDocumentCard, createAbsenceHistoryItem, calculateAverage, createSummaryCard } from '../components/card.js';
 import { Calendar } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import * as modals from './modals.js';
@@ -12,25 +12,228 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { notify } from './notifications.js';
 import * as pomodoro from './pomodoro.js';
 import { navigate } from '../main.js';
+import { selectDropdownItem } from './modals.js';
 
+let calendarInstance = null;
+let performanceChart = null;
 let sortableInstances = { enrollments: null, disciplines: null };
 let performanceChartInstance = null;
 
-// --- CONTROLE DE LOADING ---
-function showLoading() {
-    const overlay = document.getElementById('loading-overlay');
-    if (overlay) overlay.classList.remove('hidden');
+// --- FUNÇÕES DE CONTROLE DE VISIBILIDADE ---
+function hideAllViews() {
+    if (dom.enrollmentsView) dom.enrollmentsView.classList.add('hidden');
+    if (dom.dashboardView) dom.dashboardView.classList.add('hidden');
+    if (dom.disciplineDashboardView) dom.disciplineDashboardView.classList.add('hidden');
+    if (dom.gradesReportView) dom.gradesReportView.classList.add('hidden');
+    if (dom.courseChecklistView) dom.courseChecklistView.classList.add('hidden');
+    if (dom.documentsView) dom.documentsView.classList.add('hidden');
 }
 
-function hideLoading() {
-    const overlay = document.getElementById('loading-overlay');
-    if (overlay) overlay.classList.add('hidden');
+export function showAuthScreen() {
+    dom.authScreen.classList.remove('hidden');
+    dom.appContainer.classList.add('hidden');
+    updateAuthView();
 }
 
-/**
- * Atualiza um único card de disciplina na tela com novos dados.
- * @param {object} disciplineData - Os dados atualizados da disciplina.
- */
+export function showAppScreen() {
+    dom.authScreen.classList.add('hidden');
+    dom.appContainer.classList.remove('hidden');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    if (loadingOverlay) loadingOverlay.classList.add('hidden');
+}
+
+export async function showEnrollmentsView() {
+    // CORREÇÃO: Reseta o ID da matrícula ativa ao voltar para a tela principal.
+    setState('activeEnrollmentId', null);
+
+    hideAllViews();
+    dom.enrollmentsView.classList.remove('hidden');
+    await renderEnrollments();
+    await renderTodoList();
+    await renderUpcomingEvents();
+}
+
+export async function showDashboardView(enrollmentId) {
+    hideAllViews();
+    setState('activeEnrollmentId', enrollmentId);
+    dom.dashboardView.classList.remove('hidden');
+    
+    showLoading(true);
+
+    try {
+        const enrollmentSnap = await api.getEnrollment(enrollmentId);
+        if (!enrollmentSnap.exists()) {
+            navigate('/');
+            return;
+        }
+        const enrollment = { id: enrollmentSnap.id, ...enrollmentSnap.data() };
+        setState('activeEnrollment', enrollment);
+        dom.dashboardTitle.textContent = enrollment.course;
+        dom.dashboardSubtitle.textContent = enrollment.institution;
+
+        const periods = await api.getPeriods(enrollmentId);
+        setState('periods', periods);
+        
+        let activePeriodIndex = periods.findIndex(p => p.id === enrollment.activePeriodId);
+        if (activePeriodIndex === -1 && periods.length > 0) {
+            activePeriodIndex = 0;
+            await api.updateActivePeriod(enrollmentId, periods[0].id);
+        }
+        setState('activePeriodIndex', activePeriodIndex);
+
+        if (periods.length > 0) {
+            await renderPeriodNavigator();
+            await refreshDashboard();
+            
+            const currentPeriod = periods[activePeriodIndex];
+            const isClosed = currentPeriod?.status === 'closed';
+            if (dom.newPeriodBtn) dom.newPeriodBtn.disabled = isClosed;
+            if (dom.addDisciplineBtn) dom.addDisciplineBtn.disabled = isClosed;
+            
+            const dashboardButtons = dom.dashboardView.querySelectorAll('button:not(#prev-period-btn):not(#next-period-btn):not(#back-to-enrollments-btn)');
+            dashboardButtons.forEach(btn => {
+                if (btn.id !== 'manage-period-btn') {
+                     btn.classList.toggle('opacity-50', isClosed);
+                     btn.classList.toggle('cursor-not-allowed', isClosed);
+                }
+            });
+        } else {
+            dom.disciplinesList.innerHTML = `<div class="text-center p-8 bg-surface rounded-lg border border-border"><p class="text-subtle">Nenhum período letivo encontrado.</p><button id="new-period-btn" class="mt-4 bg-primary text-bkg font-bold py-2 px-4 rounded-lg shadow-md hover:opacity-90">Criar Primeiro Período</button></div>`;
+            dom.summaryCardsContainer.innerHTML = '';
+            dom.agendaContentContainer.innerHTML = '';
+            if (calendarInstance) calendarInstance.destroy();
+        }
+
+    } catch (error) {
+        console.error("Erro ao carregar o dashboard:", error);
+    } finally {
+        showLoading(false);
+    }
+}
+
+export async function showDocumentsView(enrollmentId) {
+    hideAllViews();
+    dom.documentsView.classList.remove('hidden');
+    
+    if (enrollmentId) {
+        const enrollmentSnap = await api.getEnrollment(enrollmentId);
+        if (enrollmentSnap.exists()) {
+            const enrollment = enrollmentSnap.data();
+            if (dom.documentsTitle) dom.documentsTitle.textContent = "Documentos";
+            if (dom.documentsSubtitle) dom.documentsSubtitle.textContent = `${enrollment.course} - ${enrollment.institution}`;
+            setState('activeEnrollmentId', enrollmentId);
+        }
+    } else {
+        if (dom.documentsTitle) dom.documentsTitle.textContent = "Todos os Documentos";
+        if (dom.documentsSubtitle) dom.documentsSubtitle.textContent = "Biblioteca geral";
+        setState('activeEnrollmentId', null);
+    }
+
+    const toolbar = document.getElementById('documents-toolbar');
+    if (toolbar) {
+        toolbar.querySelector('#document-search-input').value = '';
+        const dropdowns = toolbar.querySelectorAll('[data-dropdown-container]');
+        dropdowns.forEach(container => {
+            const firstItem = container.querySelector('li');
+            if(firstItem) selectDropdownItem(firstItem);
+        });
+    }
+
+    await renderDocumentsList(enrollmentId);
+}
+
+function showLoading(show = true) {
+    const loadingOverlay = document.getElementById('loading-overlay');
+    if (loadingOverlay) {
+        loadingOverlay.classList.toggle('hidden', !show);
+    }
+}
+
+export async function refreshDashboard() {
+    showLoading(true);
+    try {
+        const { activeEnrollmentId, activePeriodId, activeEnrollment, periods, activePeriodIndex } = getState();
+        if (!activeEnrollmentId || !activePeriodId) return;
+
+        const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
+        setState('disciplines', disciplines);
+        
+        const currentPeriod = periods[activePeriodIndex];
+
+        renderSummaryCards(disciplines);
+        renderDisciplineCards(disciplines, activeEnrollment);
+        renderWeeklyClasses(disciplines);
+        await renderInteractiveCalendar(disciplines, currentPeriod);
+        checkAndRenderNotifications();
+    } catch (error) {
+        console.error("Erro ao atualizar o dashboard:", error);
+    } finally {
+        showLoading(false);
+    }
+}
+
+export async function renderPeriodNavigator() {
+    const { periods, activePeriodIndex } = getState();
+    const currentPeriod = periods[activePeriodIndex];
+
+    if (dom.currentPeriodName && currentPeriod) {
+        dom.currentPeriodName.textContent = currentPeriod.name;
+        const isClosed = currentPeriod.status === 'closed';
+        const navigatorContainer = dom.currentPeriodName.parentElement;
+        if (navigatorContainer) {
+            navigatorContainer.classList.toggle('opacity-50', isClosed);
+            navigatorContainer.title = isClosed ? 'Período encerrado' : '';
+        }
+    }
+
+    if (dom.prevPeriodBtn) dom.prevPeriodBtn.disabled = activePeriodIndex === 0;
+    if (dom.nextPeriodBtn) dom.nextPeriodBtn.disabled = activePeriodIndex === periods.length - 1;
+}
+
+function renderSummaryCards(disciplines) {
+    const { periods, activePeriodIndex } = getState();
+    const currentPeriod = periods[activePeriodIndex];
+
+    if (!currentPeriod) {
+        if (dom.summaryCardsContainer) dom.summaryCardsContainer.innerHTML = '';
+        return;
+    }
+    
+    const isPeriodClosed = currentPeriod.status === 'closed';
+    
+    const totalDisciplines = disciplines.length;
+    const nextEvaluation = 'N/A'; // Lógica a ser implementada
+    const totalAbsences = disciplines.reduce((acc, d) => acc + (d.absences || 0), 0);
+    const periodStatus = isPeriodClosed ? 'Encerrado' : 'Em Andamento';
+
+    const summaryData = [
+        { title: 'Total de Disciplinas', value: totalDisciplines, icon: 'academic-cap' },
+        { title: 'Próxima Avaliação', value: nextEvaluation, icon: 'calendar' },
+        { title: 'Faltas Acumuladas', value: totalAbsences, icon: 'user-minus' },
+        { title: 'Status do Período', value: periodStatus, icon: 'check-circle' }
+    ];
+
+    if (dom.summaryCardsContainer) {
+        dom.summaryCardsContainer.innerHTML = summaryData.map(createSummaryCard).join('');
+    }
+}
+
+function renderDisciplineCards(disciplines, enrollmentData) {
+    if (!dom.disciplinesList) return;
+    if (disciplines.length === 0) {
+        dom.disciplinesList.innerHTML = '<p class="text-subtle text-center">Nenhuma disciplina adicionada a este período.</p>';
+        return;
+    }
+    dom.disciplinesList.innerHTML = '';
+    const { periods, activePeriodIndex } = getState();
+    const isPeriodClosed = periods[activePeriodIndex]?.status === 'closed';
+
+    disciplines.forEach(discipline => {
+        const card = createDisciplineCard(discipline, enrollmentData, isPeriodClosed);
+        dom.disciplinesList.appendChild(card);
+    });
+}
+
 export function updateDisciplineCard(disciplineData) {
     const cardToReplace = document.querySelector(`#disciplines-list [data-id="${disciplineData.id}"]`);
     if (cardToReplace) {
@@ -47,46 +250,6 @@ export function updateDisciplineCard(disciplineData) {
     }
 }
 
-// --- CONTROLE DE VISIBILIDADE DAS TELAS ---
-export function showAuthScreen() {
-  dom.authScreen.classList.remove('hidden');
-  dom.appContainer.classList.add('hidden');
-  hideLoading();
-  updateAuthView();
-}
-
-export function showAppScreen() {
-  dom.authScreen.classList.add('hidden');
-  dom.appContainer.classList.remove('hidden');
-}
-
-export async function showEnrollmentsView() {
-    showLoading();
-    if (sortableInstances.disciplines && sortableInstances.disciplines.el) {
-        try { sortableInstances.disciplines.destroy(); } catch (e) {}
-    }
-    sortableInstances.disciplines = null;
-
-    dom.dashboardView.classList.add('hidden');
-    dom.enrollmentsView.classList.remove('hidden');
-    dom.disciplineDashboardView.classList.add('hidden');
-    dom.gradesReportView.classList.add('hidden');
-    dom.courseChecklistView.classList.add('hidden');
-    
-    setState('activeEnrollmentId', null);
-    setState('activePeriodId', null);
-    
-    await Promise.all([
-        renderEnrollments(),
-        renderTodoList(),
-        renderUpcomingEvents()
-    ]);
-
-    hideLoading();
-    pomodoro.initialize();
-}
-
-// --- RENDERIZAÇÃO DE CONTEÚDO ---
 export function renderUserEmail(email) {
     if(dom.userEmailDisplay) dom.userEmailDisplay.textContent = email;
 }
@@ -173,64 +336,19 @@ async function checkAndCloseOutdatedPeriods(enrollmentId, periods) {
     }
 }
 
-export async function showDashboardView(enrollmentId) {
-    if (!enrollmentId) {
-        navigate('/');
-        return;
-    }
-    
-    showLoading();
-    dom.courseChecklistView.classList.add('hidden');
-    dom.gradesReportView.classList.add('hidden');
-    dom.enrollmentsView.classList.add('hidden');
-    dom.disciplineDashboardView.classList.add('hidden');
-    dom.dashboardView.classList.remove('hidden');
-    setState('activeEnrollmentId', enrollmentId);
-    
-    const enrollmentSnap = await api.getEnrollment(enrollmentId);
-    if (enrollmentSnap.exists()) {
-        const data = enrollmentSnap.data();
-        
-        dom.dashboardTitle.textContent = data.course;
-        dom.dashboardSubtitle.textContent = data.institution;
-        
-        let periods = await api.getPeriods(enrollmentId);
-        periods = await checkAndCloseOutdatedPeriods(enrollmentId, periods);
-        
-        setState('periods', periods);
-        
-        let activeIndex = -1;
-        const lastActivePeriod = periods.find(p => p.id === data.activePeriodId);
-
-        if (lastActivePeriod && lastActivePeriod.status !== 'closed') {
-            activeIndex = periods.indexOf(lastActivePeriod);
-        } else {
-            const openPeriods = periods.filter(p => p.status !== 'closed');
-            
-            if (openPeriods.length > 0) {
-                const newestOpenPeriod = openPeriods[openPeriods.length - 1];
-                activeIndex = periods.indexOf(newestOpenPeriod);
-                await api.updateActivePeriod(enrollmentId, newestOpenPeriod.id);
-            } else {
-                activeIndex = periods.length > 0 ? periods.length - 1 : -1;
-            }
-        }
-        
-        setState('activePeriodIndex', activeIndex > -1 ? activeIndex : 0);
-        
-        await renderPeriodNavigator();
-        await refreshDashboard();
-    }
-    hideLoading();
-}
-
 function renderPerformanceChartWithChartJS(discipline) {
     if (performanceChartInstance) {
         performanceChartInstance.destroy();
     }
-    if (!dom.disciplinePerformanceChart) return;
+    const canvas = dom.disciplinePerformanceChart;
+    if (!canvas) return;
     
-    const ctx = dom.disciplinePerformanceChart.getContext('2d');
+    const ctx = canvas.getContext('2d');
+    
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, 'rgba(79, 70, 229, 0.7)');
+    gradient.addColorStop(1, 'rgba(79, 70, 229, 0.1)');
+
     const labels = discipline.grades?.map(g => g.name) || [];
     const data = discipline.grades?.map(g => g.grade) || [];
     
@@ -241,12 +359,11 @@ function renderPerformanceChartWithChartJS(discipline) {
             datasets: [{
                 label: 'Nota',
                 data: data,
-                backgroundColor: 'rgba(99, 102, 241, 0.6)',
-                borderColor: 'rgba(99, 102, 241, 1)',
-                borderWidth: 1,
-                borderRadius: 4,
-                barPercentage: 0.6,
-                categoryPercentage: 0.7,
+                backgroundColor: gradient,
+                borderColor: 'rgba(79, 70, 229, 1)',
+                borderWidth: 2,
+                borderRadius: 6,
+                hoverBackgroundColor: 'rgba(79, 70, 229, 0.9)'
             }]
         },
         options: {
@@ -256,16 +373,27 @@ function renderPerformanceChartWithChartJS(discipline) {
                 y: {
                     beginAtZero: true,
                     max: 10,
-                    grid: { color: 'rgba(55, 65, 81, 0.6)' },
-                    ticks: { color: '#9ca3af' }
+                    grid: { 
+                        color: 'rgba(55, 65, 81, 0.4)',
+                        borderDash: [2, 4], 
+                    },
+                    ticks: { color: '#9ca3af', font: { weight: '600' } }
                 },
                 x: {
                     grid: { display: false },
-                    ticks: { color: '#9ca3af' }
+                    ticks: { color: '#9ca3af', font: { weight: '600' } }
                 }
             },
             plugins: {
-                legend: { display: false }
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(31, 41, 55, 0.9)',
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 12 },
+                    padding: 10,
+                    cornerRadius: 8,
+                    displayColors: false
+                }
             }
         }
     });
@@ -288,22 +416,30 @@ async function renderDisciplineAgenda(disciplineId) {
         .sort((a, b) => new Date(a.start) - new Date(b.start));
 
     if (relatedEvents.length === 0) {
-        dom.disciplineEventsList.innerHTML = `<div class="bg-surface border border-border p-4 rounded-lg text-center text-subtle">Nenhum evento futuro para esta disciplina.</div>`;
+        dom.disciplineEventsList.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
+                </div>
+                <h4 class="empty-state-title">Nenhum evento futuro</h4>
+                <p class="empty-state-subtitle">Adicione provas ou trabalhos no calendário principal.</p>
+            </div>
+        `;
         return;
     }
 
     dom.disciplineEventsList.innerHTML = relatedEvents.map(event => {
         const eventDate = new Date(event.start.replace(/-/g, '/') + ' 00:00:00');
-        const formattedDate = eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+        const formattedDate = eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 
         return `
-            <div class="flex items-center bg-surface border border-border p-3 rounded-lg shadow-sm">
-                <span class="w-2 h-10 rounded-full mr-4 flex-shrink-0" style="background-color: ${event.backgroundColor};"></span>
+            <div class="flex items-center bg-bkg p-3 rounded-lg border border-border">
+                <span class="w-1.5 h-8 rounded-full mr-3 flex-shrink-0" style="background-color: ${event.backgroundColor};"></span>
                 <div class="flex-grow">
-                    <p class="font-semibold text-secondary">${event.title}</p>
-                    <p class="text-sm text-subtle">${event.category || 'Evento'}</p>
+                    <p class="font-semibold text-secondary truncate" title="${event.title}">${event.title}</p>
+                    <p class="text-xs text-subtle">${event.category || 'Evento'}</p>
                 </div>
-                <div class="text-right">
+                <div class="text-right flex-shrink-0 ml-2">
                     <p class="font-semibold text-sm text-primary">${formattedDate}</p>
                 </div>
             </div>
@@ -314,29 +450,29 @@ async function renderDisciplineAgenda(disciplineId) {
 function renderEvaluationsList(discipline) {
     if (!dom.evaluationsList) return;
 
-    const manageButton = document.querySelector('#evaluations-section [data-action="manage-evaluations"]');
-
-    if (discipline.completionDetails && manageButton) {
-        manageButton.classList.add('hidden');
-    } else if (manageButton) {
-        manageButton.classList.remove('hidden');
-    }
-
     dom.evaluationsList.innerHTML = '';
 
     if (!discipline.grades || discipline.grades.length === 0) {
-        dom.evaluationsList.innerHTML = `<p class="text-sm text-subtle">Nenhuma avaliação configurada.</p>`;
+        dom.evaluationsList.innerHTML = `
+            <div class="col-span-full empty-state">
+                <div class="empty-state-icon">
+                    <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                </div>
+                <h4 class="empty-state-title">Nenhuma avaliação configurada</h4>
+                <p class="empty-state-subtitle">Clique em "Gerenciar" para adicionar as provas e trabalhos.</p>
+            </div>
+        `;
         return;
     }
 
     discipline.grades.forEach((grade, index) => {
         const gradeValue = grade.grade ?? '-';
         const evaluationEl = document.createElement('div');
-        evaluationEl.className = 'bg-bkg p-3 rounded-lg flex justify-between items-center border border-transparent';
+        evaluationEl.className = 'evaluation-item';
 
         evaluationEl.innerHTML = `
-            <span class="font-semibold text-secondary">${grade.name}</span>
-            <span data-action="edit-grade" data-grade-index="${index}" class="font-bold text-lg text-primary cursor-pointer hover:opacity-75 p-1 -m-1">
+            <span class="evaluation-item-label" title="${grade.name}">${grade.name}</span>
+            <span data-action="edit-grade" data-discipline-id="${discipline.id}" data-grade-index="${index}" class="evaluation-item-grade">
                 ${gradeValue}
             </span>
         `;
@@ -352,7 +488,6 @@ export async function showDisciplineDashboard({ enrollmentId, disciplineId }) {
 
     showLoading();
 
-    // Garante que o estado da matrícula ativa e os períodos estejam corretos
     if (getState().activeEnrollmentId !== enrollmentId || !getState().activePeriodId) {
         setState('activeEnrollmentId', enrollmentId);
         const enrollment = await api.getEnrollment(enrollmentId);
@@ -364,7 +499,7 @@ export async function showDisciplineDashboard({ enrollmentId, disciplineId }) {
             setState('activePeriodIndex', activeIndex > -1 ? activeIndex : 0);
         } else {
             navigate('/');
-            hideLoading();
+            showLoading(false);
             return;
         }
     }
@@ -373,7 +508,7 @@ export async function showDisciplineDashboard({ enrollmentId, disciplineId }) {
     dom.enrollmentsView.classList.add('hidden');
     dom.disciplineDashboardView.classList.remove('hidden');
 
-    const { activePeriodId } = getState();
+    const { activePeriodId, periods, activePeriodIndex } = getState();
     setState('activeDisciplineId', disciplineId);
 
     const enrollmentSnap = await api.getEnrollment(enrollmentId);
@@ -390,6 +525,10 @@ export async function showDisciplineDashboard({ enrollmentId, disciplineId }) {
         if (manageButton) {
             manageButton.dataset.periodId = activePeriodId;
             manageButton.dataset.disciplineId = disciplineId;
+            
+            // CORREÇÃO: Esconde o botão se o período estiver encerrado
+            const isPeriodClosed = periods[activePeriodIndex]?.status === 'closed';
+            manageButton.classList.toggle('hidden', isPeriodClosed);
         }
         
         renderStatCards(discipline, enrollmentData);
@@ -398,7 +537,7 @@ export async function showDisciplineDashboard({ enrollmentId, disciplineId }) {
         renderPerformanceChartWithChartJS(discipline);
         renderDisciplineAgenda(disciplineId);
     }
-    hideLoading();
+    showLoading(false);
 }
 
 function renderAbsenceControls(discipline) {
@@ -448,28 +587,52 @@ function renderStatCards(discipline, enrollmentData) {
     const passingGrade = enrollmentData.passingGrade || 7.0;
     const currentAbsences = discipline.absences || 0;
 
-    let status = { text: 'Em Andamento', color: 'text-warning' };
-    if (averageGrade !== 'N/A') {
+    let status = { text: 'Em Andamento', color: 'text-warning', iconColor: 'bg-warning/10 text-warning' };
+    if (discipline.failedByAbsence) {
+        status = { text: 'Reprovado', color: 'text-danger', iconColor: 'bg-danger/10 text-danger' };
+    } else if (averageGrade !== 'N/A') {
         const numericAverage = parseFloat(averageGrade);
         const allGradesFilled = discipline.grades && discipline.grades.every(g => g.grade !== null);
-        if (numericAverage >= passingGrade) status = { text: 'Aprovado', color: 'text-success' };
-        else if (allGradesFilled) status = { text: 'Reprovado', color: 'text-danger' };
+        if (numericAverage >= passingGrade) {
+            status = { text: 'Aprovado', color: 'text-success', iconColor: 'bg-success/10 text-success' };
+        } else if (allGradesFilled) {
+            status = { text: 'Reprovado', color: 'text-danger', iconColor: 'bg-danger/10 text-danger' };
+        }
     }
 
-    container.innerHTML = `
-        <div class="bg-surface p-4 rounded-xl border border-border">
-            <h4 class="text-sm font-bold text-subtle mb-1">Média Atual</h4>
-            <p class="text-3xl font-bold text-secondary">${averageGrade}</p>
-        </div>
-        <div class="bg-surface p-4 rounded-xl border border-border">
-            <h4 class="text-sm font-bold text-subtle mb-1">Faltas</h4>
-            <p class="text-3xl font-bold text-secondary">${currentAbsences}</p>
-        </div>
-        <div class="bg-surface p-4 rounded-xl border border-border">
-            <h4 class="text-sm font-bold text-subtle mb-1">Status</h4>
-            <p class="text-3xl font-bold ${status.color}">${status.text}</p>
-        </div>
-    `;
+    const stats = [
+        {
+            label: 'Média Atual',
+            value: averageGrade,
+            icon: `<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" /></svg>`,
+            iconColor: 'bg-primary/10 text-primary'
+        },
+        {
+            label: 'Faltas',
+            value: currentAbsences,
+            icon: `<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>`,
+            iconColor: 'bg-primary/10 text-primary'
+        },
+        {
+            label: 'Status',
+            value: status.text,
+            icon: `<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>`,
+            iconColor: status.iconColor,
+            valueColor: status.color,
+        }
+    ];
+
+    container.innerHTML = stats.map(stat => `
+        <section class="ui-card">
+            <div class="stat-card-lg">
+                <div class="stat-card-lg-icon ${stat.iconColor}">${stat.icon}</div>
+                <div>
+                    <h3 class="card-header">${stat.label}</h3>
+                    <p class="stat-card-lg-value ${stat.valueColor || ''}">${stat.value}</p>
+                </div>
+            </div>
+        </section>
+    `).join('');
 }
 
 export async function renderDisciplines(enrollmentId, periodId, enrollmentData, isPeriodClosed = false) {
@@ -510,29 +673,6 @@ export async function renderAbsenceHistory(enrollmentId, periodId, disciplineId)
     dom.absenceHistoryList.appendChild(listContainer);
 }
 
-export async function renderPeriodNavigator() {
-    const { periods, activePeriodIndex } = getState();
-    if (!periods || periods.length === 0) {
-        dom.currentPeriodName.textContent = 'Nenhum';
-        dom.prevPeriodBtn.disabled = true;
-        dom.nextPeriodBtn.disabled = true;
-        dom.disciplinesList.innerHTML = '<p class="text-subtle col-span-full text-center">Crie um novo período para começar.</p>';
-        return;
-    }
-    const currentPeriod = periods[activePeriodIndex];
-    if (!currentPeriod) return;
-
-    setState('activePeriodId', currentPeriod.id);
-    dom.currentPeriodName.textContent = currentPeriod.name;
-    if (currentPeriod.status === 'closed') {
-        dom.currentPeriodName.classList.add('line-through', 'text-subtle');
-    } else {
-        dom.currentPeriodName.classList.remove('line-through', 'text-subtle');
-    }
-    dom.prevPeriodBtn.disabled = activePeriodIndex <= 0;
-    dom.nextPeriodBtn.disabled = activePeriodIndex >= periods.length - 1;
-}
-
 export function updateAuthView() {
   const authMode = getState().authMode;
   if (authMode === 'login') {
@@ -553,21 +693,6 @@ export function togglePasswordVisibility() {
     dom.eyeSlashIcon.classList.toggle('hidden', !isPassword);
 }
 
-function renderSummaryCards(disciplines, period) {
-    const container = dom.summaryCardsContainer;
-    if (!container) return;
-    const totalDisciplines = disciplines.length;
-    const nextAssessment = 'N/A';
-    const totalAbsences = disciplines.reduce((acc, dis) => acc + (dis.absences || 0), 0);
-    const periodStatus = period.status === 'closed' ? 'Encerrado' : 'Em andamento';
-    container.innerHTML = `
-        <div class="bg-surface p-4 rounded-xl shadow-lg border border-border"><h3 class="text-subtle text-sm font-bold">Total de Disciplinas</h3><p class="text-secondary text-2xl font-bold">${totalDisciplines}</p></div>
-        <div class="bg-surface p-4 rounded-xl shadow-lg border border-border"><h3 class="text-subtle text-sm font-bold">Próxima Avaliação</h3><p class="text-secondary text-2xl font-bold">${nextAssessment}</p></div>
-        <div class="bg-surface p-4 rounded-xl shadow-lg border border-border"><h3 class="text-subtle text-sm font-bold">Faltas Acumuladas</h3><p class="text-secondary text-2xl font-bold">${totalAbsences}</p></div>
-        <div class="bg-surface p-4 rounded-xl shadow-lg border border-border"><h3 class="text-subtle text-sm font-bold">Status do Período</h3><p class="text-secondary text-2xl font-bold">${periodStatus}</p></div>
-    `;
-}
-
 async function renderInteractiveCalendar(disciplines, period) {
     const calendarEl = dom.calendarContainer;
     if (!calendarEl) return;
@@ -576,7 +701,11 @@ async function renderInteractiveCalendar(disciplines, period) {
     const { activeEnrollmentId, activePeriodId } = getState();
     const events = await api.getCalendarEvents(activeEnrollmentId, activePeriodId);
 
-    const calendar = new Calendar(calendarEl, {
+    if (calendarInstance) {
+        calendarInstance.destroy();
+    }
+
+    calendarInstance = new Calendar(calendarEl, {
         plugins: [dayGridPlugin, interactionPlugin],
         locale: 'pt-br',
         height: 'auto',
@@ -605,7 +734,7 @@ async function renderInteractiveCalendar(disciplines, period) {
             if (extended) extended.remove();
         }
     });
-    calendar.render();
+    calendarInstance.render();
 }
 
 export async function renderUpcomingEvents() {
@@ -647,41 +776,6 @@ export async function renderUpcomingEvents() {
     }
 }
 
-export async function refreshDashboard() {
-    showLoading();
-    const { activeEnrollmentId, activePeriodId, periods, activePeriodIndex } = getState();
-    if (!activeEnrollmentId || !activePeriodId) {
-        hideLoading();
-        return;
-    }
-    
-    const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
-    if (!enrollmentSnap.exists()) {
-        hideLoading();
-        return;
-    }
-    
-    const enrollmentData = enrollmentSnap.data();
-    const currentPeriod = periods[activePeriodIndex];
-    if (!currentPeriod) {
-        hideLoading();
-        return;
-    }
-
-    const disciplines = await api.getDisciplines(activeEnrollmentId, activePeriodId);
-    const isPeriodClosed = currentPeriod.status === 'closed';
-
-    setState('disciplines', disciplines); 
-    
-    renderSummaryCards(disciplines, currentPeriod);
-    renderDisciplines(activeEnrollmentId, activePeriodId, enrollmentData, isPeriodClosed);
-    
-    renderWeeklyClasses(disciplines); 
-    
-    renderInteractiveCalendar(disciplines, currentPeriod);
-    hideLoading();
-}
-
 export async function showGradesReportView(enrollmentId) {
     if (!enrollmentId) {
         const params = new URLSearchParams(window.location.search);
@@ -708,7 +802,7 @@ export async function showGradesReportView(enrollmentId) {
         dom.gradesReportSubtitle.textContent = `${enrollmentData.course} - ${enrollmentData.institution}`;
         await renderGradesReportContent(enrollmentData); 
     }
-    hideLoading();
+    showLoading(false);
 }
 
 async function renderGradesReportContent(enrollmentData) {
@@ -820,11 +914,19 @@ export async function renderTodoList() {
     if (!dom.todoItemsList) return;
 
     const todos = await api.getTodosForToday();
-
-    dom.todoItemsList.innerHTML = '';
+    dom.todoItemsList.innerHTML = ''; // Limpa a lista antes de renderizar
 
     if (todos.length === 0) {
-        dom.todoItemsList.innerHTML = '<p class="text-sm text-subtle text-center">Nenhuma tarefa para hoje.</p>';
+        // CORREÇÃO: Adicionado um ID ao contêiner do estado de lista vazia
+        dom.todoItemsList.innerHTML = `
+            <div id="todo-empty-state" class="text-center p-6">
+                <div class="w-12 h-12 bg-bkg rounded-full flex items-center justify-center mx-auto text-subtle/70 border border-border">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                </div>
+                <h4 class="mt-4 font-bold text-secondary">Tudo em ordem!</h4>
+                <p class="mt-1 text-sm text-subtle">Nenhuma tarefa para hoje. Adicione uma abaixo.</p>
+            </div>
+        `;
         return;
     }
 
@@ -836,18 +938,21 @@ export async function renderTodoList() {
 
 export function createTodoItemElement(todo) {
     const todoItem = document.createElement('div');
-    todoItem.className = 'flex items-center gap-3 p-2 rounded-md hover:bg-bkg animate-fade-in-down';
+    const isCompleted = todo.completed;
+
+    todoItem.className = `flex items-center bg-surface border border-border p-3 rounded-lg transition-all duration-200 group ${isCompleted ? 'opacity-60' : ''}`;
+    
     todoItem.innerHTML = `
-        <input type="checkbox" id="todo-${todo.id}" data-action="toggle-todo" data-id="${todo.id}" class="h-5 w-5 rounded text-primary border-border focus:ring-primary flex-shrink-0" ${todo.completed ? 'checked' : ''}>
-        <label for="todo-${todo.id}" 
-               class="flex-grow text-secondary cursor-pointer ${todo.completed ? 'line-through text-subtle' : ''}"
-               data-action="edit-todo"
-               data-id="${todo.id}"
-               data-text="${todo.text}">
+        <button data-action="toggle-todo" data-id="${todo.id}" class="w-6 h-6 rounded-md flex-shrink-0 flex items-center justify-center border-2 transition-colors ${isCompleted ? 'bg-primary border-primary' : 'border-border group-hover:border-primary'}">
+            <svg class="w-4 h-4 text-white ${isCompleted ? 'block' : 'hidden'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+        </button>
+        <p class="todo-text flex-grow mx-4 text-secondary cursor-pointer ${isCompleted ? 'line-through text-subtle' : ''}" data-action="edit-todo" data-id="${todo.id}" data-text="${todo.text}">
             ${todo.text}
-        </label>
-        <button data-action="delete-todo" data-id="${todo.id}" class="p-1 rounded-full text-subtle hover:bg-danger/20 hover:text-danger flex-shrink-0">
-            <svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </p>
+        <button data-action="delete-todo" data-id="${todo.id}" class="p-1 rounded-full text-subtle opacity-0 group-hover:opacity-100 hover:bg-danger/20 hover:text-danger flex-shrink-0 transition-opacity">
+            <svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
     `;
     return todoItem;
@@ -879,7 +984,7 @@ export async function showCourseChecklistView(enrollmentId) {
     }
 
     await renderChecklistContent();
-    hideLoading();
+    showLoading(false);
 }
 
 export function showCurriculumSubjectModal(subjectId = null) {
@@ -897,38 +1002,23 @@ export async function renderChecklistContent() {
     dom.checklistContent.innerHTML = '';
 
     const { activeEnrollmentId } = getState();
-
     const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
     if (!enrollmentSnap.exists()) return;
+    
     const enrollmentData = enrollmentSnap.data();
     const passingGrade = enrollmentData.passingGrade || 7.0;
 
-    const curriculumSubjectsPromise = api.getCurriculumSubjects(activeEnrollmentId);
-    const allTakenDisciplinesPromise = api.getAllTakenDisciplines(activeEnrollmentId);
-    let [curriculumSubjects, allTakenDisciplines] = await Promise.all([curriculumSubjectsPromise, allTakenDisciplinesPromise]);
+    const [curriculumSubjects, allTakenDisciplines] = await Promise.all([
+        api.getCurriculumSubjects(activeEnrollmentId),
+        api.getAllTakenDisciplines(activeEnrollmentId)
+    ]);
     
-    const curriculumCodes = new Set(curriculumSubjects.map(s => s.code));
-    
-    const subjectsToSync = allTakenDisciplines.filter(d => d.code && !curriculumCodes.has(d.code));
-    if (subjectsToSync.length > 0) {
-        const syncPromises = subjectsToSync.map(d => {
-            const payload = { name: d.name, code: d.code, period: 0 };
-            return api.saveCurriculumSubject(payload, { enrollmentId: activeEnrollmentId });
-        });
-        await Promise.all(syncPromises);
-        curriculumSubjects = await api.getCurriculumSubjects(activeEnrollmentId);
-    }
-
     if (curriculumSubjects.length === 0) {
-        dom.checklistContent.innerHTML = `<div class="text-center p-8 bg-surface rounded-xl border border-border">
-            <h3 class="font-bold text-secondary">Nenhuma disciplina na sua grade</h3>
-            <p class="text-subtle text-sm mt-2">Comece adicionando as disciplinas do seu curso para acompanhar seu progresso.</p>
-        </div>`;
+        dom.checklistContent.innerHTML = `<div class="text-center p-8 bg-surface rounded-xl border border-border"><h3 class="font-bold text-secondary">Nenhuma disciplina na sua grade</h3><p class="text-subtle text-sm mt-2">Comece adicionando as disciplinas do seu curso para acompanhar seu progresso.</p></div>`;
         return;
     }
 
     const takenDisciplinesMap = new Map(allTakenDisciplines.map(d => [d.code, d]));
-
     const subjectsByPeriod = curriculumSubjects.reduce((acc, subject) => {
         const period = subject.period || 0;
         if (!acc[period]) acc[period] = [];
@@ -936,19 +1026,39 @@ export async function renderChecklistContent() {
         return acc;
     }, {});
 
-    dom.checklistContent.innerHTML = Object.keys(subjectsByPeriod).sort((a,b) => a - b).map(periodNumber => {
+    dom.checklistContent.innerHTML = Object.keys(subjectsByPeriod).sort((a, b) => a - b).map(periodNumber => {
         const isUnsorted = periodNumber === "0";
         const periodTitle = isUnsorted ? "Disciplinas a Organizar" : `${periodNumber}º Período`;
         const titleColorClass = isUnsorted ? "text-danger" : "text-secondary";
+        const subjectsInPeriod = subjectsByPeriod[periodNumber];
         
+        let completedCount = 0;
+        subjectsInPeriod.forEach(subject => {
+            const takenDiscipline = takenDisciplinesMap.get(subject.code);
+            if (takenDiscipline) {
+                const averageGrade = parseFloat(calculateAverage(takenDiscipline));
+                const allGradesFilled = takenDiscipline.grades && takenDiscipline.grades.length > 0 && takenDiscipline.grades.every(g => g.grade !== null);
+                if (!isNaN(averageGrade) && allGradesFilled && averageGrade >= passingGrade) {
+                    completedCount++;
+                }
+            }
+        });
+
+        const progress = subjectsInPeriod.length > 0 ? (completedCount / subjectsInPeriod.length) * 100 : 0;
+
         return `
             <div class="mb-8">
-                <h3 class="text-xl font-bold ${titleColorClass} mb-4">${periodTitle}</h3>
-                <div class="bg-surface rounded-xl border border-border p-2 sm:p-4">
-                    ${subjectsByPeriod[periodNumber].map(subject => {
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold ${titleColorClass}">${periodTitle}</h3>
+                    <span class="text-sm font-semibold text-subtle">${completedCount} de ${subjectsInPeriod.length} concluídas</span>
+                </div>
+                <div class="w-full bg-bkg rounded-full h-2 mb-4 border border-border">
+                    <div class="progress-bar h-full" style="width: ${progress}%"></div>
+                </div>
+                <div class="space-y-2">
+                    ${subjectsInPeriod.map(subject => {
                         const takenDiscipline = takenDisciplinesMap.get(subject.code);
                         let isCompleted = false;
-                        
                         if (takenDiscipline) {
                             const averageGrade = parseFloat(calculateAverage(takenDiscipline));
                             const allGradesFilled = takenDiscipline.grades && takenDiscipline.grades.length > 0 && takenDiscipline.grades.every(g => g.grade !== null);
@@ -958,24 +1068,25 @@ export async function renderChecklistContent() {
                         }
 
                         return `
-                        <div data-action="edit-curriculum-subject" data-id="${subject.id}" class="flex items-center justify-between p-3 rounded-md hover:bg-bkg cursor-pointer group">
-                            <div class="flex items-center">
-                                <div class="mr-4">
-                                    ${isCompleted
-                                        ? `<div class="w-6 h-6 rounded-full bg-success flex items-center justify-center text-white" title="Disciplina Aprovada"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg></div>`
-                                        : `<button data-action="mark-subject-completed" data-id='${subject.id}' data-name='${subject.name}' data-code='${subject.code}' class="w-6 h-6 rounded-full bg-bkg border border-border hover:bg-primary/20" title="Marcar como concluída"></button>`
-                                    }
-                                </div>
-                                <div>
+                        <div class="flex items-center justify-between p-3 rounded-lg bg-surface border border-border group">
+                            <div class="flex items-center gap-4">
+                                ${isCompleted
+                                    ? `<div class="w-6 h-6 rounded-full bg-success flex-shrink-0 flex items-center justify-center text-white" title="Disciplina Aprovada"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg></div>`
+                                    : `<button data-action="mark-subject-completed" data-id='${subject.id}' data-name='${subject.name}' data-code='${subject.code}' class="w-6 h-6 rounded-full bg-bkg border border-border hover:bg-primary/20 flex-shrink-0" title="Marcar como concluída"></button>`
+                                }
+                                <div class="${isCompleted ? 'opacity-60' : ''}">
                                     <p class="font-semibold text-secondary flex items-baseline">
                                         ${subject.name}
                                         <span class="ml-2 text-xs font-mono text-subtle">(${subject.code})</span>
                                     </p>
                                 </div>
                             </div>
-                            <div class="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div class="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                <button data-action="edit-curriculum-subject" data-id="${subject.id}" class="p-2 rounded-full text-subtle hover:bg-bkg" title="Editar disciplina na grade">
+                                    <svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+                                </button>
                                 <button data-action="view-curriculum-subject-details" data-id="${subject.id}" class="p-2 rounded-full text-subtle hover:bg-bkg" title="Ver detalhes">
-                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                    <svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                                 </button>
                             </div>
                         </div>
@@ -1141,4 +1252,86 @@ export async function renderAllEvents() {
             </div>
         `;
     }).join('');
+}
+
+function updateEmptyState(icon, title, subtitle) {
+    if (!dom.documentsEmptyState) return;
+    const iconContainer = document.getElementById('documents-empty-state-icon');
+    const titleEl = document.getElementById('documents-empty-state-title');
+    const subtitleEl = document.getElementById('documents-empty-state-subtitle');
+
+    const newIcon = `<svg class="w-16 h-16 mx-auto text-subtle/50" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>`;
+    
+    if(iconContainer) iconContainer.innerHTML = icon || newIcon;
+    if(titleEl) titleEl.textContent = title;
+    if(subtitleEl) subtitleEl.textContent = subtitle;
+
+    dom.documentsEmptyState.classList.remove('hidden');
+}
+
+export async function renderDocumentsList(enrollmentId) {
+    const listContainer = dom.documentsList;
+    if (!listContainer || !dom.documentsEmptyState) return;
+    
+    listContainer.classList.add('hidden');
+    const spinnerIcon = `<svg class="w-16 h-16 mx-auto text-primary animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+    updateEmptyState(spinnerIcon, 'A carregar documentos...', 'Por favor, aguarde.');
+
+    try {
+        const documents = await api.getDocuments(enrollmentId);
+        const totalDocumentsCount = documents.length;
+
+        const searchTerm = document.getElementById('document-search-input')?.value.toLowerCase() || '';
+        const typeFilter = document.querySelector('[data-filter-key="type"] .filter-value')?.value || 'all';
+        const sortOrder = document.querySelector('[data-filter-key="sort"] .filter-value')?.value || 'createdAt_desc';
+        
+        if (totalDocumentsCount === 0) {
+            const emptyIcon = `<svg class="w-16 h-16 mx-auto text-subtle/50" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>`;
+            const title = "Biblioteca Vazia";
+            const subtitle = enrollmentId 
+                ? "Ainda não foram adicionados documentos a esta matrícula."
+                : "Ainda não foram adicionados documentos à biblioteca geral.";
+            updateEmptyState(emptyIcon, title, subtitle);
+            return;
+        }
+
+        const filteredDocuments = documents.filter(doc => {
+            const matchesSearch = searchTerm ? doc.title.toLowerCase().includes(searchTerm) || (doc.tags && doc.tags.some(tag => tag.toLowerCase().includes(searchTerm))) : true;
+            const matchesType = typeFilter !== 'all' ? doc.type === typeFilter : true;
+            return matchesSearch && matchesType;
+        });
+
+        const [sortField, sortDirection] = sortOrder.split('_');
+        filteredDocuments.sort((a, b) => {
+            let valA, valB;
+            if (sortField === 'createdAt') {
+                valA = a.createdAt?.toDate() || new Date(0);
+                valB = b.createdAt?.toDate() || new Date(0);
+            } else {
+                valA = a.title.toLowerCase();
+                valB = b.title.toLowerCase();
+            }
+
+            if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+            if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        if (filteredDocuments.length === 0) {
+            const noResultsIcon = `<svg class="w-16 h-16 mx-auto text-subtle/50" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>`;
+            updateEmptyState(noResultsIcon, "Nenhum Documento Encontrado", "Tente ajustar seus filtros de pesquisa.");
+        } else {
+            dom.documentsEmptyState.classList.add('hidden');
+            listContainer.innerHTML = '';
+            listContainer.classList.remove('hidden');
+            filteredDocuments.forEach(doc => {
+                const card = createDocumentCard(doc);
+                listContainer.appendChild(card);
+            });
+        }
+    } catch (error) {
+        console.error("Erro ao renderizar documentos:", error);
+        const errorIcon = `<svg class="w-16 h-16 mx-auto text-danger" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>`;
+        updateEmptyState(errorIcon, "Ocorreu um Erro", "Não foi possível carregar os documentos. Tente novamente.");
+    }
 }

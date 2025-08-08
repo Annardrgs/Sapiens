@@ -1,53 +1,65 @@
 /**
- * @file Módulo para gerenciamento do estado global da aplicação.
+ * @file Módulo para gerenciar o estado global da aplicação.
  */
 
 const state = {
-  user: null,
-  authMode: 'login', // 'login' ou 'signup'
-  
-  // IDs ativos para navegação
-  activeEnrollmentId: null,
-  activePeriodId: null,
-  
-  // IDs para edição
-  editingEnrollmentId: null,
-  editingDisciplineId: null,
-  editingCurriculumSubjectId: null,
-  subjectToComplete: null,
-  returnToCompleteSubjectModal: false,
-  subjectDataForReturn: null,
+    user: null,
+    authMode: 'login', // 'login' or 'signup'
+    
+    enrollments: [],
+    activeEnrollmentId: null,
+    activeEnrollment: null,
+    activeDisciplineId: null,
 
-  // Objetos para operações em modais
-  itemToDelete: null,
-  onConfirmAction: null,
-  currentDisciplineForAbsence: null,
-  currentDisciplineForGrades: null,
-  activeDisciplineId: null,
+    periods: [],
+    activePeriodIndex: 0,
+    get activePeriodId() {
+        return this.periods[this.activePeriodIndex]?.id || null;
+    },
 
-  // Lista de períodos para navegação
-  periods: [],
-  disciplines: [],
-  activePeriodIndex: -1,
+    disciplines: [],
+    
+    editingEnrollmentId: null,
+    editingDisciplineId: null,
+    editingCurriculumSubjectId: null,
+    editingDocumentId: null,
+    itemToDelete: null,
+    subjectToComplete: null,
+
+    currentDisciplineForGrades: null,
+    currentDisciplineForAbsence: null,
+
+    onConfirmAction: null,
+    onCancelAction: null, 
+
+    calendarMarkedForDeletion: false,
+    returnToCompleteSubjectModal: false,
+    subjectDataForReturn: null,
 };
 
-/**
- * Obtém o estado atual.
- * @returns {object} O objeto de estado completo.
- */
-export function getState() {
-  return state;
+const observers = new Set();
+
+export function subscribe(fn) {
+    observers.add(fn);
 }
 
-/**
- * Define um valor para uma chave específica no estado.
- * @param {string} key - A chave do estado a ser modificada.
- * @param {*} value - O novo valor para a chave.
- */
 export function setState(key, value) {
-  if (key in state) {
-    state[key] = value;
-  } else {
-    console.warn(`A chave "${key}" não existe no estado inicial.`);
-  }
+    const descriptor = Object.getOwnPropertyDescriptor(state, key);
+
+    // Impede a tentativa de definir uma propriedade que é apenas um getter (somente leitura)
+    if (descriptor && descriptor.get && !descriptor.set) {
+        console.warn(`A propriedade "${key}" é calculada automaticamente e não pode ser definida diretamente.`);
+        return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(state, key)) {
+        state[key] = value;
+        observers.forEach(observer => observer(state));
+    } else {
+        console.warn(`A chave "${key}" não existe no estado inicial.`);
+    }
+}
+
+export function getState() {
+    return state;
 }
