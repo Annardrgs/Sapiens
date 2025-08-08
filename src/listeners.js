@@ -849,18 +849,15 @@ async function handlePeriodOptionsFormSubmit(e) {
             payload.calendarUrl = firestoreApi.deleteFieldValue();
         }
 
-        // Primeiro, salva os detalhes do período (datas e a URL do arquivo)
         await firestoreApi.updatePeriodDetails(activeEnrollmentId, activePeriodId, payload);
         
         if (calendarMarkedForDeletion) {
             setState('calendarMarkedForDeletion', false);
         }
 
-        // Se um NOVO arquivo foi enviado, agora vamos processá-lo
         if (file && payload.calendarUrl) {
-            notify.info("Calendário salvo. Lendo o arquivo para análise da IA...");
+            notify.info("Calendário salvo. Lendo e enviando para análise...");
 
-            // LÓGICA MOVIDA PARA O FRONTEND
             const reader = new FileReader();
             reader.readAsArrayBuffer(file);
 
@@ -876,35 +873,50 @@ async function handlePeriodOptionsFormSubmit(e) {
                         fullText += textContent.items.map(item => item.str).join(' ');
                     }
 
-                    if (fullText.length < 50) {
-                        throw new Error("Não foi possível extrair texto suficiente do PDF.");
-                    }
+                    if (fullText.length < 50) throw new Error("Não foi possível extrair texto suficiente do PDF.");
 
-                    // Agora chamamos a API simplificada, enviando o TEXTO
+                    // **LÓGICA DE FETCH PARA RECEBER STREAMING**
                     const response = await fetch('/api/process-calendar', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: fullText }), // Enviando o texto extraído
+                        body: JSON.stringify({ text: fullText }),
                     });
 
                     if (!response.ok) {
                         const errorData = await response.json();
-                        throw new Error(errorData.details || 'Erro na análise da IA');
+                        throw new Error(errorData.details || 'Erro na API');
                     }
 
-                    const { events } = await response.json();
+                    // Lê a resposta como um stream
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let aiResponseText = '';
+                    
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        aiResponseText += decoder.decode(value);
+                    }
+                    // **FIM DA LÓGICA DE STREAMING**
+
+                    const jsonStringMatch = aiResponseText.match(/\[[\s\S]*\]/);
+                    if (!jsonStringMatch) {
+                        throw new Error("A IA não retornou um JSON válido.");
+                    }
+                    
+                    const events = JSON.parse(jsonStringMatch[0]);
+
                     if (events && events.length > 0) {
                         const batch = firestoreApi.createBatch();
                         events.forEach(event => {
                             firestoreApi.addEventToBatch(batch, event, { enrollmentId: activeEnrollmentId, periodId: activePeriodId });
                         });
                         await firestoreApi.commitBatch(batch);
-                        notify.success(`${events.length} eventos foram criados com sucesso pela IA!`);
+                        notify.success(`${events.length} eventos foram criados com sucesso!`);
                     } else {
                         notify.info("Nenhum evento relevante encontrado pela IA.");
                     }
                     
-                    // Atualiza o dashboard para mostrar os novos eventos
                     await view.showDashboardView(activeEnrollmentId);
 
                 } catch (readError) {

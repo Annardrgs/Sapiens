@@ -1,11 +1,7 @@
-// Salve este conteúdo no seu arquivo /api/process-calendar.js
-
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// A chave de API será configurada como uma Variável de Ambiente na Vercel
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Lista de origens permitidas (pode manter como está)
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
@@ -14,7 +10,6 @@ const allowedOrigins = [
 ];
 
 export default async function handler(req, res) {
-  // Lógica de CORS (pode manter como está)
   const origin = req.headers.origin;
   if (allowedOrigins.includes(origin) || (origin && origin.endsWith('.vercel.app'))) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -31,14 +26,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // MUDANÇA: Recebemos o 'text' diretamente, não mais a 'fileUrl'
     const { text } = req.body;
-
-    if (!text) {
-      return res.status(400).json({ error: "O parâmetro 'text' é obrigatório." });
-    }
-    
-    // --- SEÇÃO DE LEITURA DO PDF FOI REMOVIDA DAQUI ---
 
     if (!text || text.length < 50) {
       return res.status(400).json({ error: "O texto extraído do PDF é muito curto." });
@@ -49,7 +37,8 @@ export default async function handler(req, res) {
     const prompt = `
       Você é um assistente especialista em calendários acadêmicos.
       Analise o seguinte texto e identifique eventos importantes para um estudante, como Início e Fim do Período, Feriados, Matrículas, Trancamentos, Provas, etc.
-      Retorne a resposta como um array JSON válido. Cada objeto deve ter os campos: "title" (string), "date" (string no formato 'YYYY-MM-DD'), e "category" (string).
+      Retorne a resposta SOMENTE como um array JSON válido. Cada objeto deve ter os campos: "title" (string), "date" (string no formato 'YYYY-MM-DD'), e "category" (string).
+      NÃO inclua markdown (como \`\`\`json) na sua resposta.
       
       Texto para análise:
       ---
@@ -57,24 +46,33 @@ export default async function handler(req, res) {
       ---
     `;
 
-    const result = await model.generateContent(prompt);
-    const aiResponseText = result.response.text();
-    
-    const jsonStringMatch = aiResponseText.match(/\[[\s\S]*\]/);
-    if (!jsonStringMatch) {
-      console.error("Resposta da IA não continha um JSON válido:", aiResponseText);
-      return res.status(500).json({ error: "A IA não retornou uma resposta no formato esperado." });
-    }
-    
-    const events = JSON.parse(jsonStringMatch[0]);
+    // **LÓGICA DE STREAMING CORRETA**
+    const result = await model.generateContentStream(prompt);
 
-    return res.status(200).json({ events });
+    // Configura o cabeçalho para indicar uma resposta em streaming
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.writeHead(200); // Envia o status 200 OK
+
+    // Itera sobre os "pedaços" da resposta e os envia para o cliente
+    for await (const chunk of result.stream) {
+      const chunkText = chunk.text();
+      res.write(chunkText);
+    }
+
+    // Finaliza a conexão quando o stream termina
+    res.end();
 
   } catch (error) {
     console.error("Erro na função serverless:", error);
-    return res.status(500).json({ 
-        error: "Ocorreu um erro interno ao processar o calendário.",
-        details: error.message 
-    });
+    // Não podemos enviar um JSON aqui se o stream já começou,
+    // mas em caso de erro antes do stream, isso funcionará.
+    if (!res.headersSent) {
+        res.status(500).json({ 
+            error: "Ocorreu um erro interno ao processar o calendário.",
+            details: error.message 
+        });
+    } else {
+        res.end(); // Apenas encerra a conexão se um erro ocorrer durante o stream
+    }
   }
 };
