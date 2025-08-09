@@ -210,6 +210,9 @@ export function initializeAppListeners() {
     if (removeCalendarBtn) {
         removeCalendarBtn.addEventListener('click', handleRemoveCalendarFile);
     }
+
+    if (dom.addGradeFieldBtn) dom.addGradeFieldBtn.addEventListener('click', modals.addGradeField);
+    if (dom.cancelConfigGradesBtn) dom.cancelConfigGradesBtn.addEventListener('click', modals.hideConfigGradesModal);
 }
 
 function handlePinTodo(id, pinButton) {
