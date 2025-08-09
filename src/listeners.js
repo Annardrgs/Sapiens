@@ -702,13 +702,19 @@ async function handleDisciplineFormSubmit(e) {
         campus: form.querySelector('#discipline-campus').value,
         location: form.querySelector('#discipline-location').value,
         schedules: schedules,
-        workload: isEAD ? (parseInt(form.querySelector('#discipline-workload').value) || null) : parseInt(form.querySelector('#discipline-workload').value),
-        hoursPerClass: isEAD ? (parseInt(form.querySelector('#discipline-hours-per-class').value) || null) : parseInt(form.querySelector('#discipline-hours-per-class').value),
         color: form.querySelector('#discipline-color-input').value
     };
-
-    if (!isEAD && (!payload.workload || !payload.hoursPerClass)) {
-        return notify.error('Carga Horária e Horas por Aula são obrigatórios para disciplinas presenciais.');
+    
+    if (isEAD) {
+        payload.notes = form.querySelector('#discipline-notes').value;
+        payload.workload = null;
+        payload.hoursPerClass = null;
+    } else {
+        payload.workload = parseInt(form.querySelector('#discipline-workload').value);
+        payload.hoursPerClass = parseInt(form.querySelector('#discipline-hours-per-class').value);
+        if (!payload.workload || !payload.hoursPerClass) {
+            return notify.error('Carga Horária e Horas por Aula são obrigatórios para disciplinas presenciais.');
+        }
     }
 
     try {

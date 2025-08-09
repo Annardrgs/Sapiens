@@ -778,19 +778,35 @@ function renderEvaluationsList(discipline) {
     const isPeriodClosed = periods[activePeriodIndex]?.status === 'closed';
 
     if (!discipline.grades || discipline.grades.length === 0) {
-        dom.evaluationsList.innerHTML = `...`; // (O HTML do estado vazio permanece o mesmo)
+        // --- INÍCIO DA MODIFICAÇÃO ---
+        let emptyStateHTML = '';
+        if (isPeriodClosed) {
+            emptyStateHTML = `
+                <div class="text-center text-subtle py-6 col-span-full">
+                    <p>Nenhuma avaliação foi registrada para esta disciplina.</p>
+                </div>
+            `;
+        } else {
+            emptyStateHTML = `
+                <div class="text-center text-subtle py-6 col-span-full">
+                    <p class="font-semibold">Nenhuma avaliação configurada.</p>
+                    <p class="text-sm">Clique em "Gerenciar" para adicionar as provas e trabalhos.</p>
+                </div>
+            `;
+        }
+        dom.evaluationsList.innerHTML = emptyStateHTML;
+        // --- FIM DA MODIFICAÇÃO ---
         return;
     }
 
     discipline.grades.forEach((grade, index) => {
-        const gradeValue = grade.grade ?? '-';
+        const gradeValue = (grade.grade === null || grade.grade === undefined) ? '-' : grade.grade;
         const evaluationEl = document.createElement('div');
         evaluationEl.className = 'evaluation-item';
 
-        // CORREÇÃO: Desabilita o campo de nota se o período estiver encerrado
         const gradeInputHTML = isPeriodClosed
             ? `<span class="evaluation-item-grade non-editable">${gradeValue}</span>`
-            : `<span data-action="edit-grade" data-discipline-id="${discipline.id}" data-grade-index="${index}" class="evaluation-item-grade">${gradeValue}</span>`;
+            : `<input type="number" step="0.1" min="0" max="10" value="${grade.grade ?? ''}" placeholder="-" data-discipline-id="${discipline.id}" data-grade-index="${index}" class="evaluation-item-grade grade-input w-full text-center bg-transparent focus:outline-none focus:ring-0">`;
 
         evaluationEl.innerHTML = `
             <span class="evaluation-item-label" title="${grade.name}">${grade.name}</span>
@@ -1061,20 +1077,35 @@ export async function renderUpcomingEvents() {
     const container = document.getElementById('upcoming-events-list');
     if (!container) return;
 
+    // 1. Reseta o container para o layout de lista padrão
+    container.classList.remove('grid', 'place-items-center');
+    container.classList.add('space-y-3');
+
     container.innerHTML = `<p class="text-subtle text-center pt-4">Carregando eventos...</p>`;
 
     try {
         const events = await api.getAllUpcomingEvents();
 
         if (events.length === 0) {
-            container.innerHTML = `<p class="text-subtle text-center pt-4">Nenhum evento futuro.</p>`;
+            // 2. Altera o layout do container para grid para centralizar o conteúdo
+            container.classList.add('grid', 'place-items-center');
+            container.classList.remove('space-y-3'); // Remove espaçamento de lista
+
+            container.innerHTML = `
+                <div class="text-center text-subtle">
+                    <div class="w-12 h-12 bg-bkg rounded-full flex items-center justify-center mx-auto text-subtle/70 border border-border mb-4">
+                        <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
+                    </div>
+                    <h4 class="font-bold text-secondary">Nenhum evento futuro</h4>
+                    <p class="mt-1 text-sm">Adicione provas ou trabalhos no calendário principal.</p>
+                </div>`;
             return;
         }
 
+        // 3. Se houver eventos, o layout de lista é usado
         container.innerHTML = events.slice(0, 10).map(event => {
             const eventDate = new Date(event.start.replace(/-/g, '/') + ' 00:00:00');
             const formattedDate = eventDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
-
             const subtitle = event.disciplineName ? `${event.disciplineName} • ${event.courseName}` : event.courseName;
 
             return `
@@ -1092,7 +1123,10 @@ export async function renderUpcomingEvents() {
         }).join('');
     } catch (error) {
         console.error("Erro ao carregar eventos futuros:", error);
-        container.innerHTML = `<p class="text-danger text-center pt-4">Erro ao carregar eventos.</p>`;
+        // Centraliza a mensagem de erro também
+        container.classList.add('grid', 'place-items-center');
+        container.classList.remove('space-y-3');
+        container.innerHTML = `<div class="text-danger text-center"><p>Erro ao carregar eventos.</p></div>`;
     }
 }
 
@@ -1237,14 +1271,13 @@ export async function renderTodoList() {
     dom.todoItemsList.innerHTML = ''; // Limpa a lista antes de renderizar
 
     if (todos.length === 0) {
-        // CORREÇÃO: Adicionado um ID ao contêiner do estado de lista vazia
         dom.todoItemsList.innerHTML = `
-            <div id="todo-empty-state" class="text-center p-6">
-                <div class="w-12 h-12 bg-bkg rounded-full flex items-center justify-center mx-auto text-subtle/70 border border-border">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+            <div class="flex flex-col items-center justify-center h-full text-center text-subtle">
+                <div class="w-12 h-12 bg-bkg rounded-full flex items-center justify-center mx-auto text-subtle/70 border border-border mb-4">
+                     <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
                 </div>
-                <h4 class="mt-4 font-bold text-secondary">Tudo em ordem!</h4>
-                <p class="mt-1 text-sm text-subtle">Nenhuma tarefa para hoje. Adicione uma abaixo.</p>
+                <h4 class="font-bold text-secondary">Tudo em ordem!</h4>
+                <p class="mt-1 text-sm">Nenhuma tarefa para hoje. Adicione uma abaixo.</p>
             </div>
         `;
         return;

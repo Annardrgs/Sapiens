@@ -20,71 +20,90 @@ export function createEnrollmentCard(data) {
 }
 
 /**
- * Cria o HTML para um card de disciplina com a nova estrutura expansível.
+ * Cria o elemento HTML para um card de disciplina.
+ * @param {object} discipline - O objeto da disciplina.
+ * @param {object} enrollmentData - Os dados da matrícula associada.
+ * @param {boolean} isPeriodClosed - Se o período está encerrado.
+ * @returns {HTMLElement} O elemento do card da disciplina.
  */
-export function createDisciplineCard(discipline, enrollmentData, isPeriodClosed = false) {
+export function createDisciplineCard(discipline, enrollmentData, isPeriodClosed) {
     const card = document.createElement('div');
-    card.className = 'relative bg-surface border border-border rounded-xl shadow-sm transition-all duration-300 ease-in-out hover:border-primary group';
+    card.className = 'bg-surface p-4 rounded-xl shadow-md border border-border flex flex-col justify-between';
     card.dataset.id = discipline.id;
     card.dataset.action = 'view-discipline-details';
 
-    const currentAbsences = discipline.absences || 0;
-    const hasExceededAbsences = discipline.failedByAbsence === true;
-
-    let averageGrade = calculateAverage(discipline);
+    const averageGrade = calculateAverage(discipline);
+    const absences = discipline.absences || 0;
     const passingGrade = enrollmentData.passingGrade || 7.0;
     
-    let status = { text: 'N/A', color: 'subtle' };
+    let status = { text: 'N/A', color: 'text-subtle' };
+    const allGradesFilled = discipline.grades && discipline.grades.length > 0 && discipline.grades.every(g => g.grade !== null && g.grade !== undefined);
 
-    if (hasExceededAbsences) {
-        status = { text: 'Reprovado por Falta', color: 'danger' };
-    } else if (averageGrade !== 'N/A') {
-        const numericAverage = parseFloat(averageGrade);
-        const allGradesFilled = discipline.grades && discipline.grades.every(g => g.grade !== null);
-        if (numericAverage >= passingGrade) status = { text: 'Aprovado', color: 'success' };
-        else if (allGradesFilled) status = { text: 'Reprovado', color: 'danger' };
-        else status = { text: 'Em Andamento', color: 'warning' };
+    if (averageGrade !== 'N/A') {
+        if (allGradesFilled) {
+            status = parseFloat(averageGrade) >= passingGrade 
+                ? { text: 'Aprovado', color: 'text-success' }
+                : { text: 'Reprovado', color: 'text-danger' };
+        } else {
+            status = { text: 'Em Andamento', color: 'text-warning' };
+        }
     }
     
+    // --- LÓGICA CORRIGIDA PARA O SUBTÍTULO ---
+    let subtitleHTML = '';
+    const isEAD = enrollmentData.modality === 'EAD';
+
+    if (isEAD) {
+        // Para EAD, usa as observações se existirem, senão, o texto padrão.
+        subtitleHTML = discipline.notes ? discipline.notes : 'Horário indefinido';
+    } else {
+        // Lógica original para disciplinas presenciais.
+        if (discipline.schedules && discipline.schedules.length > 0) {
+            subtitleHTML = discipline.schedules.map(s => `${s.day} ${s.startTime}-${s.endTime}`).join(' | ');
+        } else {
+            subtitleHTML = 'Horário a definir';
+        }
+    }
+    // --- FIM DA LÓGICA DO SUBTÍTULO ---
+
     card.innerHTML = `
-        <div class="p-4 cursor-pointer">
-            <div class="flex items-start justify-between">
-                <div class="flex items-center gap-4 pr-16">
-                    <span class="w-2 h-10 rounded-full flex-shrink-0" style="background-color: ${discipline.color || '#4f46e5'}"></span>
-                    <div>
-                        <h4 class="text-xl font-bold text-secondary flex items-baseline">
-                            ${discipline.name}
-                            ${discipline.code ? `<span class="ml-2 text-xs font-mono text-subtle">(${discipline.code})</span>` : ''}
-                        </h4>
-                        <p class="text-sm text-subtle">${discipline.schedules?.map(s => `${s.day} ${s.startTime}-${s.endTime}`).join(', ') || 'Horário indefinido'}</p>
+        <div>
+            <div class="flex justify-between items-start mb-3">
+                <div class="flex items-center gap-3 min-w-0 flex-grow cursor-pointer group">
+                    <span class="w-1.5 h-10 rounded-full flex-shrink-0" style="background-color: ${discipline.color || '#6366f1'};"></span>
+                    <div class="min-w-0">
+                        <h4 class="font-bold text-secondary truncate group-hover:text-primary transition-colors">${discipline.name}</h4>
+                        <p class="text-sm text-subtle truncate">${subtitleHTML}</p>
                     </div>
                 </div>
-            </div>
-            <div class="mt-4 grid grid-cols-3 gap-4 text-center">
-                <div>
-                    <span class="text-xs font-bold text-subtle">Faltas</span>
-                    <p class="font-bold text-lg text-secondary">${currentAbsences}</p>
-                </div>
-                <div>
-                    <span class="text-xs font-bold text-subtle">Média</span>
-                    <p class="font-bold text-lg text-secondary">${averageGrade}</p>
-                </div>
-                <div>
-                    <span class="text-xs font-bold text-subtle">Status</span>
-                    <p class="font-bold text-lg text-${status.color}">${status.text}</p>
+                <div class="flex items-center gap-1 flex-shrink-0">
+                    ${!isPeriodClosed ? `
+                    <button data-action="edit-discipline" data-id="${discipline.id}" class="p-2 rounded-full text-subtle hover:bg-bkg" title="Editar">
+                        <svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"></path></svg>
+                    </button>
+                    <button data-action="delete-discipline" data-id="${discipline.id}" class="p-2 rounded-full text-subtle hover:bg-bkg" title="Excluir">
+                        <svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"></path></svg>
+                    </button>
+                    ` : ''}
                 </div>
             </div>
         </div>
-
-        <div class="absolute top-3 right-3 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button data-action="edit-discipline" data-id="${discipline.id}" title="Editar Disciplina" class="p-2 rounded-full hover:bg-bkg text-subtle hover:text-primary">
-                <svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-            </button>
-            <button data-action="delete-discipline" data-id="${discipline.id}" title="Excluir Disciplina" class="p-2 rounded-full hover:bg-bkg text-subtle hover:text-danger">
-                <svg class="w-5 h-5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-            </button>
+        <div class="grid grid-cols-3 gap-2 text-center border-t border-border pt-3 mt-auto">
+            <div>
+                <span class="block text-xs font-bold text-subtle uppercase">Faltas</span>
+                <span class="block text-xl font-bold text-secondary">${absences}</span>
+            </div>
+            <div>
+                <span class="block text-xs font-bold text-subtle uppercase">Média</span>
+                <span class="block text-xl font-bold text-secondary">${averageGrade}</span>
+            </div>
+            <div>
+                <span class="block text-xs font-bold text-subtle uppercase">Status</span>
+                <span class="block text-xl font-bold ${status.color}">${status.text}</span>
+            </div>
         </div>
     `;
+
     return card;
 }
 

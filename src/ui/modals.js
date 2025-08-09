@@ -169,66 +169,78 @@ function renderColorPalette(selectedColor) {
 }
 
 export async function showDisciplineModal(disciplineId = null) {
-  if (!dom.addDisciplineModal || !dom.addDisciplineForm || !dom.disciplineModalTitle) return;
-  const { activeEnrollmentId } = getState();
-  setState('editingDisciplineId', disciplineId);
-  dom.addDisciplineForm.reset();
-  const schedulesContainer = dom.addDisciplineForm.querySelector('#schedules-container');
-  if (schedulesContainer) schedulesContainer.innerHTML = '';
-  
-  const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
-  const isEAD = enrollmentSnap.exists() && enrollmentSnap.data().modality === 'EAD';
-
-  const campusInput = dom.addDisciplineForm.querySelector('#discipline-campus');
-  const locationInput = dom.addDisciplineForm.querySelector('#discipline-location');
-  const workloadInput = dom.addDisciplineForm.querySelector('#discipline-workload');
-  const hoursPerClassInput = dom.addDisciplineForm.querySelector('#discipline-hours-per-class');
-  const schedulesSection = dom.addDisciplineForm.querySelector('#schedules-container').parentElement;
-
-  if (isEAD) {
-    campusInput.value = 'Remoto';
-    campusInput.disabled = true;
-    locationInput.disabled = true;
-    schedulesSection.classList.add('hidden');
-    workloadInput.required = false;
-    hoursPerClassInput.required = false;
-  } else {
-    campusInput.disabled = false;
-    locationInput.disabled = false;
-    schedulesSection.classList.remove('hidden');
-    workloadInput.required = true;
-    hoursPerClassInput.required = true;
-  }
-
-  if (disciplineId) {
-    dom.disciplineModalTitle.textContent = "Editar Disciplina";
-    const { activePeriodId } = getState();
-    api.getDiscipline(activeEnrollmentId, activePeriodId, disciplineId).then(docSnap => {
-        if(docSnap.exists()) {
-            const data = docSnap.data();
-            dom.addDisciplineForm.querySelector('#discipline-name').value = data.name || '';
-            dom.addDisciplineForm.querySelector('#discipline-code').value = data.code || '';
-            dom.addDisciplineForm.querySelector('#discipline-teacher').value = data.teacher || '';
-            if (!isEAD) campusInput.value = data.campus || '';
-            locationInput.value = data.location || '';
-            workloadInput.value = data.workload || '';
-            hoursPerClassInput.value = data.hoursPerClass || '';
-            if (!isEAD && data.schedules && Array.isArray(data.schedules)) {
-                data.schedules.forEach(schedule => addScheduleField(schedule));
-            }
-            renderColorPalette(data.color || '#6366f1');
-        }
-    });
-  } else {
-    dom.disciplineModalTitle.textContent = "Nova Disciplina";
-    if (!isEAD) {
-        campusInput.value = '';
-        addScheduleField();
+    if (!dom.addDisciplineModal || !dom.addDisciplineForm || !dom.disciplineModalTitle) return;
+    const { activeEnrollmentId } = getState();
+    setState('editingDisciplineId', disciplineId);
+    dom.addDisciplineForm.reset();
+    const schedulesContainer = dom.addDisciplineForm.querySelector('#schedules-container');
+    if (schedulesContainer) schedulesContainer.innerHTML = '';
+    
+    const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
+    const isEAD = enrollmentSnap.exists() && enrollmentSnap.data().modality === 'EAD';
+    
+    // Seleciona os novos elementos e os existentes
+    const absenceControlSection = document.getElementById('absence-control-section');
+    const disciplineNotesSection = document.getElementById('discipline-notes-section');
+    const notesInput = document.getElementById('discipline-notes');
+    const campusInput = dom.addDisciplineForm.querySelector('#discipline-campus');
+    const locationInput = dom.addDisciplineForm.querySelector('#discipline-location');
+    const workloadInput = document.getElementById('discipline-workload');
+    const hoursPerClassInput = document.getElementById('discipline-hours-per-class');
+    const schedulesSection = dom.addDisciplineForm.querySelector('#schedules-container').parentElement;
+    
+    if (isEAD) {
+        campusInput.value = 'Remoto';
+        campusInput.disabled = true;
+        locationInput.disabled = true;
+        schedulesSection.classList.add('hidden');
+        if (absenceControlSection) absenceControlSection.classList.add('hidden');
+        if (disciplineNotesSection) disciplineNotesSection.classList.remove('hidden');
+        if (workloadInput) workloadInput.required = false;
+        if (hoursPerClassInput) hoursPerClassInput.required = false;
+    } else {
+        campusInput.disabled = false;
+        locationInput.disabled = false;
+        schedulesSection.classList.remove('hidden');
+        if (absenceControlSection) absenceControlSection.classList.remove('hidden');
+        if (disciplineNotesSection) disciplineNotesSection.classList.add('hidden');
+        if (workloadInput) workloadInput.required = true;
+        if (hoursPerClassInput) hoursPerClassInput.required = true;
     }
-    locationInput.value = '';
-    renderColorPalette('#6366f1');
-  }
-  showModal(dom.addDisciplineModal);
+
+    if (disciplineId) {
+        dom.disciplineModalTitle.textContent = "Editar Disciplina";
+        const { activePeriodId } = getState();
+        api.getDiscipline(activeEnrollmentId, activePeriodId, disciplineId).then(docSnap => {
+            if(docSnap.exists()) {
+                const data = docSnap.data();
+                dom.addDisciplineForm.querySelector('#discipline-name').value = data.name || '';
+                dom.addDisciplineForm.querySelector('#discipline-code').value = data.code || '';
+                dom.addDisciplineForm.querySelector('#discipline-teacher').value = data.teacher || '';
+                if (!isEAD) campusInput.value = data.campus || '';
+                locationInput.value = data.location || '';
+                workloadInput.value = data.workload || '';
+                hoursPerClassInput.value = data.hoursPerClass || '';
+                if (!isEAD && data.schedules && Array.isArray(data.schedules)) {
+                    data.schedules.forEach(schedule => addScheduleField(schedule));
+                }
+                if (isEAD && notesInput) {
+                    notesInput.value = data.notes || '';
+                }
+                renderColorPalette(data.color || '#6366f1');
+            }
+        });
+    } else {
+        dom.disciplineModalTitle.textContent = "Nova Disciplina";
+        if (!isEAD) {
+            campusInput.value = '';
+            addScheduleField();
+        }
+        if (isEAD && notesInput) notesInput.value = '';
+        locationInput.value = '';
+        renderColorPalette('#6366f1');
+    }
+    showModal(dom.addDisciplineModal);
 }
 
 export function showPeriodModal() { 
@@ -379,9 +391,6 @@ export async function showEventModal(eventId = null, dateStr = null) {
     const titleEl = dom.addEventModal.querySelector('#event-modal-title');
     const deleteBtn = dom.addEventModal.querySelector('#delete-event-btn');
     
-    // **INÍCIO DA CORREÇÃO**
-    // A função renderEventColorPalette foi movida para ser chamada em ambos os casos (novo/edição)
-    // para garantir que a paleta de cores sempre seja renderizada.
     function renderEventColorPalette(selectedColor) {
         const paletteContainer = dom.addEventForm.querySelector('#event-color-palette');
         const colorInput = dom.addEventForm.querySelector('#event-color-input');
@@ -399,7 +408,6 @@ export async function showEventModal(eventId = null, dateStr = null) {
         });
         colorInput.value = selectedColor;
     }
-    // **FIM DA CORREÇÃO**
 
     if (eventId) {
         if (titleEl) titleEl.textContent = 'Editar Evento';
@@ -428,11 +436,28 @@ export async function showEventModal(eventId = null, dateStr = null) {
         if (deleteBtn) deleteBtn.classList.add('hidden');
         dom.addEventForm.querySelector('#event-date').value = dateStr || new Date().toISOString().split('T')[0];
         
+        // --- INÍCIO DA MODIFICAÇÃO ---
         const defaultCategory = dom.addEventForm.querySelector('#event-category-list [data-value="Prova"]');
         if (defaultCategory) selectDropdownItem(defaultCategory);
 
         const defaultReminder = dom.addEventForm.querySelector('#event-reminder-list [data-value="none"]');
         if (defaultReminder) selectDropdownItem(defaultReminder);
+        
+        // Verifica se o dashboard da disciplina está visível
+        if (dom.disciplineDashboardView && !dom.disciplineDashboardView.classList.contains('hidden')) {
+            const { activeDisciplineId } = getState();
+            if (activeDisciplineId) {
+                const disciplineItem = disciplineList.querySelector(`[data-value="${activeDisciplineId}"]`);
+                if (disciplineItem) {
+                    selectDropdownItem(disciplineItem); // Pré-seleciona a disciplina ativa
+                }
+            }
+        } else {
+            // Garante que "Nenhuma" esteja selecionada em outros casos
+            const noneItem = disciplineList.querySelector(`[data-value="none"]`);
+            if(noneItem) selectDropdownItem(noneItem);
+        }
+        // --- FIM DA MODIFICAÇÃO ---
         
         renderEventColorPalette('#d946ef');
     }
