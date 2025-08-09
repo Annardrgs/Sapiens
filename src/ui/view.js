@@ -857,15 +857,17 @@ export async function showDisciplineDashboard({ enrollmentId, disciplineId }) {
         dom.disciplineDashTitle.textContent = discipline.name;
         dom.disciplineDashSubtitle.textContent = discipline.teacher || 'Professor não definido';
         
-        const manageButton = document.querySelector('#evaluations-section [data-action="manage-evaluations"]');
+        // --- INÍCIO DA CORREÇÃO ---
+        // O seletor foi corrigido para encontrar o botão corretamente dentro do dashboard da disciplina.
+        const manageButton = dom.disciplineDashboardView.querySelector('[data-action="manage-evaluations"]');
         if (manageButton) {
             manageButton.dataset.periodId = activePeriodId;
             manageButton.dataset.disciplineId = disciplineId;
             
-            // CORREÇÃO: Esconde o botão se o período estiver encerrado
             const isPeriodClosed = periods[activePeriodIndex]?.status === 'closed';
             manageButton.classList.toggle('hidden', isPeriodClosed);
         }
+        // --- FIM DA CORREÇÃO ---
         
         renderStatCards(discipline, enrollmentData);
         renderAbsenceControls(discipline);
