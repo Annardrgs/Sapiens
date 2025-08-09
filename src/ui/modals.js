@@ -169,78 +169,78 @@ function renderColorPalette(selectedColor) {
 }
 
 export async function showDisciplineModal(disciplineId = null) {
-    if (!dom.addDisciplineModal || !dom.addDisciplineForm || !dom.disciplineModalTitle) return;
-    const { activeEnrollmentId } = getState();
-    setState('editingDisciplineId', disciplineId);
-    dom.addDisciplineForm.reset();
-    const schedulesContainer = dom.addDisciplineForm.querySelector('#schedules-container');
-    if (schedulesContainer) schedulesContainer.innerHTML = '';
-    
-    const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
-    const isEAD = enrollmentSnap.exists() && enrollmentSnap.data().modality === 'EAD';
-    
-    // Seleciona os novos elementos e os existentes
-    const absenceControlSection = document.getElementById('absence-control-section');
-    const disciplineNotesSection = document.getElementById('discipline-notes-section');
-    const notesInput = document.getElementById('discipline-notes');
-    const campusInput = dom.addDisciplineForm.querySelector('#discipline-campus');
-    const locationInput = dom.addDisciplineForm.querySelector('#discipline-location');
-    const workloadInput = document.getElementById('discipline-workload');
-    const hoursPerClassInput = document.getElementById('discipline-hours-per-class');
-    const schedulesSection = dom.addDisciplineForm.querySelector('#schedules-container').parentElement;
-    
-    if (isEAD) {
-        campusInput.value = 'Remoto';
-        campusInput.disabled = true;
-        locationInput.disabled = true;
-        schedulesSection.classList.add('hidden');
-        if (absenceControlSection) absenceControlSection.classList.add('hidden');
-        if (disciplineNotesSection) disciplineNotesSection.classList.remove('hidden');
-        if (workloadInput) workloadInput.required = false;
-        if (hoursPerClassInput) hoursPerClassInput.required = false;
-    } else {
-        campusInput.disabled = false;
-        locationInput.disabled = false;
-        schedulesSection.classList.remove('hidden');
-        if (absenceControlSection) absenceControlSection.classList.remove('hidden');
-        if (disciplineNotesSection) disciplineNotesSection.classList.add('hidden');
-        if (workloadInput) workloadInput.required = true;
-        if (hoursPerClassInput) hoursPerClassInput.required = true;
-    }
+  if (!dom.addDisciplineModal || !dom.addDisciplineForm || !dom.disciplineModalTitle) return;
+  const { activeEnrollmentId } = getState();
+  setState('editingDisciplineId', disciplineId);
+  dom.addDisciplineForm.reset();
+  const schedulesContainer = dom.addDisciplineForm.querySelector('#schedules-container');
+  if (schedulesContainer) schedulesContainer.innerHTML = '';
+  
+  const enrollmentSnap = await api.getEnrollment(activeEnrollmentId);
+  const isEAD = enrollmentSnap.exists() && enrollmentSnap.data().modality === 'EAD';
+ 
+  // Seleciona os novos elementos e os existentes
+  const absenceControlSection = document.getElementById('absence-control-section');
+  const disciplineNotesSection = document.getElementById('discipline-notes-section');
+  const notesInput = document.getElementById('discipline-notes');
+  const campusInput = dom.addDisciplineForm.querySelector('#discipline-campus');
+  const locationInput = dom.addDisciplineForm.querySelector('#discipline-location');
+  const workloadInput = document.getElementById('discipline-workload');
+  const hoursPerClassInput = document.getElementById('discipline-hours-per-class');
+  const schedulesSection = dom.addDisciplineForm.querySelector('#schedules-container').parentElement;
+ 
+  if (isEAD) {
+    campusInput.value = 'Remoto';
+    campusInput.disabled = true;
+    locationInput.disabled = true;
+    schedulesSection.classList.add('hidden');
+    if (absenceControlSection) absenceControlSection.classList.add('hidden');
+    if (disciplineNotesSection) disciplineNotesSection.classList.remove('hidden');
+    if (workloadInput) workloadInput.required = false;
+    if (hoursPerClassInput) hoursPerClassInput.required = false;
+  } else {
+    campusInput.disabled = false;
+    locationInput.disabled = false;
+    schedulesSection.classList.remove('hidden');
+    if (absenceControlSection) absenceControlSection.classList.remove('hidden');
+    if (disciplineNotesSection) disciplineNotesSection.classList.add('hidden');
+    if (workloadInput) workloadInput.required = true;
+    if (hoursPerClassInput) hoursPerClassInput.required = true;
+  }
 
-    if (disciplineId) {
-        dom.disciplineModalTitle.textContent = "Editar Disciplina";
-        const { activePeriodId } = getState();
-        api.getDiscipline(activeEnrollmentId, activePeriodId, disciplineId).then(docSnap => {
-            if(docSnap.exists()) {
-                const data = docSnap.data();
-                dom.addDisciplineForm.querySelector('#discipline-name').value = data.name || '';
-                dom.addDisciplineForm.querySelector('#discipline-code').value = data.code || '';
-                dom.addDisciplineForm.querySelector('#discipline-teacher').value = data.teacher || '';
-                if (!isEAD) campusInput.value = data.campus || '';
-                locationInput.value = data.location || '';
-                workloadInput.value = data.workload || '';
-                hoursPerClassInput.value = data.hoursPerClass || '';
-                if (!isEAD && data.schedules && Array.isArray(data.schedules)) {
-                    data.schedules.forEach(schedule => addScheduleField(schedule));
-                }
-                if (isEAD && notesInput) {
-                    notesInput.value = data.notes || '';
-                }
-                renderColorPalette(data.color || '#6366f1');
+  if (disciplineId) {
+    dom.disciplineModalTitle.textContent = "Editar Disciplina";
+    const { activePeriodId } = getState();
+    api.getDiscipline(activeEnrollmentId, activePeriodId, disciplineId).then(docSnap => {
+        if(docSnap.exists()) {
+            const data = docSnap.data();
+            dom.addDisciplineForm.querySelector('#discipline-name').value = data.name || '';
+            dom.addDisciplineForm.querySelector('#discipline-code').value = data.code || '';
+            dom.addDisciplineForm.querySelector('#discipline-teacher').value = data.teacher || '';
+            if (!isEAD) campusInput.value = data.campus || '';
+            locationInput.value = data.location || '';
+            if(workloadInput) workloadInput.value = data.workload || '';
+            if(hoursPerClassInput) hoursPerClassInput.value = data.hoursPerClass || '';
+            if (!isEAD && data.schedules && Array.isArray(data.schedules)) {
+                data.schedules.forEach(schedule => addScheduleField(schedule));
             }
-        });
-    } else {
-        dom.disciplineModalTitle.textContent = "Nova Disciplina";
-        if (!isEAD) {
-            campusInput.value = '';
-            addScheduleField();
+            if (isEAD && notesInput) {
+                notesInput.value = data.notes || '';
+            }
+            renderColorPalette(data.color || '#6366f1');
         }
-        if (isEAD && notesInput) notesInput.value = '';
-        locationInput.value = '';
-        renderColorPalette('#6366f1');
+    });
+  } else {
+    dom.disciplineModalTitle.textContent = "Nova Disciplina";
+    if (!isEAD) {
+        campusInput.value = '';
+        addScheduleField();
     }
-    showModal(dom.addDisciplineModal);
+    if (isEAD && notesInput) notesInput.value = '';
+    locationInput.value = '';
+    renderColorPalette('#6366f1');
+  }
+  showModal(dom.addDisciplineModal);
 }
 
 export function showPeriodModal() { 
@@ -315,7 +315,7 @@ export async function showConfigGradesModal(disciplineId, periodId) {
     setState('currentDisciplineForGrades', { enrollmentId: activeEnrollmentId, periodId: periodId, disciplineId });
     
     dom.configGradesForm.reset();
-    dom.gradesContainer.innerHTML = 'Carregando...';
+    if (dom.gradesContainer) dom.gradesContainer.innerHTML = 'Carregando...';
     showModal(dom.configGradesModal);
 
     try {
@@ -324,8 +324,8 @@ export async function showConfigGradesModal(disciplineId, periodId) {
             const discipline = disciplineSnap.data();
             const config = discipline.gradeConfig;
             
-            dom.configGradesTitle.textContent = `Avaliações de ${discipline.name}`;
-            dom.gradesContainer.innerHTML = '';
+            if (dom.configGradesTitle) dom.configGradesTitle.textContent = `Avaliações de ${discipline.name}`;
+            if (dom.gradesContainer) dom.gradesContainer.innerHTML = '';
 
             if (config && config.evaluations) {
                 dom.configGradesForm.querySelector('#grade-calculation-rule').value = config.rule || 'weighted';
@@ -334,14 +334,14 @@ export async function showConfigGradesModal(disciplineId, periodId) {
                 });
             }
         } else {
-            dom.gradesContainer.innerHTML = '<p class="text-subtle text-center">Disciplina não encontrada.</p>';
+            if (dom.gradesContainer) dom.gradesContainer.innerHTML = '<p class="text-subtle text-center">Disciplina não encontrada.</p>';
         }
     } catch(error) {
         console.error("Erro ao buscar disciplina no modal de avaliações:", error);
-        dom.gradesContainer.innerHTML = '<p class="text-danger text-center">Ocorreu um erro ao carregar os dados.</p>';
+        if (dom.gradesContainer) dom.gradesContainer.innerHTML = '<p class="text-danger text-center">Ocorreu um erro ao carregar os dados.</p>';
     }
     
-    if (dom.gradesContainer.children.length === 0 && dom.gradesContainer.textContent === '') {
+    if (dom.gradesContainer && dom.gradesContainer.children.length === 0 && dom.gradesContainer.textContent === '') {
         addGradeField();
     }
     updateWeightsSum();
@@ -353,12 +353,15 @@ export function showPdfViewerModal(url) {
     showModal(dom.pdfViewerModal); 
 }
 
+// --- INÍCIO DA MODIFICAÇÃO 1 ---
+// Função movida para fora e paleta de cores unificada
 function renderEventColorPalette(selectedColor) {
     const paletteContainer = dom.addEventForm.querySelector('#event-color-palette');
     const colorInput = dom.addEventForm.querySelector('#event-color-input');
     if (!paletteContainer || !colorInput) return;
 
-    const colors = ['#d946ef', '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#0ea5e9', '#6366f1'];
+    // Paleta de cores agora é a mesma da disciplina
+    const colors = ['#6366f1', '#8b5cf6', '#d946ef', '#ef4444', '#f97316', '#eab308', '#22c55e', '#10b981', '#14b8a6', '#0ea5e9', '#ec4899'];
     paletteContainer.innerHTML = '';
     colors.forEach(color => {
         const swatch = document.createElement('div');
@@ -370,6 +373,7 @@ function renderEventColorPalette(selectedColor) {
     });
     colorInput.value = selectedColor;
 }
+// --- FIM DA MODIFICAÇÃO 1 ---
 
 export async function showEventModal(eventId = null, dateStr = null) {
     if (!dom.addEventModal || !dom.addEventForm) return;
@@ -390,24 +394,6 @@ export async function showEventModal(eventId = null, dateStr = null) {
 
     const titleEl = dom.addEventModal.querySelector('#event-modal-title');
     const deleteBtn = dom.addEventModal.querySelector('#delete-event-btn');
-    
-    function renderEventColorPalette(selectedColor) {
-        const paletteContainer = dom.addEventForm.querySelector('#event-color-palette');
-        const colorInput = dom.addEventForm.querySelector('#event-color-input');
-        if (!paletteContainer || !colorInput) return;
-    
-        const colors = ['#d946ef', '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#0ea5e9', '#6366f1'];
-        paletteContainer.innerHTML = '';
-        colors.forEach(color => {
-            const swatch = document.createElement('div');
-            swatch.className = 'color-swatch';
-            swatch.style.backgroundColor = color;
-            swatch.dataset.color = color;
-            if (color === selectedColor) swatch.classList.add('selected');
-            paletteContainer.appendChild(swatch);
-        });
-        colorInput.value = selectedColor;
-    }
 
     if (eventId) {
         if (titleEl) titleEl.textContent = 'Editar Evento';
@@ -436,30 +422,24 @@ export async function showEventModal(eventId = null, dateStr = null) {
         if (deleteBtn) deleteBtn.classList.add('hidden');
         dom.addEventForm.querySelector('#event-date').value = dateStr || new Date().toISOString().split('T')[0];
         
-        // --- INÍCIO DA MODIFICAÇÃO ---
         const defaultCategory = dom.addEventForm.querySelector('#event-category-list [data-value="Prova"]');
         if (defaultCategory) selectDropdownItem(defaultCategory);
 
         const defaultReminder = dom.addEventForm.querySelector('#event-reminder-list [data-value="none"]');
         if (defaultReminder) selectDropdownItem(defaultReminder);
         
-        // Verifica se o dashboard da disciplina está visível
         if (dom.disciplineDashboardView && !dom.disciplineDashboardView.classList.contains('hidden')) {
             const { activeDisciplineId } = getState();
             if (activeDisciplineId) {
                 const disciplineItem = disciplineList.querySelector(`[data-value="${activeDisciplineId}"]`);
                 if (disciplineItem) {
-                    selectDropdownItem(disciplineItem); // Pré-seleciona a disciplina ativa
+                    selectDropdownItem(disciplineItem);
                 }
             }
         } else {
-            // Garante que "Nenhuma" esteja selecionada em outros casos
             const noneItem = disciplineList.querySelector(`[data-value="none"]`);
             if(noneItem) selectDropdownItem(noneItem);
         }
-        // --- FIM DA MODIFICAÇÃO ---
-        
-        renderEventColorPalette('#d946ef');
     }
 
     showModal(dom.addEventModal);
@@ -487,7 +467,6 @@ export async function showPomodoroSettingsModal() {
     let { activeEnrollmentId, activePeriodId } = getState();
     const disciplineList = dom.pomodoroSettingsForm.querySelector('#pomodoro-discipline-list');
     
-    // CORREÇÃO: Verificar se disciplineList existe antes de modificar
     if (disciplineList) {
         disciplineList.innerHTML = `<li data-action="select-dropdown-item" data-value="none">Nenhuma disciplina</li>`;
     }
@@ -516,7 +495,6 @@ export async function showPomodoroSettingsModal() {
     dom.pomodoroSettingsForm.querySelector('#pomodoro-study-time').value = 25;
     dom.pomodoroSettingsForm.querySelector('#pomodoro-break-time').value = 5;
     
-    // Resetar dropdowns para o valor padrão
     document.querySelectorAll('#pomodoro-settings-modal [data-dropdown-container]').forEach(container => {
         const firstItem = container.querySelector('li');
         if (firstItem) {
@@ -579,7 +557,6 @@ export async function showMarkAsCompletedModal(subject) {
 
     dom.markAsCompletedTitle.textContent = `Concluir "${subject.name}"`;
 
-    // CORREÇÃO: Popula a lista <ul> em vez do <select>
     const periodList = form.querySelector('#completed-in-period-list');
     const { periods } = getState();
     periodList.innerHTML = '<li data-action="select-dropdown-item" data-value="" class="selected">Selecione o período</li>';
@@ -608,7 +585,7 @@ export async function showMarkAsCompletedModal(subject) {
         }
     });
 
-    dom.equivalentCodeContainer.classList.add('hidden');
+    if(dom.equivalentCodeContainer) dom.equivalentCodeContainer.classList.add('hidden');
     showModal(dom.markAsCompletedModal);
 }
 
@@ -717,13 +694,9 @@ export function toggleDropdown(container) {
 }
 
 export function selectDropdownItem(itemElement) {
-    // **INÍCIO DA CORREÇÃO**
-    // Adiciona uma verificação para garantir que o elemento não seja nulo.
-    // Isso impede o erro "Cannot read properties of null (reading 'closest')".
     if (!itemElement) {
         return; 
     }
-    // **FIM DA CORREÇÃO**
 
     const container = itemElement.closest('[data-dropdown-container]');
     if (!container) return;
@@ -738,7 +711,6 @@ export function selectDropdownItem(itemElement) {
     if (hiddenInput) hiddenInput.value = value;
     if (selectedValueSpan) selectedValueSpan.textContent = text;
     
-    // Atualiza o item selecionado na lista
     const list = container.querySelector('.custom-dropdown-list');
     if (list) {
         list.querySelector('.selected')?.classList.remove('selected');
@@ -746,6 +718,21 @@ export function selectDropdownItem(itemElement) {
     }
 
     if (panel) panel.classList.add('hidden');
+
+    // --- INÍCIO DA MODIFICAÇÃO 2 ---
+    // Se o item selecionado for uma disciplina no modal de eventos, atualiza a cor.
+    if (itemElement.closest('#event-discipline-list')) {
+        const disciplineId = itemElement.dataset.value;
+        const disciplines = getState().disciplines || [];
+        const discipline = disciplines.find(d => d.id === disciplineId);
+        
+        // Usa a cor da disciplina se encontrada, senão, uma cor padrão para eventos.
+        const newColor = discipline?.color || '#d946ef'; 
+        
+        // Re-renderiza a paleta de cores para refletir a nova seleção.
+        renderEventColorPalette(newColor);
+    }
+    // --- FIM DA MODIFICAÇÃO 2 ---
 }
 
 export async function showDocumentModal(documentId = null) {
@@ -754,7 +741,6 @@ export async function showDocumentModal(documentId = null) {
     form.reset();
     setState('editingDocumentId', documentId);
 
-    // Reseta os dropdowns customizados para o valor padrão
     form.querySelectorAll('[data-dropdown-container]').forEach(container => {
         const firstItem = container.querySelector('li');
         if (firstItem) selectDropdownItem(firstItem);
@@ -762,12 +748,11 @@ export async function showDocumentModal(documentId = null) {
 
     const { activeEnrollmentId } = getState();
     const disciplineList = document.getElementById('modal-discipline-list');
-    disciplineList.innerHTML = '<li data-action="select-dropdown-item" data-value="none" class="selected">Nenhuma</li>'; // Opção padrão
+    if (disciplineList) disciplineList.innerHTML = '<li data-action="select-dropdown-item" data-value="none" class="selected">Nenhuma</li>';
 
     try {
         const enrollments = activeEnrollmentId ? [getState().activeEnrollment] : await api.getEnrollments();
         if (!enrollments || enrollments.length === 0) {
-            // Se não houver matrículas, não há o que carregar.
             showModal(dom.addDocumentModal);
             return;
         }
@@ -778,15 +763,14 @@ export async function showDocumentModal(documentId = null) {
             const periods = await api.getPeriods(enrollment.id);
             const activePeriod = periods.find(p => p.id === enrollment.activePeriodId) || periods[0];
 
-            if (activePeriod) {
+            if (activePeriod && disciplineList) {
                 const disciplines = await api.getDisciplines(enrollment.id, activePeriod.id);
                 disciplines.forEach(d => {
                     const li = document.createElement('li');
                     li.dataset.action = 'select-dropdown-item';
                     li.dataset.value = d.id;
-                    li.dataset.enrollmentId = enrollment.id; // Guarda o ID da matrícula
+                    li.dataset.enrollmentId = enrollment.id;
                     li.dataset.periodId = activePeriod.id;
-                    // Adiciona o nome do curso para diferenciar na visão geral
                     li.textContent = activeEnrollmentId ? d.name : `${d.name} (${enrollment.course})`;
                     disciplineList.appendChild(li);
                 });
