@@ -341,3 +341,16 @@
 .fc .fc-scroller::-webkit-scrollbar-thumb:hover {
   background-color: var(--color-secondary);
 }
+
+#event-color-palette, #discipline-color-palette {
+    flex-wrap: wrap;
+}
+
+.event-palette-fix {
+    gap: 0.5rem; /* Reduz o espaçamento (equivalente a gap-2) */
+}
+
+.event-palette-fix .color-swatch {
+    width: 1.75rem;  /* Reduz a largura (equivalente a w-7) */
+    height: 1.75rem; /* Reduz a altura (equivalente a h-7) */
+}
