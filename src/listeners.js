@@ -1036,17 +1036,14 @@ async function handleTodoFormSubmit(e) {
     if (!taskText) return;
 
     try {
-        const docRef = await firestoreApi.addTodo(taskText);
+        await firestoreApi.addTodo(taskText); // Add the new todo to the database
+        dom.newTodoInput.value = ''; // Clear the input field
         
-        const emptyState = document.getElementById('todo-empty-state');
-        if (emptyState) emptyState.remove();
+        // This is the crucial step: call renderTodoList to refresh the UI
+        view.renderTodoList(); 
+        
+        notify.success("Tarefa adicionada!"); // Optional: show a success message
 
-        const newTodo = { id: docRef.id, text: taskText, completed: false };
-        const todoElement = view.createTodoItemElement(newTodo);
-
-        // CORREÇÃO: Adiciona a nova tarefa no início da lista
-        dom.todoItemsList.prepend(todoElement);
-        dom.addTodoForm.reset();
     } catch (error) {
         console.error("Erro ao adicionar tarefa:", error);
         notify.error("Não foi possível adicionar a tarefa.");

@@ -737,7 +737,11 @@ export async function cleanupOldTodos() {
     if (!userId) return;
 
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+
+    const year = today.getFullYear();
+    const month = (today.getMonth() + 1).toString().padStart(2, '0');
+    const day = today.getDate().toString().padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
 
     try {
         const todosRef = collection(db, 'users', userId, 'todos');
