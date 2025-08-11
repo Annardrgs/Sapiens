@@ -729,17 +729,23 @@ export async function uploadFileToCloudinary(file) {
 }
 
 /**
- * Apaga todos os TODOs do usuário que são de dias anteriores ao dia atual.
+ * Apaga todos os TODOs do usuário que são de dias anteriores ao dia atual,
+ * EXCETO os que estão fixados (pinned).
  */
 export async function cleanupOldTodos() {
     const userId = getCurrentUserId();
     if (!userId) return;
-    const todayStr = getTodayDateString();
+
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
 
     try {
         const todosRef = collection(db, 'users', userId, 'todos');
         
-        const q = query(todosRef, where("date", "<", todayStr), where("isPinned", "==", false));
+        const q = query(todosRef, 
+            where("date", "<", todayStr), 
+            where("isPinned", "==", false)
+        );
         
         const snapshot = await getDocs(q);
 
@@ -754,7 +760,7 @@ export async function cleanupOldTodos() {
         });
 
         await batch.commit();
-        console.log(`${snapshot.size} tarefas antigas foram removidas com sucesso.`);
+        console.log(`${snapshot.size} tarefas antigas e não fixadas foram removidas.`);
 
     } catch (error) {
         console.error("Erro ao limpar tarefas antigas:", error);
