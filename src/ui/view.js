@@ -1269,10 +1269,16 @@ async function renderGradesReportContent(enrollmentData) {
 export async function renderTodoList() {
     if (!dom.todoItemsList) return;
 
+    dom.todoListContainer.classList.remove('grid', 'place-items-center');
+    dom.todoItemsList.classList.add('space-y-2');
+
     const todos = await api.getTodosForToday();
-    dom.todoItemsList.innerHTML = ''; // Limpa a lista antes de renderizar
+    dom.todoItemsList.innerHTML = '';
 
     if (todos.length === 0) {
+        dom.todoListContainer.classList.add('grid', 'place-items-center');
+        dom.todoItemsList.classList.remove('space-y-2');
+
         dom.todoItemsList.innerHTML = `
             <div class="flex flex-col items-center justify-center h-full text-center text-subtle">
                 <div class="w-12 h-12 bg-bkg rounded-full flex items-center justify-center mx-auto text-subtle/70 border border-border mb-4">
@@ -1284,11 +1290,26 @@ export async function renderTodoList() {
         `;
         return;
     }
+    
+    const pinnedItems = [];
+    const pendingItems = [];
+    const completedItems = [];
 
     todos.forEach(todo => {
         const todoElement = createTodoItemElement(todo);
-        dom.todoItemsList.appendChild(todoElement);
+        if (todo.isPinned) {
+            pinnedItems.push(todoElement);
+        } else if (todo.completed) {
+            completedItems.push(todoElement);
+        } else {
+            pendingItems.push(todoElement);
+        }
     });
+
+    dom.todoItemsList.innerHTML = '';
+    pinnedItems.forEach(item => dom.todoItemsList.appendChild(item));
+    pendingItems.forEach(item => dom.todoItemsList.appendChild(item));
+    completedItems.forEach(item => dom.todoItemsList.appendChild(item));
 }
 
 export function createTodoItemElement(todo) {
@@ -1298,9 +1319,9 @@ export function createTodoItemElement(todo) {
 
     todoItem.className = `flex items-center bg-surface border border-border p-3 rounded-lg transition-all duration-200 group ${isCompleted ? 'opacity-60' : ''}`;
     
-    // CORREÇÃO: Lógica para visibilidade e preenchimento do ícone de fixar
     const pinButtonVisibility = isPinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100';
     const pinIconFill = isPinned ? 'fill="currentColor"' : 'fill="none"';
+    // renderTodoList();
 
     todoItem.innerHTML = `
         <button data-action="toggle-todo" data-id="${todo.id}" class="w-6 h-6 rounded-md flex-shrink-0 flex items-center justify-center border-2 transition-colors ${isCompleted ? 'bg-primary border-primary' : 'border-border group-hover:border-primary'}">
