@@ -4,7 +4,7 @@
 import { dom } from './dom.js';
 import * as api from '../api/firestore.js';
 import { getState, setState } from '../store/state.js';
-import { createEnrollmentCard, createDisciplineCard, createDocumentCard, createAbsenceHistoryItem, calculateAverage, createSummaryCard } from '../components/card.js';
+import { createEnrollmentCard, createDisciplineCard, createDocumentCard, createAbsenceHistoryItem, calculateAverage, createSummaryCard, getDisciplineStatus } from '../components/card.js';
 import { Calendar } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import * as modals from './modals.js';
@@ -547,12 +547,28 @@ function renderDisciplineCards(disciplines, enrollmentData) {
         dom.disciplinesList.innerHTML = '<p class="text-subtle text-center">Nenhuma disciplina adicionada a este período.</p>';
         return;
     }
+
+    const statusOrder = {
+        'Em Andamento': 0,
+        'N/A': 1,
+        'Aprovado': 2,
+        'Reprovado': 3,
+    };
+
+    const sortedDisciplines = [...disciplines].sort((a, b) => {
+        const statusA = getDisciplineStatus(a, enrollmentData);
+        const statusB = getDisciplineStatus(b, enrollmentData);
+        return statusOrder[statusA] - statusOrder[statusB];
+    });
+
     dom.disciplinesList.innerHTML = '';
-    const { periods, activePeriodIndex } = getState();
+
+    // Obtém o ID do período ativo aqui
+    const { activePeriodId, periods, activePeriodIndex } = getState();
     const isPeriodClosed = periods[activePeriodIndex]?.status === 'closed';
 
-    disciplines.forEach(discipline => {
-        const card = createDisciplineCard(discipline, enrollmentData, isPeriodClosed);
+    sortedDisciplines.forEach(discipline => {
+        const card = createDisciplineCard(discipline, enrollmentData, isPeriodClosed, activePeriodId);
         dom.disciplinesList.appendChild(card);
     });
 }
@@ -857,17 +873,14 @@ export async function showDisciplineDashboard({ enrollmentId, disciplineId }) {
         dom.disciplineDashTitle.textContent = discipline.name;
         dom.disciplineDashSubtitle.textContent = discipline.teacher || 'Professor não definido';
         
-        // --- INÍCIO DA CORREÇÃO ---
-        // O seletor foi corrigido para encontrar o botão corretamente dentro do dashboard da disciplina.
         const manageButton = dom.disciplineDashboardView.querySelector('[data-action="manage-evaluations"]');
         if (manageButton) {
-            manageButton.dataset.periodId = activePeriodId;
-            manageButton.dataset.disciplineId = disciplineId;
-            
-            const isPeriodClosed = periods[activePeriodIndex]?.status === 'closed';
+            manageButton.dataset.id = disciplineId; // Adiciona o ID da disciplina
+            manageButton.dataset.periodId = activePeriodId; // Adiciona o ID do período
+
+            const isPeriodClosed = periods && periods[activePeriodIndex]?.status === 'closed';
             manageButton.classList.toggle('hidden', isPeriodClosed);
         }
-        // --- FIM DA CORREÇÃO ---
         
         renderStatCards(discipline, enrollmentData);
         renderAbsenceControls(discipline);
@@ -915,6 +928,25 @@ function renderAbsenceControls(discipline) {
             </div>
         </div>
     `;
+    
+    // --- CORREÇÃO ADICIONAL: ADICIONAR O LISTENER PARA O CLIQUE ---
+    const addAbsenceBtn = container.querySelector('[data-action="add-absence"]');
+    if (addAbsenceBtn) {
+        addAbsenceBtn.addEventListener('click', (e) => {
+            const disciplineId = e.currentTarget.dataset.id;
+            const disciplineName = e.currentTarget.dataset.name;
+            modals.showAbsenceModal(disciplineId, disciplineName);
+        });
+    }
+
+    const historyAbsenceBtn = container.querySelector('[data-action="history-absence"]');
+    if (historyAbsenceBtn) {
+        historyAbsenceBtn.addEventListener('click', (e) => {
+            const disciplineId = e.currentTarget.dataset.id;
+            const disciplineName = e.currentTarget.dataset.name;
+            modals.showAbsenceHistoryModal(disciplineId, disciplineName);
+        });
+    }
 }
 
 function renderStatCards(discipline, enrollmentData) {
@@ -925,16 +957,23 @@ function renderStatCards(discipline, enrollmentData) {
     const passingGrade = enrollmentData.passingGrade || 7.0;
     const currentAbsences = discipline.absences || 0;
 
-    let status = { text: 'Em Andamento', color: 'text-warning', iconColor: 'bg-warning/10 text-warning' };
-    if (discipline.failedByAbsence) {
-        status = { text: 'Reprovado', color: 'text-danger', iconColor: 'bg-danger/10 text-danger' };
-    } else if (averageGrade !== 'N/A') {
-        const numericAverage = parseFloat(averageGrade);
-        const allGradesFilled = discipline.grades && discipline.grades.every(g => g.grade !== null);
-        if (numericAverage >= passingGrade) {
-            status = { text: 'Aprovado', color: 'text-success', iconColor: 'bg-success/10 text-success' };
-        } else if (allGradesFilled) {
-            status = { text: 'Reprovado', color: 'text-danger', iconColor: 'bg-danger/10 text-danger' };
+    let status = { text: 'N/A', color: 'text-subtle', iconColor: 'bg-subtle/10 text-subtle' };
+    const evaluationsExist = discipline.gradeConfig && discipline.gradeConfig.evaluations && discipline.gradeConfig.evaluations.length > 0;
+
+    if (evaluationsExist) {
+        status = { text: 'Em Andamento', color: 'text-warning', iconColor: 'bg-warning/10 text-warning' };
+
+        const allGradesFilled = discipline.grades && discipline.gradeConfig.evaluations.every(evaluation => {
+            const gradeEntry = discipline.grades.find(g => g.name === evaluation.name);
+            return gradeEntry && gradeEntry.grade !== null && gradeEntry.grade !== undefined;
+        });
+
+        if (allGradesFilled) {
+            if (averageGrade !== 'N/A') {
+                status = parseFloat(averageGrade) >= passingGrade
+                    ? { text: 'Aprovado', color: 'text-success', iconColor: 'bg-success/10 text-success' }
+                    : { text: 'Reprovado', color: 'text-danger', iconColor: 'bg-danger/10 text-danger' };
+            }
         }
     }
 
@@ -961,15 +1000,13 @@ function renderStatCards(discipline, enrollmentData) {
     ];
 
     container.innerHTML = stats.map(stat => `
-        <section class="ui-card">
-            <div class="stat-card-lg">
-                <div class="stat-card-lg-icon ${stat.iconColor}">${stat.icon}</div>
-                <div>
-                    <h3 class="card-header">${stat.label}</h3>
-                    <p class="stat-card-lg-value ${stat.valueColor || ''}">${stat.value}</p>
-                </div>
+        <div class="stat-card-lg">
+            <div class="stat-card-lg-icon ${stat.iconColor}">${stat.icon}</div>
+            <div>
+                <p class="stat-card-lg-value ${stat.valueColor || ''}">${stat.value}</p>
+                <p class="stat-card-lg-label">${stat.label}</p>
             </div>
-        </section>
+        </div>
     `).join('');
 }
 
