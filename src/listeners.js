@@ -132,6 +132,7 @@ export function initializeAppListeners() {
 
     if (dom.exportPdfBtn) dom.exportPdfBtn.addEventListener('click', handleExportPdf);
     if (dom.closeAbsenceHistoryBtn) dom.closeAbsenceHistoryBtn.addEventListener('click', modals.hideAbsenceHistoryModal);
+    if (dom.disciplineDashboardView) dom.disciplineDashboardView.addEventListener('input', handleGradeInput);
 
     // Formulários
     if (dom.addEnrollmentForm) dom.addEnrollmentForm.addEventListener('submit', handleEnrollmentFormSubmit);
@@ -244,6 +245,7 @@ function handlePinTodo(id, pinButton) {
 
 // --- HANDLERS (LÓGICA DOS EVENTOS) ---
 async function handleAppContainerClick(e) {
+    console.log('[DEBUG] Clique detectado no app container. Alvo:', e.target);
     const target = e.target;
     const actionTarget = target.closest('[data-action]');
 
@@ -266,20 +268,50 @@ async function handleAppContainerClick(e) {
         const name = actionTarget.dataset.name;
         let { activeEnrollmentId, activePeriodId, activeEnrollment } = getState();
 
+        if (actionTarget) {
+        const action = actionTarget.dataset.action;
+        console.log(`[DEBUG] Alvo com data-action encontrado: "${action}"`);
+
+        e.stopPropagation();
+        const id = actionTarget.dataset.id || actionTarget.dataset.disciplineId;
+        const name = actionTarget.dataset.name;
+        let { activeEnrollmentId, activePeriodId, activeEnrollment } = getState();
+
         switch (action) {
-            case 'manage-evaluations': if (id) modals.showConfigGradesModal(id, activePeriodId); break;
-            case 'add-absence': if (id && name) modals.showAbsenceModal(id, name); break;
+            case 'manage-evaluations': {
+                console.log('[DEBUG] Ação "manage-evaluations" acionada.');
+                const disciplineId = actionTarget.dataset.id || actionTarget.dataset.disciplineId;
+                const periodId = actionTarget.dataset.periodId || activePeriodId;
+
+                console.log('[DEBUG] IDs para o modal:', { disciplineId, periodId });
+
+                if (disciplineId && periodId) {
+                    modals.showConfigGradesModal(disciplineId, periodId);
+                } else {
+                    console.error('Ação "manage-evaluations" falhou: IDs em falta.');
+                    notify.error('Não foi possível abrir as avaliações.');
+                }
+                break;
+            }
+            case 'manage-evaluations': {
+                console.log('[DEBUG] Ação "manage-evaluations" acionada.'); // LOG 3
+                const disciplineId = actionTarget.dataset.id || actionTarget.dataset.disciplineId;
+                const periodId = actionTarget.dataset.periodId || activePeriodId;
+
+                console.log('[DEBUG] IDs para o modal:', { disciplineId, periodId }); // LOG 4
+
+                if (disciplineId && periodId) {
+                    modals.showConfigGradesModal(disciplineId, periodId);
+                } else {
+                    console.error('Ação "manage-evaluations" falhou: IDs em falta.');
+                    notify.error('Não foi possível abrir as avaliações.');
+                }
+                break;
+            }
             case 'history-absence':
                 if (id && name) {
                     modals.showAbsenceHistoryModal(id, name);
                     view.renderAbsenceHistory(activeEnrollmentId, activePeriodId, id);
-                }
-                break;
-            case 'manage-evaluations':
-                const disciplineId = actionTarget.dataset.disciplineId;
-                const periodId = actionTarget.dataset.periodId;
-                if (disciplineId && periodId) {
-                    modals.showConfigGradesModal(disciplineId, periodId);
                 }
                 break;
             case 'pin-todo':
@@ -369,7 +401,7 @@ async function handleAppContainerClick(e) {
                 break;
         }
         return;
-    }
+    }}
 
     const button = target.closest('button');
     if (button && button.id) {
@@ -383,6 +415,7 @@ async function handleAppContainerClick(e) {
             case 'next-period-btn': switchPeriod('next'); break;
             case 'cancel-period-btn': modals.hidePeriodModal(); break;
             case 'cancel-pomodoro-settings-btn': modals.hidePomodoroSettingsModal(); break;
+            case 'cancel-absence-btn': modals.hideAbsenceModal(); break;
             case 'manage-period-btn': modals.showPeriodOptionsModal(); break;
             case 'cancel-event-btn': modals.hideEventModal(); break;
             case 'cancel-enrollment-btn': modals.hideEnrollmentModal(); break;
@@ -848,20 +881,31 @@ function handleGradeInput(e) {
     gradeInputTimeout = setTimeout(async () => {
         try {
             await firestoreApi.saveGrade(grade, gradeIndex, { enrollmentId: activeEnrollmentId, periodId: activePeriodId, disciplineId });
-            const disciplineSnap = await firestoreApi.getDiscipline(activeEnrollmentId, activePeriodId, disciplineId);
-            if (disciplineSnap.exists()) view.updateDisciplineCard({ id: disciplineSnap.id, ...disciplineSnap.data() });
+            // const disciplineSnap = await firestoreApi.getDiscipline(activeEnrollmentId, activePeriodId, disciplineId);
+            // if (disciplineSnap.exists()) view.updateDisciplineCard({ id: disciplineSnap.id, ...disciplineSnap.data() });
+            await view.refreshDashboard();
         } catch (error) { console.error("Error saving grade:", error); }
     }, 800);
 }
 
 function handleOutsideClick(e) {
-    const openMenu = document.querySelector('.menu-options:not(.hidden)');
-    if (openMenu && !openMenu.parentElement.contains(e.target)) openMenu.classList.add('hidden');
+    document.querySelectorAll('.menu-options:not(.hidden)').forEach(openMenu => {
+        // Se o clique não foi no botão que abre este menu
+        if (!e.target.closest(`[aria-controls="${openMenu.id}"]`)) {
+            openMenu.classList.add('hidden');
+        }
+    });
+
     if (dom.notificationPanel && !dom.notificationPanel.classList.contains('hidden')) {
         if (!dom.notificationPanel.parentElement.contains(e.target)) {
             dom.notificationPanel.classList.add('hidden');
         }
     }
+    document.querySelectorAll('[data-dropdown-panel]:not(.hidden)').forEach(panel => {
+        if (!panel.closest('[data-dropdown-container]').contains(e.target)) {
+            panel.classList.add('hidden');
+        }
+    });
     document.querySelectorAll('[data-dropdown-panel]:not(.hidden)').forEach(panel => {
         if (!panel.closest('[data-dropdown-container]').contains(e.target)) {
             panel.classList.add('hidden');

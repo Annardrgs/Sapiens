@@ -6,7 +6,7 @@
     },
     "build": {
         "env": {
-        "canvas_version": "2.11.2" 
+        "canvas_version": "2.11.2"
         }
     },
     "headers": [
@@ -15,6 +15,12 @@
         "headers": [
             { "key": "Permissions-Policy", "value": "interest-cohort=()" }
         ]
+        }
+    ],
+    "rewrites": [
+        {
+        "source": "/((?!api/|.*\\..*).*)",
+        "destination": "/index.html"
         }
     ]
 }

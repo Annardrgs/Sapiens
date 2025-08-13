@@ -199,4 +199,5 @@ export function initializeDOMElements() {
     cancelDocumentBtn: document.getElementById('cancel-document-btn'),
     documentsEmptyState: document.getElementById('documents-empty-state'),
   });
+  console.log('[DEBUG] dom.js inicializado. Verificando o modal:', dom.configGradesModal);
 }
